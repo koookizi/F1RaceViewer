@@ -1,10 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Small global tweak so the app fills the screen */
-html,
-body,
-#root {
-  height: 100%;
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: light --default, dark --prefersdark, night;
 }

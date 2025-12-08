@@ -7,10 +7,9 @@ interface SidebarProps {
 }
 
 const navItems = [
-  { to: "/dashboard", label: "Dashboard" },
-  { to: "/track-map", label: "Track Map" },
-  { to: "/standings", label: "Standings" },
-  { to: "/weather", label: "Weather" },
+  { to: "/race-viewer", label: "Race Viewer" },
+  { to: "/drivers", label: "Drivers" },
+  { to: "/circuits", label: "Circuits" },
 ];
 
 export function Sidebar({ open, onClose }: SidebarProps) {

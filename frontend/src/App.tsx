@@ -1,10 +1,9 @@
 import React, { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
-import { DashboardPage } from "./pages/DashboardPage";
-import { TrackMapPage } from "./pages/TrackMapPage";
-import { StandingsPage } from "./pages/StandingsPage";
-import { WeatherPage } from "./pages/WeatherPage";
+import { RaceViewerPage } from "./pages/RaceViewerPage";
+import { CircuitsPage } from "./pages/CircuitsPage";
+import { DriversPage } from "./pages/DriversPage";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -33,12 +32,11 @@ function App() {
         <main className="flex-1 px-6 py-8 md:px-12">
           <Routes>
             {/* redirect / to /dashboard */}
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/" element={<Navigate to="/race-viewer" replace />} />
 
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/track-map" element={<TrackMapPage />} />
-            <Route path="/standings" element={<StandingsPage />} />
-            <Route path="/weather" element={<WeatherPage />} />
+            <Route path="/race-viewer" element={<RaceViewerPage />} />
+            <Route path="/circuits" element={<CircuitsPage />} />
+            <Route path="/drivers" element={<DriversPage />} />
 
             {/* optional 404 */}
             <Route
