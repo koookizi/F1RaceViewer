@@ -207,7 +207,8 @@ export function RaceViewerPage() {
         </div>
       </div>
 
-      <div className="card card-border bg-base-100 w-auto mt-5">
+      {selectedSession && (
+        <div className="card card-border bg-base-100 w-auto mt-5">
         <div className="card-body">
           <h2 className="card-title">{circuitName.toUpperCase()} {selectedYear} GRAND PRIX</h2>
           <p>A card component has a figure, a body part, and inside body there are title and actions parts</p>
@@ -224,10 +225,10 @@ export function RaceViewerPage() {
                 </tr>
               ))}
             </tbody>
-
-
+          </div>
         </div>
-      </div>
+
+      )}
 
     </>
   );
