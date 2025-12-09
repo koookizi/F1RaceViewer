@@ -1,5 +1,5 @@
 # Global env
-.env
+env/
 
 
 # Python
