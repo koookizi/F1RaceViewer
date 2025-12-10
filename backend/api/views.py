@@ -3,6 +3,9 @@ from django.http import JsonResponse
 from api.models import Season, Event, Session
 import fastf1
 import pandas as pd 
+import numpy as np
+
+from .helpers.geometry import rotate, normalize_xy
 
 
 def season_years(request):
@@ -43,6 +46,92 @@ def session_circuit(request, year: int, country: str):
 
     return JsonResponse({"circuit": event.circuit})
 
+def session_playback_view(request, year: int, country: str, session: str):
+    session = fastf1.get_session(year, country, session)
+    session.load()
+
+    circuit_info = session.get_circuit_info()
+
+    # ---- Build track polyline (using fastest lap of pole or just first driver) ----
+    ref_driver = session.drivers[0]
+    ref_lap = session.laps.pick_driver(ref_driver).pick_fastest()
+    pos = ref_lap.get_pos_data()   # contains X, Y, Date
+
+    track_xy = pos.loc[:, ['X', 'Y']].to_numpy()
+    track_angle = circuit_info.rotation / 180 * np.pi
+    track_rot = rotate(track_xy, angle=track_angle)
+    track_x, track_y = track_rot[:, 0], track_rot[:, 1]
+    track_x, track_y = normalize_xy(track_x, track_y)
+
+    track_points = np.stack([track_x, track_y], axis=1).tolist()
+
+    # ---- Build per-driver time series ----
+    drivers_payload = []
+
+    for drv in session.drivers:
+        drv_code = session.get_driver(drv)['Abbreviation']
+
+        laps = session.laps.pick_drivers(drv)
+        if laps.empty:
+            continue
+
+        # Collect positions for all laps of this driver
+        samples = []
+        for _, lap in laps.iterrows():
+            lap_obj = lap  # Series
+
+            lap_pos = lap_obj.get_pos_data()
+            t = lap_pos['SessionTime'].dt.total_seconds().to_numpy()
+
+            xy = lap_pos[['X', 'Y']].to_numpy()
+            xy_rot = rotate(xy, angle=track_angle)
+            x, y = xy_rot[:, 0], xy_rot[:, 1]
+            x, y = normalize_xy(x, y)
+
+            lap_num = int(lap_obj['LapNumber'])
+
+            for ti, xi, yi in zip(t, x, y):
+                samples.append({
+                    "t": float(ti),
+                    "lap": lap_num,
+                    "x": float(xi),
+                    "y": float(yi),
+                })
+
+        # Optionally sort + downsample to reduce size
+        samples = sorted(samples, key=lambda s: s["t"])
+
+        drivers_payload.append({
+            "code": drv_code,
+            "color": "#888888",  # you can map to team colors
+            "samples": samples,
+        })
+
+    
+    if drivers_payload:
+        race_duration = max(
+            sample["t"]
+            for drv in drivers_payload
+            for sample in drv["samples"]
+        )
+        total_laps = max(
+            sample["lap"]
+            for drv in drivers_payload
+            for sample in drv["samples"]
+        )
+    else:
+        race_duration = 0.0
+        total_laps = 0
+
+
+    total_laps = int(session.laps['LapNumber'].max())
+
+    return JsonResponse({
+        "track": {"points": track_points},
+        "drivers": drivers_payload,
+        "raceDuration": race_duration,
+        "totalLaps": total_laps,
+    })
 
 def results_view(request, year: int, country: str, session: str):
     sessionFF1 = fastf1.get_session(year, country, session)

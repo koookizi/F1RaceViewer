@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
 import { RaceViewerPage } from "./pages/RaceViewerPage";
@@ -29,7 +29,7 @@ function App() {
       <div className="flex min-h-screen pt-12 md:pt-0">
         <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-        <main className="flex-1 px-6 py-8 md:px-12">
+        <main className="flex-1 max-w-full overflow-x-hidden px-6 py-8 md:px-12">
           <Routes>
             {/* redirect / to /dashboard */}
             <Route path="/" element={<Navigate to="/race-viewer" replace />} />

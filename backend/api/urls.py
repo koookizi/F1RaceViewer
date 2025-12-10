@@ -7,5 +7,5 @@ urlpatterns = [
     path("seasons/<int:year>/<str:country>/sessions/", views.season_sessions, name="season-sessions"),
     path("session/<int:year>/<str:country>/<str:session>/result/", views.results_view, name="session-result"),
     path("session/<int:year>/<str:country>/circuit/", views.session_circuit, name="session-circuit"),
-
+    path("session/<int:year>/<str:country>/<str:session>/playback/", views.session_playback_view, name="session-playback"),
 ]

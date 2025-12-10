@@ -1,7 +1,9 @@
-import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react'
 import { ChevronDownIcon } from '@heroicons/react/20/solid'
 import { useState, useEffect } from "react";
 import { DriverAvatar } from "../components/DriverAvatar";
+import { StartingGrid } from "../components/StartingGrid";
+import { RacePlayback } from "../components/RacePlayback";
+
 
 export interface Result {
   position: number;
@@ -38,16 +40,36 @@ export function RaceViewerPage() {
   const [showResultsBox, setShowResultsBox] = useState(false);
   const [activeTab, setActiveTab] = useState<"summary" | "playback">("summary");
   const [showTabs, setShowTabs] = useState(false);
+  const [showStartGrid, setShowStartGrid] = useState(false);
+  const raceSessionsWithGridPos = ["Race", "Sprint", "Sprint Shootout", "Sprint Qualifying"];
+
+  const [showRacePlayBackBox, setShowRacePlayBackBox] = useState(false);
 
 
   // Handles page visibility based on tabs
   useEffect(() => {
-    if (activeTab == "summary") {
-      setShowResultsBox(true);
-    } else{
-      setShowResultsBox(false);
+    switch (activeTab) {
+      case "summary":
+        setShowResultsBox(true);
+        setShowStartGrid(raceSessionsWithGridPos.includes(selectedSession));
+        setShowRacePlayBackBox(false);
+        break;
+
+      case "playback":
+        setShowResultsBox(false);
+        setShowStartGrid(false);
+        setShowRacePlayBackBox(true);
+        break;
+
+      default:
+        setShowResultsBox(false);
+        setShowStartGrid(false);
+        setShowRacePlayBackBox(false);
+        break;
     }
-  }, [activeTab])
+  }, [activeTab, selectedSession]);
+
+
 
   // When search button is pressed
   const handleSearch = () => {
@@ -57,6 +79,11 @@ export function RaceViewerPage() {
   setSearchButton(true);
   setLoadingResults(true);
   setShowTabs(true)
+
+  if (raceSessionsWithGridPos.includes(selectedSession)) {
+        console.log("showing start grid")
+        setShowStartGrid(true)
+      }
 
   fetch(`http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/result/`)
     .then((res) => res.json())
@@ -153,7 +180,7 @@ export function RaceViewerPage() {
       </h1>
 
 
-      <div className="card card-border bg-base-100 w-auto mt-10">
+      <div className="card card-border bg-base-100 w-auto mt-10 ">
         <div className="card-body">
           <h2 className="card-title">Race Selection</h2>
           <div className="card-actions justify-start">
@@ -291,7 +318,14 @@ export function RaceViewerPage() {
               </button>
             </div>
           )}
+          
+          {showRacePlayBackBox && (
+            <RacePlayback year={parseInt(selectedYear)} country={selectedCountry} session={selectedSession}/>
+          )}
+
+
           {showResultsBox && (
+            <>
             <div className="card card-border bg-base-100 w-auto mt-5">
               <div className="card-body">
                 <h2 className="card-title">{circuitName.toUpperCase()} {selectedYear} GRAND PRIX - {selectedSession.toUpperCase()}</h2>
@@ -421,11 +455,24 @@ export function RaceViewerPage() {
                     </tbody>
                   </table>
                 </div>
-                
-        
-
               </div>
             </div>
+
+            {showStartGrid && (
+              <div className="card card-border bg-base-100 mt-5 ">
+                <div className="card-body">
+                  <h2 className="card-title">STARTING GRID</h2>
+                    <div className='mt-2'>
+                      {loadingResults ? (
+                        <div className="skeleton h-32 w-auto"></div>
+                      ) : (
+                        <StartingGrid results={results} />
+                      )}
+                    </div>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </>
       )}
