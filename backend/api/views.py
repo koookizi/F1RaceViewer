@@ -46,38 +46,85 @@ def session_circuit(request, year: int, country: str):
 
     return JsonResponse({"circuit": event.circuit})
 
+def session_weather_view(request, year: int, country: str, session: str):
+    session_obj = fastf1.get_session(year, country, session)
+
+    session_obj.load(telemetry=False)
+
+    weather_df = session_obj.laps.get_weather_data()
+
+    if weather_df is None or weather_df.empty:
+        return JsonResponse({"weather": []})
+
+    # convert Time (timedelta) to seconds from session start and adds a column to the df
+    weather_df = weather_df.copy()
+    weather_df["TimeSec"] = weather_df["Time"].dt.total_seconds()
+
+    rangeAirTemp = weather_df["AirTemp"].min().item(),weather_df["AirTemp"].max().item()
+    rangeHumidity = weather_df["Humidity"].min().item(),weather_df["Humidity"].max().item()
+    rangePressure = weather_df["Pressure"].min().item(),weather_df["Pressure"].max().item()
+    rangeTrackTemp = weather_df["TrackTemp"].min().item(),weather_df["TrackTemp"].max().item()
+    rangeWindSpeed = weather_df["WindSpeed"].min().item(),weather_df["WindSpeed"].max().item()
+
+
+    samples = []
+    for _, row in weather_df.iterrows():
+        samples.append({
+            "time_sec": float(row["TimeSec"]),         
+            "air_temp": to_float_or_none(row["AirTemp"]),
+            "track_temp": to_float_or_none(row["TrackTemp"]),
+            "humidity": to_float_or_none(row["Humidity"]),
+            "pressure": to_float_or_none(row["Pressure"]),
+            "rainfall": to_float_or_none(row["Rainfall"]),
+            "wind_dir": to_float_or_none(row["WindDirection"]),
+            "wind_speed": to_float_or_none(row["WindSpeed"]),
+
+        })
+
+    return JsonResponse({
+         "weather": samples,
+         "rangeAirTemp": rangeAirTemp,
+         "rangeHumidity": rangeHumidity,
+         "rangePressure": rangePressure,
+         "rangeTrackTemp": rangeTrackTemp,
+         "rangeWindSpeed": rangeWindSpeed
+         })
+
 def session_playback_view(request, year: int, country: str, session: str):
     session = fastf1.get_session(year, country, session)
     session.load()
 
-    circuit_info = session.get_circuit_info()
+    circuit_info = session.get_circuit_info() # gets rotation angle, corner pos, numbers etc.
 
-    # ---- Build track polyline (using fastest lap of pole or just first driver) ----
+    # --- build track polyline (using fastest lap of pole or just first driver) 
     ref_driver = session.drivers[0]
-    ref_lap = session.laps.pick_driver(ref_driver).pick_fastest()
-    pos = ref_lap.get_pos_data()   # contains X, Y, Date
+    ref_lap = session.laps.pick_drivers(ref_driver).pick_fastest()
+    pos = ref_lap.get_pos_data()   # contains X, Y, Date, gives you a dataframe
 
+    # pos.loc[row_selection, column_selection], : means all rows. so all X and Y only, and then turn into numpy
     track_xy = pos.loc[:, ['X', 'Y']].to_numpy()
-    track_angle = circuit_info.rotation / 180 * np.pi
-    track_rot = rotate(track_xy, angle=track_angle)
-    track_x, track_y = track_rot[:, 0], track_rot[:, 1]
-    track_x, track_y = normalize_xy(track_x, track_y)
+    # it's converted to mumpy because it's fast at linear algebra, good for the rotate() and normalize_xy() func
 
-    track_points = np.stack([track_x, track_y], axis=1).tolist()
+    track_angle = circuit_info.rotation / 180 * np.pi # because np.cos and np.sin need radians
+    track_rot = rotate(track_xy, angle=track_angle) # rotates all track points to recommended circuit rotation
+    track_x, track_y = track_rot[:, 0], track_rot[:, 1] # split it into x y coords
+    track_x, track_y = normalize_xy(track_x, track_y) # normalize to fit into a standard [-1, 1] box
 
-    # ---- Build per-driver time series ----
+    track_points = np.stack([track_x, track_y], axis=1).tolist() # combine xy back into normal list ready for JSON
+
+    # --- build per-driver time series 
     drivers_payload = []
 
     for drv in session.drivers:
         drv_code = session.get_driver(drv)['Abbreviation']
 
-        laps = session.laps.pick_drivers(drv)
+        laps = session.laps.pick_drivers(drv) # pandas df
         if laps.empty:
             continue
 
         # Collect positions for all laps of this driver
         samples = []
-        for _, lap in laps.iterrows():
+        for _, lap in laps.iterrows(): # gives you index, row
             lap_obj = lap  # Series
 
             lap_pos = lap_obj.get_pos_data()
@@ -90,6 +137,7 @@ def session_playback_view(request, year: int, country: str, session: str):
 
             lap_num = int(lap_obj['LapNumber'])
 
+            # the zip basically gives t,x,y per row
             for ti, xi, yi in zip(t, x, y):
                 samples.append({
                     "t": float(ti),
@@ -98,7 +146,9 @@ def session_playback_view(request, year: int, country: str, session: str):
                     "y": float(yi),
                 })
 
-        # Optionally sort + downsample to reduce size
+        # ensures time is strictly increasing
+        # sorted() needs a key because the data is complex
+        # therefore uses a lambda func to get the time as the key per row in the samples array
         samples = sorted(samples, key=lambda s: s["t"])
 
         drivers_payload.append({
@@ -107,23 +157,25 @@ def session_playback_view(request, year: int, country: str, session: str):
             "samples": samples,
         })
 
-    
+    # --- calculation of race duration and total laps
     if drivers_payload:
+        # gets race duration from the driver who finished last (basically)
         race_duration = max(
             sample["t"]
             for drv in drivers_payload
             for sample in drv["samples"]
         )
-        total_laps = max(
-            sample["lap"]
-            for drv in drivers_payload
-            for sample in drv["samples"]
-        )
+        # same concept
+        # total_laps = max(
+        #     sample["lap"]
+        #     for drv in drivers_payload
+        #     for sample in drv["samples"]
+        # )
     else:
         race_duration = 0.0
-        total_laps = 0
+        # total_laps = 0
 
-
+    
     total_laps = int(session.laps['LapNumber'].max())
 
     return JsonResponse({
@@ -220,6 +272,7 @@ def results_view(request, year: int, country: str, session: str):
         right_index=True,
         how="left",
         )
+        pd.set_option('future.no_silent_downcasting', True)
         # Ensure BestLapTime column exists; if not, create it
         if "BestLapTime" not in df.columns:
             df["BestLapTime"] = pd.NaT
@@ -322,7 +375,6 @@ def to_int_or_none(value):
     except (TypeError, ValueError):
         return None
 
-
 def format_lap_time(value):
     if pd.isna(value) or value is None:
         return None
@@ -342,3 +394,8 @@ def format_lap_time(value):
 
     # M:SS.mmm  (e.g. 1:15.912)
     return f"{minutes}:{seconds:06.3f}"
+
+def to_float_or_none(value):
+        if pd.isna(value):
+            return None
+        return float(value)

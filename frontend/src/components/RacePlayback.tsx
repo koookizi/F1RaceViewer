@@ -1,17 +1,24 @@
-// RacePlayback.tsx
 import React, { useEffect, useState, useRef } from "react";
 import type { PlaybackData } from "../types";
 
-type Props = {
+type RacePlaybackProps = {
   year: number;
   country: string;
   session: string;
+  currentTime: number;
+  setCurrentTime: (value: number) => void;
 };
 
-export function RacePlayback({ year, country, session }: Props) {
+export function RacePlayback({
+  year,
+  country,
+  session,
+  currentTime,
+  setCurrentTime,
+}: RacePlaybackProps) {
   const [data, setData] = useState<PlaybackData | null>(null);
-  const [currentTime, setCurrentTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [speedMultiplier, setSpeedMultiplier] = useState(1);
 
   const lastFrameRef = useRef<number | null>(null);
 
@@ -34,27 +41,27 @@ export function RacePlayback({ year, country, session }: Props) {
     if (!isPlaying || !data) return;
 
     // gives us the current time (irl time) of when the playback started
-    const start = performance.now() - currentTime * 1000;
+    const start = performance.now() - (currentTime * 1000) / speedMultiplier;
 
     // gets called by requestAnimationFrame to update, per frame
     const tick = (now: number) => {
-        // this tells us how far in we are into the playback
-        // why not store a global var instead? can't because react refreshes etc.
-        const elapsedSec = (now - start) / 1000;
+      // this tells us how far in we are into the playback
+      // why not store a global var instead? can't because react refreshes etc.
+      const elapsedSec = ((now - start) / 1000) * speedMultiplier;
 
-        // just a clamp so it never goes past raceDuration/the playback
-        const t = Math.min(elapsedSec, data.raceDuration);
+      // just a clamp so it never goes past raceDuration/the playback
+      const t = Math.min(elapsedSec, data.raceDuration);
 
-        // sets the currentTime variable
-        setCurrentTime(t);
-        // because of this changing, it will trigger the getPositionAtTime() func through const pos
+      // sets the currentTime variable
+      setCurrentTime(t);
+      // because of this changing, it will trigger the getPositionAtTime() func through const pos
 
-        // this is what makes tick loop. but obvs if not playing or no data, this useEffect will stop this loop
-        if (t < data.raceDuration) {
-            lastFrameRef.current = requestAnimationFrame(tick);
-        } else {
-            setIsPlaying(false);
-        }
+      // this is what makes tick loop. but obvs if not playing or no data, this useEffect will stop this loop
+      if (t < data.raceDuration) {
+        lastFrameRef.current = requestAnimationFrame(tick);
+      } else {
+        setIsPlaying(false);
+      }
     };
 
     // starts the loop, once started it'll keep recursively going
@@ -66,7 +73,7 @@ export function RacePlayback({ year, country, session }: Props) {
         cancelAnimationFrame(lastFrameRef.current);
       }
     };
-  }, [isPlaying, data]);
+  }, [isPlaying, data, speedMultiplier]);
 
   // when slider is dragged, onChange fires
   const handleScrub = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,25 +82,29 @@ export function RacePlayback({ year, country, session }: Props) {
   };
 
   if (!data) {
-    return <div>Loading playback…</div>;
+    return <div className="skeleton h-32 w-auto mt-5"></div>;
   }
 
+  // from the django API, this just destructures it
   const { track, drivers, raceDuration, totalLaps } = data;
 
   // simple lap indicator: current lap of leader (first driver)
   const leader = drivers[0];
-  const leaderPos = leader ? getPositionAtTime(leader.samples, currentTime) : null;
-  const currentLap = leaderPos?.lap ?? 1;
+  const leaderPos = leader
+    ? getPositionAtTime(leader.samples, currentTime)
+    : null;
+  const currentLap = leaderPos?.lap ?? 1; // if leaderPos?.lap is null, just return 1
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Track + cars */}
+    <div className="flex flex-col gap-4 mt-5">
+      {/* track + cars */}
       <div className="w-full flex justify-center">
+        {/* svg to draw circuit and cars */}
         <svg
-          viewBox="-1.2 -1.2 2.4 2.4"
+          viewBox="-1.2 -1.2 2.4 2.4" // sets up a coordinate system. x from -1.2 to 1.2, same for y
           className="w-full max-w-3xl border rounded-xl bg-neutral-900"
         >
-          {/* Track polyline */}
+          {/* track polyline */}
           <polyline
             fill="none"
             stroke="#555"
@@ -101,7 +112,7 @@ export function RacePlayback({ year, country, session }: Props) {
             points={track.points.map(([x, y]) => `${x},${-y}`).join(" ")} // flip Y for SVG
           />
 
-          {/* Driver dots */}
+          {/* driver dots */}
           {drivers.map((drv) => {
             const pos = getPositionAtTime(drv.samples, currentTime);
             if (!pos) return null;
@@ -120,22 +131,57 @@ export function RacePlayback({ year, country, session }: Props) {
         </svg>
       </div>
 
-      {/* Playback controls */}
+      {/* playback controls */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <button
-            className="px-3 py-1 rounded bg-blue-600 text-white text-sm"
+            className="btn px-3 py-1 rounded bg-neutral-600 text-white text-sm"
             onClick={() => setIsPlaying((p) => !p)}
           >
             {isPlaying ? "Pause" : "Play"}
           </button>
+
+          <div className="tabs tabs-box">
+            <input
+              type="radio"
+              onClick={() => setSpeedMultiplier(1)}
+              name="my_tabs_1"
+              className="tab"
+              aria-label="x1"
+              defaultChecked
+            />
+            <input
+              type="radio"
+              onClick={() => setSpeedMultiplier(5)}
+              name="my_tabs_1"
+              className="tab"
+              aria-label="x5"
+            />
+            <input
+              type="radio"
+              onClick={() => setSpeedMultiplier(20)}
+              name="my_tabs_1"
+              className="tab"
+              aria-label="x20"
+            />
+            <input
+              type="radio"
+              onClick={() => setSpeedMultiplier(50)}
+              name="my_tabs_1"
+              className="tab"
+              aria-label="x50"
+            />
+          </div>
+
           <span className="text-sm text-gray-300">
             t = {currentTime.toFixed(1)}s / {raceDuration.toFixed(1)}s
           </span>
-          <span className="text-sm text-gray-300">Lap {currentLap} / {totalLaps}</span>
+          <span className="text-sm text-gray-300">
+            Lap {currentLap} / {totalLaps}
+          </span>
         </div>
 
-        {/* Scrub bar over race time */}
+        {/* slider for race time */}
         <input
           type="range"
           min={0}
@@ -143,10 +189,10 @@ export function RacePlayback({ year, country, session }: Props) {
           step={0.2}
           value={currentTime}
           onChange={handleScrub}
-          className="w-full"
+          className="w-full range range-neutral"
         />
 
-        {/* “Split into laps” visually */}
+        {/* "split into laps" visually -need to change this */}
         <div className="relative h-2 bg-neutral-800 rounded overflow-hidden">
           {Array.from({ length: totalLaps - 1 }).map((_, i) => (
             <div
@@ -163,9 +209,8 @@ export function RacePlayback({ year, country, session }: Props) {
       </div>
     </div>
   );
-};
+}
 
-// reuse interpolation function
 function getPositionAtTime(samples: any[], t: number) {
   if (!samples.length) return null;
   if (t <= samples[0].t) return samples[0];

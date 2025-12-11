@@ -42,22 +42,21 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
           <nav className="space-y-2 text-sm">
             {navItems.map((item) => (
-                <NavLink
-                    key={item.to}
-                    to={item.to}
-                    onClick={onClose}
-                    className={({ isActive }: { isActive: boolean }) =>
-                        [
-                        "flex w-full items-center rounded-lg px-3 py-2 text-left transition",
-                        isActive
-                            ? "bg-slate-800 text-slate-100"
-                            : "text-slate-300 hover:bg-slate-800/70 hover:text-slate-100",
-                        ].join(" ")
-                    }
-                    >
-                    {item.label}
-                </NavLink>
-
+              <NavLink
+                key={item.to}
+                to={item.to}
+                onClick={onClose}
+                className={({ isActive }: { isActive: boolean }) =>
+                  [
+                    "flex w-full items-center rounded-lg px-3 py-2 text-left transition",
+                    isActive
+                      ? "bg-slate-800 text-slate-100"
+                      : "text-slate-300 hover:bg-slate-800/70 hover:text-slate-100",
+                  ].join(" ")
+                }
+              >
+                {item.label}
+              </NavLink>
             ))}
           </nav>
         </div>
