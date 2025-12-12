@@ -111,6 +111,7 @@ def session_telemetry_view(request, year: int, country: str, session: str):
 
     # Convert meter gap to time gap (approx)
     merged["GapToAhead_s"] = merged["GapToAhead_m"] / merged["Speed"]
+    merged["GapToAhead_s"].replace([np.inf, -np.inf], np.nan, inplace=True)
 
     # Positions gained from grid
     merged["PositionsGained"] = merged.apply(
@@ -122,11 +123,12 @@ def session_telemetry_view(request, year: int, country: str, session: str):
 
     # Format for frontend
     def fmt_gap(x):
-        if pd.isna(x):
+        if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
             return None
         return f"+{x:.3f}"
 
     merged["GapToAheadStr"] = merged["GapToAhead_s"].apply(fmt_gap)
+    merged = merged.replace({np.nan: None})
 
     # ----- PACK RESPONSE -----
     final = {}
@@ -146,7 +148,7 @@ def session_telemetry_view(request, year: int, country: str, session: str):
 
         # convert to JSON-safe
         df_drv = df_drv.replace({np.nan: None})
-        df_drv = df_drv.applymap(lambda x: x.item() if hasattr(x, "item") else x)
+        df_drv = df_drv.map(lambda x: x.item() if hasattr(x, "item") else x)
 
         final[session.get_driver(drv)["Abbreviation"]] = df_drv.to_dict(orient="records")
 
@@ -632,7 +634,7 @@ def prepare_laps_df_for_json(df: pd.DataFrame):
             )
 
     # Convert numpy scalar types → Python native
-    df = df.applymap(lambda x: x.item() if hasattr(x, "item") else x)
+    df = df.map(lambda x: x.item() if hasattr(x, "item") else x)
 
     df = df.replace({np.nan: None})
 
