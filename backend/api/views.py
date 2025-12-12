@@ -49,12 +49,117 @@ def session_circuit(request, year: int, country: str):
     return JsonResponse({"circuit": event.circuit})
 
 @lru_cache(maxsize=32)
-def session_leaderboard_view(request, year: int, country: str, session: str):
+def session_telemetry_view(request, year: int, country: str, session: str):
+    session = fastf1.get_session(year, country, session)
+    session.load()
+
+    results = session.results
+    grid_positions = {}
+    if results is not None:
+        for drv in session.drivers:
+            try:
+                grid_positions[drv] = int(results.loc[drv]["GridPosition"])
+            except:
+                grid_positions[drv] = None
+
+    # ----- EXTRACT RAW TELEMETRY FOR EACH DRIVER -----
+
+    all_tel = {}   # raw telemetry DataFrames per driver
+
+    for drv in session.drivers:
+        laps = session.laps.pick_driver(drv)
+        tel = laps.get_telemetry().copy()
+
+        # FastF1 builtin: add driver ahead metadata
+        tel = tel.add_driver_ahead()
+
+        # unify name
+        tel["DriverNumber"] = drv
+
+        # compute session time as float seconds
+        tel["SessionTime"] = tel["Time"].dt.total_seconds()
+
+        all_tel[drv] = tel
+
+    # ----- BUILD A MERGED TELEMETRY SNAPSHOT -----
+    # At each telemetry sample point, we compute:
+    #   - live position
+    #   - gap to next car
+    #   - position gained from grid
+
+    # Combine all samples into one big table
+    merged = pd.concat(all_tel.values(), ignore_index=True)
+
+    # Sort chronologically
+    merged = merged.sort_values("SessionTime")
+
+    # Live order based on track Distance
+    def compute_live_positions(df):
+        df_sorted = df.sort_values("Distance", ascending=False)
+        df_sorted["LivePosition"] = range(1, len(df_sorted) + 1)
+        return df_sorted
+
+    merged = merged.groupby("SessionTime").apply(compute_live_positions)
+    merged.reset_index(drop=True, inplace=True)
+
+    # Gap to car ahead (in meters)
+    merged["GapToAhead_m"] = np.nan
+    for t, grp in merged.groupby("SessionTime"):
+        grp = grp.sort_values("LivePosition")
+        gap = grp["Distance"].diff() * -1  # car behind sees positive gap
+        merged.loc[grp.index, "GapToAhead_m"] = gap
+
+    # Convert meter gap to time gap (approx)
+    merged["GapToAhead_s"] = merged["GapToAhead_m"] / merged["Speed"]
+
+    # Positions gained from grid
+    merged["PositionsGained"] = merged.apply(
+        lambda r: None
+        if grid_positions.get(r["DriverNumber"]) is None
+        else grid_positions[r["DriverNumber"]] - int(r["LivePosition"]),
+        axis=1
+    )
+
+    # Format for frontend
+    def fmt_gap(x):
+        if pd.isna(x):
+            return None
+        return f"+{x:.3f}"
+
+    merged["GapToAheadStr"] = merged["GapToAhead_s"].apply(fmt_gap)
+
+    # ----- PACK RESPONSE -----
+    final = {}
+
+    for drv in session.drivers:
+        df_drv = merged[merged["DriverNumber"] == drv].copy()
+
+        # reduce columns for cleaner JSON
+        keep = [
+            "SessionTime", "Distance", "X", "Y",
+            "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS",
+            "DriverAhead", "GapToAhead_s", "GapToAheadStr",
+            "LivePosition", "PositionsGained"
+        ]
+
+        df_drv = df_drv[keep]
+
+        # convert to JSON-safe
+        df_drv = df_drv.replace({np.nan: None})
+        df_drv = df_drv.applymap(lambda x: x.item() if hasattr(x, "item") else x)
+
+        final[session.get_driver(drv)["Abbreviation"]] = df_drv.to_dict(orient="records")
+
+    return JsonResponse(final)
+
+
+@lru_cache(maxsize=32)
+def session_laps_view(request, year: int, country: str, session: str):
     session = fastf1.get_session(year, country, session)
     session.load()
 
     finalJSON = {
-        "drivers" : []
+        "drivers": []
     }
 
     columns = [
@@ -79,26 +184,65 @@ def session_leaderboard_view(request, year: int, country: str, session: str):
         "Compound",
         "TyreLife",
         "FreshTyre",
-        "Position"
+        "Position",       # current position per lap (from Laps)
     ]
 
     drivers = []
 
+    # Defensive guard in case results aren't available (e.g. practice)
+    results = getattr(session, "results", None)
+
     for drv in session.drivers:
         laps = session.laps.pick_drivers(drv)[columns].copy()
+
+        # Default: no grid position if results are missing
+        grid_pos = None
+        if results is not None and not results.empty:
+            try:
+                # SessionResults indexed by driver number; row has 'GridPosition'
+                driver_result = results.loc[drv]
+                grid_val = driver_result.get("GridPosition", None)
+                if pd.notna(grid_val):
+                    grid_pos = int(grid_val)
+            except KeyError:
+                grid_pos = None
+
+        # Add GridPosition column (same value for all laps of that driver)
+        laps["GridPosition"] = grid_pos
+
+        # PositionsGainedString = "+3", "-1", "0", or None
+        def compute_positions_gained_str(row):
+            if grid_pos is None or pd.isna(row["Position"]):
+                return None
+            try:
+                gained = int(grid_pos) - int(row["Position"])
+                if gained > 0:
+                    return f"+{gained}"
+                elif gained < 0:
+                    return f"{gained}"  # already has "-"
+                else:
+                    return "0"
+            except (ValueError, TypeError):
+                return None
+
+        laps["PositionsGained"] = laps.apply(compute_positions_gained_str, axis=1)
+
+        # Now convert to JSON-safe format
         df_clean = prepare_laps_df_for_json(laps)
         laps_json = df_clean.to_dict(orient="records")
 
         drivers.append({
-            "driver_code" : session.get_driver(drv)["Abbreviation"],
-            "driver_fullName" : session.get_driver(drv)["FullName"],
-            "teamColour" : session.get_driver(drv)["TeamColor"],
-            "data" : laps_json
+            "driver_code": session.get_driver(drv)["Abbreviation"],
+            "driver_fullName": session.get_driver(drv)["FullName"],
+            "teamColour": session.get_driver(drv)["TeamColor"],
+            "grid_position": grid_pos,  # useful to have at driver level too
+            "data": laps_json
         })
-    
+
     finalJSON["drivers"] = drivers
-    
-    return (JsonResponse(finalJSON))
+
+    return JsonResponse(finalJSON)
+
 
 @lru_cache(maxsize=32)
 def session_weather_view(request, year: int, country: str, session: str):

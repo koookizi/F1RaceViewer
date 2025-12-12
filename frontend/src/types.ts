@@ -71,15 +71,51 @@ export interface LapData {
   FreshTyre: boolean | null;
 
   Position: number | null;
+
+  PositionsGained: string | null;
 }
 
 export interface DriverData {
   driver_code: string;
   driver_fullName: string;
   teamColour: string;
+  grid_position: string;
   data: LapData[];
 }
 
 export interface SessionLeaderboardResponse {
   drivers: DriverData[];
 }
+
+export interface TelemetrySample {
+  // Core timeline
+  SessionTime: number; // seconds since session start
+  Distance: number | null; // meters around track
+  X: number | null; // track coordinate
+  Y: number | null; // track coordinate
+
+  // Car state
+  Speed: number | null; // km/h
+  Throttle: number | null; // %
+  Brake: number | null; // %
+  Gear: number | null;
+  RPM: number | null;
+  DRS: number | null; // 0/1/2 etc depending on track
+
+  // FastF1 telemetry metadata
+  DriverAhead: string | null; // driver code of car ahead
+  GapToAhead_m: number | null; // meters
+  GapToAhead_s: number | null; // seconds
+  GapToAheadStr: string | null; // "+0.237"
+
+  // Live race state (continuous)
+  LivePosition: number | null; // 1–20 based on continuous distance
+  PositionsGained: number | null; // from grid vs live position
+}
+
+// Entire telemetry output → map of driver code → array of telemetry samples
+export interface TelemetryDriverMap {
+  [driverCode: DriverCode]: TelemetrySample[];
+}
+
+export type DriverCode = string;
