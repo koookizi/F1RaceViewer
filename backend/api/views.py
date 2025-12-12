@@ -4,6 +4,7 @@ from api.models import Season, Event, Session
 import fastf1
 import pandas as pd 
 import numpy as np
+from functools import lru_cache
 
 from .helpers.geometry import rotate, normalize_xy
 
@@ -36,6 +37,7 @@ def season_sessions(request, year, country):
     )
     return JsonResponse({"sessions": list(sessions)})
 
+@lru_cache(maxsize=32)
 def session_circuit(request, year: int, country: str):
     event = Event.objects.filter(
         season__year=year,
@@ -46,6 +48,58 @@ def session_circuit(request, year: int, country: str):
 
     return JsonResponse({"circuit": event.circuit})
 
+@lru_cache(maxsize=32)
+def session_leaderboard_view(request, year: int, country: str, session: str):
+    session = fastf1.get_session(year, country, session)
+    session.load()
+
+    finalJSON = {
+        "drivers" : []
+    }
+
+    columns = [
+        "Time",
+        "LapStartTime",
+        "LapTime",
+        "LapNumber",
+        "Stint",
+        "PitOutTime",
+        "PitInTime",
+        "Sector1Time",
+        "Sector2Time",
+        "Sector3Time",
+        "Sector1SessionTime",
+        "Sector2SessionTime",
+        "Sector3SessionTime",
+        "SpeedI1",
+        "SpeedI2",
+        "SpeedFL",
+        "SpeedST",
+        "IsPersonalBest",
+        "Compound",
+        "TyreLife",
+        "FreshTyre",
+    ]
+
+    drivers = []
+
+    for drv in session.drivers:
+        laps = session.laps.pick_drivers(drv)[columns].copy()
+        df_clean = prepare_laps_df_for_json(laps)
+        laps_json = df_clean.to_dict(orient="records")
+
+        drivers.append({
+            "driver_code" : session.get_driver(drv)["Abbreviation"],
+            "driver_fullName" : session.get_driver(drv)["FullName"],
+            "teamColour" : session.get_driver(drv)["TeamColor"],
+            "data" : laps_json
+        })
+    
+    finalJSON["drivers"] = drivers
+    
+    return (JsonResponse(finalJSON))
+
+@lru_cache(maxsize=32)
 def session_weather_view(request, year: int, country: str, session: str):
     session_obj = fastf1.get_session(year, country, session)
 
@@ -90,6 +144,7 @@ def session_weather_view(request, year: int, country: str, session: str):
          "rangeWindSpeed": rangeWindSpeed
          })
 
+@lru_cache(maxsize=32)
 def session_playback_view(request, year: int, country: str, session: str):
     session = fastf1.get_session(year, country, session)
     session.load()
@@ -185,6 +240,7 @@ def session_playback_view(request, year: int, country: str, session: str):
         "totalLaps": total_laps,
     })
 
+@lru_cache(maxsize=32)
 def results_view(request, year: int, country: str, session: str):
     sessionFF1 = fastf1.get_session(year, country, session)
     try:
@@ -399,3 +455,40 @@ def to_float_or_none(value):
         if pd.isna(value):
             return None
         return float(value)
+
+def prepare_laps_df_for_json(df: pd.DataFrame):
+    df = df.copy()
+
+    timedelta_cols = [
+        "Time",
+        "LapTime",
+        "PitOutTime",
+        "PitInTime",
+        "Sector1Time",
+        "Sector2Time",
+        "Sector3Time",
+    ]
+    for col in timedelta_cols:
+        if col in df:
+            df[col] = df[col].apply(
+                lambda x: x.total_seconds() if pd.notna(x) else None
+            )
+
+    timestamp_cols = [
+        "LapStartTime",
+        "Sector1SessionTime",
+        "Sector2SessionTime",
+        "Sector3SessionTime",
+    ]
+    for col in timestamp_cols:
+        if col in df:
+            df[col] = df[col].apply(
+                lambda x: x.total_seconds() if pd.notna(x) else None
+            )
+
+    # Convert numpy scalar types → Python native
+    df = df.applymap(lambda x: x.item() if hasattr(x, "item") else x)
+
+    df = df.replace({np.nan: None})
+
+    return df

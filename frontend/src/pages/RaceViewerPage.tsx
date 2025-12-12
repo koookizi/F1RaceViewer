@@ -1,9 +1,12 @@
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DriverAvatar } from "../components/DriverAvatar";
 import { StartingGrid } from "../components/StartingGrid";
 import { RacePlayback } from "../components/RacePlayback";
-import { RacePlaybackHeader } from "../components/RacePlaybackHeader";
+import { RacePlaybackLeaderboard } from "../components/RacePlaybackLeaderboard";
+import { WeatherInfo } from "../components/RacePlaybackWeatherInfo";
+import { PlaybackControls } from "../components/PlaybackControls";
+import type { PlaybackData } from "../types";
 
 export interface Result {
   position: number;
@@ -53,7 +56,78 @@ export function RaceViewerPage() {
   const [currentTime, setCurrentTime] = useState(0);
   const [showRacePlayBackBox, setShowRacePlayBackBox] = useState(false);
   const [showRacePlayBackHeader, setShowRacePlayBackHeader] = useState(false);
+  const [showRacePlayBackWeatherInfo, setShowRacePlayBackWeatherInfo] =
+    useState(false);
+  const [showRacePlayBackLeaderboard, setShowRacePlayBackLeaderboard] =
+    useState(false);
 
+  const [data, setData] = useState<PlaybackData | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [speedMultiplier, setSpeedMultiplier] = useState(1);
+
+  const frameRef = useRef<number | null>(null);
+  const lastTimestampRef = useRef<number | null>(null);
+
+  // Helper function for getting playback data for race viewer
+  // Fetch playback data
+  useEffect(() => {
+    const url = `http://localhost:8000/api/session/${selectedYear}/${encodeURIComponent(
+      selectedCountry
+    )}/${encodeURIComponent(selectedSession)}/playback/`;
+
+    fetch(url)
+      .then((res) => res.json())
+      .then((json: PlaybackData) => {
+        setData(json);
+        setCurrentTime(0);
+        setIsPlaying(false);
+      })
+      .catch((err) => console.error("Failed to load playback", err));
+  }, [selectedYear, selectedCountry, selectedSession]);
+
+  // Animation loop
+  useEffect(() => {
+    if (!isPlaying || !data) {
+      // if paused, make sure nothing keeps running
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+      lastTimestampRef.current = null;
+      return;
+    }
+
+    const tick = (timestamp: number) => {
+      if (lastTimestampRef.current == null) {
+        lastTimestampRef.current = timestamp;
+      }
+
+      const deltaSec =
+        ((timestamp - lastTimestampRef.current) / 1000) * speedMultiplier;
+      lastTimestampRef.current = timestamp;
+
+      setCurrentTime((prev) => {
+        const next = Math.min(prev + deltaSec, data.raceDuration);
+        if (next >= data.raceDuration) {
+          // stop at end
+          setIsPlaying(false);
+        }
+        return next;
+      });
+
+      frameRef.current = requestAnimationFrame(tick);
+    };
+
+    frameRef.current = requestAnimationFrame(tick);
+
+    return () => {
+      if (frameRef.current !== null) {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+      }
+      lastTimestampRef.current = null;
+    };
+  }, [isPlaying, speedMultiplier, data]);
   // Handles Summary section
   useEffect(() => {
     if (showSummarySection) {
@@ -61,14 +135,6 @@ export function RaceViewerPage() {
       setShowStartGrid(raceSessionsWithGridPos.includes(selectedSession));
     }
   }, [showSummarySection]);
-
-  // Handles Race Playback section
-  useEffect(() => {
-    if (showRacePlayBackSection) {
-      setShowRacePlayBackBox(true);
-      setShowRacePlayBackHeader(true);
-    }
-  }, [showRacePlayBackSection]);
 
   // Handles tabs
   useEffect(() => {
@@ -341,25 +407,36 @@ export function RaceViewerPage() {
         {showRacePlayBackSection && (
           <>
             {/* Header */}
-            {showRacePlayBackHeader && (
-              <RacePlaybackHeader
-                year={parseInt(selectedYear)}
-                country={selectedCountry}
-                session={selectedSession}
-                currentTime={currentTime}
-              />
-            )}
 
             {/* Race playback circuit */}
-            {showRacePlayBackBox && (
-              <RacePlayback
-                year={parseInt(selectedYear)}
-                country={selectedCountry}
-                session={selectedSession}
-                currentTime={currentTime}
-                setCurrentTime={setCurrentTime}
-              />
-            )}
+            <PlaybackControls
+              data={data}
+              currentTime={currentTime}
+              setCurrentTime={setCurrentTime}
+              isPlaying={isPlaying}
+              setIsPlaying={setIsPlaying}
+              speedMultiplier={speedMultiplier}
+              setSpeedMultiplier={setSpeedMultiplier}
+            />
+
+            {/* Race playback weather info */}
+            <WeatherInfo
+              year={parseInt(selectedYear)}
+              country={selectedCountry}
+              session={selectedSession}
+              currentTime={currentTime}
+            />
+
+            {/* Race playback leaderboard */}
+            <RacePlaybackLeaderboard
+              year={parseInt(selectedYear)}
+              country={selectedCountry}
+              session={selectedSession}
+              currentTime={currentTime}
+            />
+
+            {/* Race playback circuit */}
+            <RacePlayback data={data} currentTime={currentTime} />
           </>
         )}
       </div>

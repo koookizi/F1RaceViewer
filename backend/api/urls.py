@@ -8,5 +8,7 @@ urlpatterns = [
     path("session/<int:year>/<str:country>/<str:session>/result/", views.results_view, name="session-result"),
     path("session/<int:year>/<str:country>/circuit/", views.session_circuit, name="session-circuit"),
     path("session/<int:year>/<str:country>/<str:session>/playback/", views.session_playback_view, name="session-playback"),
-    path("session/<int:year>/<str:country>/<str:session>/weather/", views.session_weather_view, name="session-weather")
+    path("session/<int:year>/<str:country>/<str:session>/weather/", views.session_weather_view, name="session-weather"),
+    path("session/<int:year>/<str:country>/<str:session>/leaderboard/", views.session_leaderboard_view, name="session-leaderboard")
+
 ]
