@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import type { SessionLeaderboardResponse } from "../types";
+import type { SessionLeaderboardResponse, DriverData } from "../types";
+import { motion, AnimatePresence } from "framer-motion";
 
 type RacePlaybackLeaderboardProps = {
   year: number;
@@ -24,13 +25,7 @@ export function RacePlaybackLeaderboard({
     console.log("Fetching leaderboard from:", url);
 
     fetch(url)
-      .then((res) => {
-        if (!res.ok) {
-          // This will show 404/500/etc
-          throw new Error(`HTTP ${res.status} ${res.statusText}`);
-        }
-        return res.json();
-      })
+      .then((res) => res.json())
       .then((json: SessionLeaderboardResponse) => {
         console.log("Leaderboard JSON:", json);
         setData(json);
@@ -48,12 +43,54 @@ export function RacePlaybackLeaderboard({
     <div className="card card-border bg-base-100 mt-5 ">
       <div className="card-body">
         <h2 className="card-title">Leaderboard</h2>
-        <div>hi</div>
+        <table className="table mt-5">
+          <thead></thead>
+          <tbody>
+            <AnimatePresence initial={false}>
+              {data?.drivers
+                .slice()
+                .sort(
+                  (a, b) =>
+                    (getPos(a, currentTime) ?? 9999) -
+                    (getPos(b, currentTime) ?? 9999)
+                )
+                .map((driver) => (
+                  <motion.tr
+                    key={driver.driver_code}
+                    layout // <- this is what animates the movement
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    style={{
+                      backgroundColor: "#" + driver.teamColour + "33",
+                    }}
+                  >
+                    <td>{getPos(driver, currentTime)}</td>
+                    <td>{driver.driver_code}</td>
+                    <td>{getLapNumber(driver, currentTime)}</td>
+                    <td>{getCurrentTyre(driver, currentTime)}</td>
+                  </motion.tr>
+                ))}
+            </AnimatePresence>
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-function getDataAtTime(data: any[], t: number) {
-  return data;
+function getLapNumber(driver: DriverData, t: number) {
+  return driver.data.find((row) => t >= row.LapStartTime && t < row.Time)
+    ?.LapNumber;
+}
+
+function getCurrentTyre(driver: DriverData, t: number) {
+  return driver.data.find((row) => t >= row.LapStartTime && t < row.Time)
+    ?.Compound;
+}
+
+function getPos(driver: DriverData, t: number) {
+  return driver.data.find((row) => t >= row.LapStartTime && t < row.Time)
+    ?.Position;
 }

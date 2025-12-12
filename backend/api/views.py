@@ -79,6 +79,7 @@ def session_leaderboard_view(request, year: int, country: str, session: str):
         "Compound",
         "TyreLife",
         "FreshTyre",
+        "Position"
     ]
 
     drivers = []

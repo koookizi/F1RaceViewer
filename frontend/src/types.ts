@@ -69,6 +69,8 @@ export interface LapData {
   Compound: string | null;
   TyreLife: number | null;
   FreshTyre: boolean | null;
+
+  Position: number | null;
 }
 
 export interface DriverData {
