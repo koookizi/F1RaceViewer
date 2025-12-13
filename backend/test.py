@@ -5,6 +5,45 @@ import json
 import math
 import openpyxl
 
+def add_lap_number_from_lapstarts(tel: pd.DataFrame, laps_drv: pd.DataFrame) -> pd.DataFrame:
+    """
+    tel: telemetry for ONE driver, must include column 'Time'
+    laps_drv: session.laps filtered to ONE driver, must include 'LapNumber' and 'LapStartTime'
+    """
+    tel = tel.sort_values("Time").copy()
+
+    lapstarts = (
+        laps_drv[["LapNumber", "LapStartTime"]]
+        .dropna()
+        .sort_values("LapStartTime")
+        .copy()
+    )
+
+    # Assign the latest lap start that is <= telemetry time
+    tel = pd.merge_asof(
+        tel,
+        lapstarts,
+        left_on="Time",
+        right_on="LapStartTime",
+        direction="backward",
+        allow_exact_matches=True,
+    )
+
+    return tel
+
+def assign_live_position_from_lap_distance(df_bin: pd.DataFrame) -> pd.DataFrame:
+    df_bin = df_bin.copy()
+
+    # You want exactly one row per driver per TimeBin.
+    # If you have multiple samples per driver per bin, keep the latest sample.
+    df_bin = df_bin.sort_values("Time").drop_duplicates(subset=["DriverNumber"], keep="last")
+
+    # Sort "front to back"
+    df_bin = df_bin.sort_values(["LapNumber", "Distance"], ascending=[False, False])
+
+    df_bin["LivePosition"] = range(1, len(df_bin) + 1)
+    return df_bin
+
 
 def session_telemetry_view(year, country, session_name, step=10):
     session = fastf1.get_session(year, country, session_name)
@@ -29,6 +68,8 @@ def session_telemetry_view(year, country, session_name, step=10):
         tel["DriverNumber"] = drv
         tel["DriverCode"] = session.get_driver(drv)["Abbreviation"]
         tel["SessionTime"] = tel["Time"].dt.total_seconds()
+
+        tel = add_lap_number_from_lapstarts(tel, laps)
 
         all_tel.append(tel)
 
@@ -70,47 +111,50 @@ def session_telemetry_view(year, country, session_name, step=10):
     merged_tel["GridPosition"] = merged_tel["DriverNumber"].map(grid_positions)
 
     # > live positions
-    merged_tel["LivePosition"] = (
-    merged_tel.groupby("TimeBin")["Distance"]
-          .rank(ascending=False, method="first")
-          .astype("int32")
-          )
+    merged_tel = (
+        merged_tel
+        .groupby("TimeBin", group_keys=False)
+        .apply(assign_live_position_from_lap_distance)
+    )
+
+    
+    merged_tel.to_excel("test_telemetry1.xlsx", index=False)
+
+    
     
     # > positions gained
-    diff = (merged_tel["GridPosition"] - merged_tel["LivePosition"]).round().astype("Int64")
+    # diff = (merged_tel["GridPosition"] - merged_tel["LivePosition"]).round().astype("Int64")
 
-    s = diff.astype("string")                 # "<NA>" supported
-    merged_tel["PositionsGained"] = s.where(diff.notna(), None)  # nulls -> None
-    merged_tel.loc[diff > 0, "PositionsGained"] = "+" + s[diff > 0]
+    # s = diff.astype("string")                 # "<NA>" supported
+    # merged_tel["PositionsGained"] = s.where(diff.notna(), None)  # nulls -> None
+    # merged_tel.loc[diff > 0, "PositionsGained"] = "+" + s[diff > 0]
 
-    # Filter rows
-    df_ver = merged_tel[merged_tel["DriverCode"] == "ALO"]
-
-    # Export to Excel
-    df_ver.to_excel("ALO_telemetry1.xlsx", index=False)
+    # Export to excel
+    # df_ver = merged_tel[merged_tel["DriverCode"] == "ALO"]
+    # df_ver.to_excel("ALO_telemetry1.xlsx", index=False)
     
     # -- clean dataframe ready for json
-    cols = [
-        "TimeBin", "TimeBinSize", "SessionTime",
-        "GridPosition", "LivePosition", "PositionsGained",
-        "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS",
-        "DistanceToDriverAhead", "DriverAhead"
-    ]
-    final = {}
-    for drv in session.drivers:
-        df_drv = merged_tel[merged_tel["DriverNumber"] == drv].copy()
-        df_drv = df_drv[[c for c in cols if c in df_drv.columns]]
+    # cols = [
+    #     "TimeBin", "TimeBinSize", "SessionTime",
+    #     "GridPosition", "LivePosition", "PositionsGained",
+    #     "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS",
+    #     "DistanceToDriverAhead", "DriverAhead"
+    # ]
+    # final = {}
+    # for drv in session.drivers:
+    #     df_drv = merged_tel[merged_tel["DriverNumber"] == drv].copy()
+    #     df_drv = df_drv[[c for c in cols if c in df_drv.columns]]
 
-        df_drv = df_drv.map(lambda x: x.item() if hasattr(x, "item") else x)
+    #     df_drv = df_drv.map(lambda x: x.item() if hasattr(x, "item") else x)
 
-        df_drv = df_drv.replace([np.inf, -np.inf], np.nan)
-        df_drv = df_drv.where(pd.notnull(df_drv), None)
+    #     df_drv = df_drv.replace([np.inf, -np.inf], np.nan)
+    #     df_drv = df_drv.where(pd.notnull(df_drv), None)
 
-        code = session.get_driver(drv)["Abbreviation"]
-        final[code] = df_drv.to_dict(orient="records")
+    #     code = session.get_driver(drv)["Abbreviation"]
+    #     final[code] = df_drv.to_dict(orient="records")
 
-    final = clean_for_json(final)
-    return final
+    # final = clean_for_json(final)
+    # return final
     
 
 
@@ -136,5 +180,7 @@ def clean_for_json(obj):
     return obj
 
 
-with open("telemetry.json", "w", encoding="utf-8") as f:
-    json.dump(session_telemetry_view(2025, "Australia", "Race"), f, indent=2)
+# with open("telemetry.json", "w", encoding="utf-8") as f:
+#     json.dump(session_telemetry_view(2025, "Australia", "Race"), f, indent=2)
+
+session_telemetry_view(2025, "Australia", "Race")
