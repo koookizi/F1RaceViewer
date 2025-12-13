@@ -61,9 +61,9 @@ export function RacePlaybackLeaderboard({
 
     fetch(url)
       .then((res) => res.json())
-      .then((json: SessionLeaderboardResponse) => {
+      .then((json: TelemetryDriverMap) => {
         console.log("Telemetry JSON:", json);
-        setLapsData(json);
+        setTelemetry(json);
       })
       .catch((err) => {
         console.error("Failed to load telemetry data", err);
@@ -217,7 +217,7 @@ export function RacePlaybackLeaderboard({
 }
 
 function getCompound(driver: DriverData, t: number) {
-  const idx = driver.lapsData.findIndex(
+  const idx = driver.data.findIndex(
     (row) =>
       row.LapStartTime != null &&
       row.Time != null &&
@@ -225,12 +225,12 @@ function getCompound(driver: DriverData, t: number) {
       t < row.Time
   );
 
-  const currentCompoundRow = idx !== -1 ? driver.lapsData[idx] : null;
+  const currentCompoundRow = idx !== -1 ? driver.data[idx] : null;
   let previousRow: LapData | null;
   try {
-    previousRow = idx > 0 ? driver.lapsData[idx - 1] : null;
+    previousRow = idx > 0 ? driver.data[idx - 1] : null;
   } catch {
-    previousRow = idx !== -1 ? driver.lapsData[idx] : null;
+    previousRow = idx !== -1 ? driver.data[idx] : null;
   }
 
   if (currentCompoundRow?.FreshTyre && t >= currentCompoundRow.PitOutTime) {
@@ -248,15 +248,27 @@ function getPos(
   const samples = telemetry[driver.driver_code];
   if (!samples || samples.length === 0) return null;
 
-  // Find the telemetry row where:
-  //    row.SessionTime <= t < nextRow.SessionTime
-  const row = samples.find((row, index) => {
-    const next = samples[index + 1];
-    const nextTime = next ? next.SessionTime : Infinity;
-    return t >= row.SessionTime && t < nextTime;
-  });
+  const binSize = samples[0].TimeBinSize;
+  const targetBin = Math.round(t / binSize);
 
-  return row?.LivePosition ?? null;
+  // samples must be sorted by TimeBin (they should be from backend)
+  for (let i = samples.length - 1; i >= 0; i--) {
+    if (samples[i].TimeBin <= targetBin) {
+      if (driver.driver_code === "VER") {
+        console.log(
+          "t:",
+          t,
+          "targetBin:",
+          targetBin,
+          "found:",
+          samples[i].LivePosition
+        );
+      }
+      return samples[i].LivePosition ?? null;
+    }
+  }
+
+  return null;
 }
 
 function getTyreLife(driver: DriverData, t: number) {

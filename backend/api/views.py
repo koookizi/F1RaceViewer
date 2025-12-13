@@ -2,10 +2,10 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from api.models import Season, Event, Session
 import fastf1
+import math
 import pandas as pd 
 import numpy as np
 from functools import lru_cache
-
 from .helpers.geometry import rotate, normalize_xy
 
 
@@ -49,110 +49,104 @@ def session_circuit(request, year: int, country: str):
     return JsonResponse({"circuit": event.circuit})
 
 @lru_cache(maxsize=32)
-def session_telemetry_view(request, year: int, country: str, session: str):
-    session = fastf1.get_session(year, country, session)
+def session_telemetry_view(request, year: int, country: str, session_name: str, step=10):
+    session = fastf1.get_session(year, country, session_name)
     session.load()
 
-    results = session.results
+    all_tel = []
+
+    keep_cols = ["Time", "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS", "DistanceToDriverAhead", "DriverAhead"]
+
+    # -- get telemetry data for all drivers
+    for drv in session.drivers:
+        laps = session.laps.pick_drivers(drv)  # pick_driver (singular) is the usual one
+        tel = laps.get_telemetry().copy()
+
+        # Reduce columns early
+        tel = tel[[c for c in keep_cols if c in tel.columns]]
+
+        # Downsample early (HUGE speed win + smaller JSON)
+        if step and step > 1:
+            tel = tel.iloc[::step].copy()
+
+        tel["DriverNumber"] = drv
+        tel["DriverCode"] = session.get_driver(drv)["Abbreviation"]
+        tel["SessionTime"] = tel["Time"].dt.total_seconds()
+
+        all_tel.append(tel)
+
+    merged_tel = pd.concat(all_tel, ignore_index=True)
+
+    # -- time bin (for comparison of rows by time bin instead of sessionTime -since there has to be a common column in time to compare to)
+    bin_size = 0.2 # seconds
+
+    merged_tel["TimeBin"] = (merged_tel["SessionTime"] / bin_size).round().astype("int64") # remember: time bin is not a measurement in seconds, it is a bin allocation
+    merged_tel["TimeBinSize"] = bin_size
+
+    # to ensure that there is only one driver per bin (by first sorting sessiontimes, get rows by timebin and drivernumber (whcih gets possible duplicates),
+    #  and remove the other duplicates via .tail(1)
+    merged_tel = (
+    merged_tel.sort_values(["DriverNumber", "SessionTime"])
+          .groupby(["TimeBin", "DriverNumber"], as_index=False)
+          .tail(1)
+    )
+
+    # -- get additional details (e.g Grid positions ...) where applicable
+
+    # > grid positions
     grid_positions = {}
-    if results is not None:
+    results = session.results
+    if results is not None and not results.empty:
         for drv in session.drivers:
             try:
                 grid_positions[drv] = int(results.loc[drv]["GridPosition"])
-            except:
+            except Exception:
                 grid_positions[drv] = None
+    else:
+        for drv in session.drivers:
+            grid_positions[drv] = None
 
-    # ----- EXTRACT RAW TELEMETRY FOR EACH DRIVER -----
 
-    all_tel = {}   # raw telemetry DataFrames per driver
+    # -- apply additional details to main df
 
-    for drv in session.drivers:
-        laps = session.laps.pick_driver(drv)
-        tel = laps.get_telemetry().copy()
+    # > grid positions
+    merged_tel["GridPosition"] = merged_tel["DriverNumber"].map(grid_positions)
 
-        # FastF1 builtin: add driver ahead metadata
-        tel = tel.add_driver_ahead()
+    # > live positions
+    merged_tel = (
+    merged_tel.groupby("TimeBin", group_keys=False)
+              .apply(assign_positions_from_driver_ahead)
+              )
 
-        # unify name
-        tel["DriverNumber"] = drv
+    # > positions gained
+    diff = (merged_tel["GridPosition"] - merged_tel["LivePosition"]).round().astype("Int64")
 
-        # compute session time as float seconds
-        tel["SessionTime"] = tel["Time"].dt.total_seconds()
-
-        all_tel[drv] = tel
-
-    # ----- BUILD A MERGED TELEMETRY SNAPSHOT -----
-    # At each telemetry sample point, we compute:
-    #   - live position
-    #   - gap to next car
-    #   - position gained from grid
-
-    # Combine all samples into one big table
-    merged = pd.concat(all_tel.values(), ignore_index=True)
-
-    # Sort chronologically
-    merged = merged.sort_values("SessionTime")
-
-    # Live order based on track Distance
-    def compute_live_positions(df):
-        df_sorted = df.sort_values("Distance", ascending=False)
-        df_sorted["LivePosition"] = range(1, len(df_sorted) + 1)
-        return df_sorted
-
-    merged = merged.groupby("SessionTime").apply(compute_live_positions)
-    merged.reset_index(drop=True, inplace=True)
-
-    # Gap to car ahead (in meters)
-    merged["GapToAhead_m"] = np.nan
-    for t, grp in merged.groupby("SessionTime"):
-        grp = grp.sort_values("LivePosition")
-        gap = grp["Distance"].diff() * -1  # car behind sees positive gap
-        merged.loc[grp.index, "GapToAhead_m"] = gap
-
-    # Convert meter gap to time gap (approx)
-    merged["GapToAhead_s"] = merged["GapToAhead_m"] / merged["Speed"]
-    merged["GapToAhead_s"].replace([np.inf, -np.inf], np.nan, inplace=True)
-
-    # Positions gained from grid
-    merged["PositionsGained"] = merged.apply(
-        lambda r: None
-        if grid_positions.get(r["DriverNumber"]) is None
-        else grid_positions[r["DriverNumber"]] - int(r["LivePosition"]),
-        axis=1
-    )
-
-    # Format for frontend
-    def fmt_gap(x):
-        if x is None or (isinstance(x, float) and (math.isnan(x) or math.isinf(x))):
-            return None
-        return f"+{x:.3f}"
-
-    merged["GapToAheadStr"] = merged["GapToAhead_s"].apply(fmt_gap)
-    merged = merged.replace({np.nan: None})
-
-    # ----- PACK RESPONSE -----
+    s = diff.astype("string")                 # "<NA>" supported
+    merged_tel["PositionsGained"] = s.where(diff.notna(), None)  # nulls -> None
+    merged_tel.loc[diff > 0, "PositionsGained"] = "+" + s[diff > 0]
+    
+    # -- clean dataframe ready for json
+    cols = [
+        "TimeBin", "TimeBinSize", "SessionTime",
+        "GridPosition", "LivePosition", "PositionsGained",
+        "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS",
+        "DistanceToDriverAhead"
+    ]
     final = {}
-
     for drv in session.drivers:
-        df_drv = merged[merged["DriverNumber"] == drv].copy()
+        df_drv = merged_tel[merged_tel["DriverNumber"] == drv].copy()
+        df_drv = df_drv[[c for c in cols if c in df_drv.columns]]
 
-        # reduce columns for cleaner JSON
-        keep = [
-            "SessionTime", "Distance", "X", "Y",
-            "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS",
-            "DriverAhead", "GapToAhead_s", "GapToAheadStr",
-            "LivePosition", "PositionsGained"
-        ]
-
-        df_drv = df_drv[keep]
-
-        # convert to JSON-safe
-        df_drv = df_drv.replace({np.nan: None})
         df_drv = df_drv.map(lambda x: x.item() if hasattr(x, "item") else x)
 
-        final[session.get_driver(drv)["Abbreviation"]] = df_drv.to_dict(orient="records")
+        df_drv = df_drv.replace([np.inf, -np.inf], np.nan)
+        df_drv = df_drv.where(pd.notnull(df_drv), None)
 
-    return JsonResponse(final)
+        code = session.get_driver(drv)["Abbreviation"]
+        final[code] = df_drv.to_dict(orient="records")
+
+    final = clean_for_json(final)
+    return JsonResponse(final, safe=False)
 
 
 @lru_cache(maxsize=32)
@@ -639,3 +633,77 @@ def prepare_laps_df_for_json(df: pd.DataFrame):
     df = df.replace({np.nan: None})
 
     return df
+
+def clean_for_json(obj):
+    """Recursively replace NaN/Inf with None so JSON is valid."""
+    if obj is None:
+        return None
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, (np.floating,)):
+        val = float(obj)
+        if math.isnan(val) or math.isinf(val):
+            return None
+        return val
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [clean_for_json(v) for v in obj]
+    return obj
+
+def assign_positions_from_driver_ahead(df_bin):
+    """
+    df_bin contains ~20 rows (one per driver) for a single TimeBin.
+    Uses DriverAhead chain to assign LivePosition without using Distance.
+    """
+    df_bin = df_bin.copy()
+
+    # Build mapping: driver -> ahead_driver
+    ahead = dict(zip(df_bin["DriverCode"], df_bin["DriverAhead"]))
+
+    # Find leader(s): no one ahead
+    leaders = [d for d, a in ahead.items() if a is None or (isinstance(a, float) and pd.isna(a))]
+
+    if not leaders:
+        # Fallback if chain info missing: use Distance as a last resort
+        df_bin["LivePosition"] = (
+            df_bin["Distance"].rank(ascending=False, method="first").astype("int32")
+        )
+        return df_bin
+
+    leader = leaders[0]  # normally exactly one
+
+    # Invert mapping: ahead_driver -> driver_behind
+    behind = {}
+    for d, a in ahead.items():
+        if a is None or (isinstance(a, float) and pd.isna(a)):
+            continue
+        # in rare cases data can be messy; keep first occurrence
+        behind.setdefault(a, d)
+
+    # Walk the chain from leader backwards
+    order = [leader]
+    while order[-1] in behind:
+        nxt = behind[order[-1]]
+        if nxt in order:  # guard against loops
+            break
+        order.append(nxt)
+
+    # Assign positions
+    pos_map = {code: i + 1 for i, code in enumerate(order)}
+    df_bin["LivePosition"] = df_bin["DriverCode"].map(pos_map)
+
+    # Any drivers not connected in the chain: append by Distance fallback
+    if df_bin["LivePosition"].isna().any():
+        missing = df_bin[df_bin["LivePosition"].isna()].copy()
+        missing = missing.sort_values("Distance", ascending=False)
+        start = int(df_bin["LivePosition"].max() or 0)
+
+        df_bin.loc[missing.index, "LivePosition"] = range(start + 1, start + 1 + len(missing))
+
+    df_bin["LivePosition"] = df_bin["LivePosition"].astype("int32")
+    return df_bin

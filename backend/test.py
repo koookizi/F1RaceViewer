@@ -1,111 +1,140 @@
 import fastf1 
 import pandas as pd
 import numpy as np
-import openpyxl
 import json
+import math
+import openpyxl
 
-def session_telemetry_view(year, country, session_name):
+
+def session_telemetry_view(year, country, session_name, step=10):
     session = fastf1.get_session(year, country, session_name)
     session.load()
 
-    results = session.results
+    all_tel = []
+
+    keep_cols = ["Time", "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS", "DistanceToDriverAhead", "DriverAhead"]
+
+    # -- get telemetry data for all drivers
+    for drv in session.drivers:
+        laps = session.laps.pick_drivers(drv)  # pick_driver (singular) is the usual one
+        tel = laps.get_telemetry().copy()
+
+        # Reduce columns early
+        tel = tel[[c for c in keep_cols if c in tel.columns]]
+
+        # Downsample early (HUGE speed win + smaller JSON)
+        if step and step > 1:
+            tel = tel.iloc[::step].copy()
+
+        tel["DriverNumber"] = drv
+        tel["DriverCode"] = session.get_driver(drv)["Abbreviation"]
+        tel["SessionTime"] = tel["Time"].dt.total_seconds()
+
+        all_tel.append(tel)
+
+    merged_tel = pd.concat(all_tel, ignore_index=True)
+
+    # -- time bin (for comparison of rows by time bin instead of sessionTime -since there has to be a common column in time to compare to)
+    bin_size = 0.2 # seconds
+
+    merged_tel["TimeBin"] = (merged_tel["SessionTime"] / bin_size).round().astype("int64") # remember: time bin is not a measurement in seconds, it is a bin allocation
+    merged_tel["TimeBinSize"] = bin_size
+
+    # to ensure that there is only one driver per bin (by first sorting sessiontimes, get rows by timebin and drivernumber (whcih gets possible duplicates),
+    #  and remove the other duplicates via .tail(1)
+    merged_tel = (
+    merged_tel.sort_values(["DriverNumber", "SessionTime"])
+          .groupby(["TimeBin", "DriverNumber"], as_index=False)
+          .tail(1)
+    )
+
+    # -- get additional details (e.g Grid positions ...) where applicable
+
+    # > grid positions
     grid_positions = {}
-    if results is not None:
+    results = session.results
+    if results is not None and not results.empty:
         for drv in session.drivers:
             try:
                 grid_positions[drv] = int(results.loc[drv]["GridPosition"])
-            except:
+            except Exception:
                 grid_positions[drv] = None
+    else:
+        for drv in session.drivers:
+            grid_positions[drv] = None
 
-    # ----- EXTRACT RAW TELEMETRY FOR EACH DRIVER -----
 
-    all_tel = {}   # raw telemetry DataFrames per driver
+    # -- apply additional details to main df
 
-    for drv in session.drivers:
-        laps = session.laps.pick_drivers(drv)
-        tel = laps.get_telemetry().copy()
+    # > grid positions
+    merged_tel["GridPosition"] = merged_tel["DriverNumber"].map(grid_positions)
 
-        # FastF1 builtin: add driver ahead metadata
-        tel = tel.add_driver_ahead()
+    # > live positions
+    merged_tel["LivePosition"] = (
+    merged_tel.groupby("TimeBin")["Distance"]
+          .rank(ascending=False, method="first")
+          .astype("int32")
+          )
+    
+    # > positions gained
+    diff = (merged_tel["GridPosition"] - merged_tel["LivePosition"]).round().astype("Int64")
 
-        # unify name
-        tel["DriverNumber"] = drv
+    s = diff.astype("string")                 # "<NA>" supported
+    merged_tel["PositionsGained"] = s.where(diff.notna(), None)  # nulls -> None
+    merged_tel.loc[diff > 0, "PositionsGained"] = "+" + s[diff > 0]
 
-        # compute session time as float seconds
-        tel["SessionTime"] = tel["Time"].dt.total_seconds()
+    # Filter rows
+    df_ver = merged_tel[merged_tel["DriverCode"] == "ALO"]
 
-        all_tel[drv] = tel
-
-    # ----- BUILD A MERGED TELEMETRY SNAPSHOT -----
-    # At each telemetry sample point, we compute:
-    #   - live position
-    #   - gap to next car
-    #   - position gained from grid
-
-    # Combine all samples into one big table
-    merged = pd.concat(all_tel.values(), ignore_index=True)
-
-    # Sort chronologically
-    merged = merged.sort_values("SessionTime")
-
-    # Live order based on track Distance
-    def compute_live_positions(df):
-        df_sorted = df.sort_values("Distance", ascending=False)
-        df_sorted["LivePosition"] = range(1, len(df_sorted) + 1)
-        return df_sorted
-
-    merged = merged.groupby("SessionTime").apply(compute_live_positions)
-    merged.reset_index(drop=True, inplace=True)
-
-    # Gap to car ahead (in meters)
-    merged["GapToAhead_m"] = np.nan
-    for t, grp in merged.groupby("SessionTime"):
-        grp = grp.sort_values("LivePosition")
-        gap = grp["Distance"].diff() * -1  # car behind sees positive gap
-        merged.loc[grp.index, "GapToAhead_m"] = gap
-
-    # Convert meter gap to time gap (approx)
-    merged["GapToAhead_s"] = merged["GapToAhead_m"] / merged["Speed"]
-
-    # Positions gained from grid
-    merged["PositionsGained"] = merged.apply(
-        lambda r: None
-        if grid_positions.get(r["DriverNumber"]) is None
-        else grid_positions[r["DriverNumber"]] - int(r["LivePosition"]),
-        axis=1
-    )
-
-    # Format for frontend
-    def fmt_gap(x):
-        if pd.isna(x):
-            return None
-        return f"+{x:.3f}"
-
-    merged["GapToAheadStr"] = merged["GapToAhead_s"].apply(fmt_gap)
-
-    # ----- PACK RESPONSE -----
+    # Export to Excel
+    df_ver.to_excel("ALO_telemetry1.xlsx", index=False)
+    
+    # -- clean dataframe ready for json
+    cols = [
+        "TimeBin", "TimeBinSize", "SessionTime",
+        "GridPosition", "LivePosition", "PositionsGained",
+        "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS",
+        "DistanceToDriverAhead", "DriverAhead"
+    ]
     final = {}
-
     for drv in session.drivers:
-        df_drv = merged[merged["DriverNumber"] == drv].copy()
+        df_drv = merged_tel[merged_tel["DriverNumber"] == drv].copy()
+        df_drv = df_drv[[c for c in cols if c in df_drv.columns]]
 
-        # reduce columns for cleaner JSON
-        keep = [
-            "SessionTime", "Distance", "X", "Y",
-            "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS",
-            "DriverAhead", "GapToAhead_s", "GapToAheadStr",
-            "LivePosition", "PositionsGained"
-        ]
+        df_drv = df_drv.map(lambda x: x.item() if hasattr(x, "item") else x)
 
-        df_drv = df_drv[keep]
+        df_drv = df_drv.replace([np.inf, -np.inf], np.nan)
+        df_drv = df_drv.where(pd.notnull(df_drv), None)
 
-        # convert to JSON-safe
-        df_drv = df_drv.replace({np.nan: None})
-        df_drv = df_drv.applymap(lambda x: x.item() if hasattr(x, "item") else x)
+        code = session.get_driver(drv)["Abbreviation"]
+        final[code] = df_drv.to_dict(orient="records")
 
-        final[session.get_driver(drv)["Abbreviation"]] = df_drv.to_dict(orient="records")
-
+    final = clean_for_json(final)
     return final
+    
 
 
-print(json.dumps(session_telemetry_view(2025, "Australia", "Race"), indent=4))
+def clean_for_json(obj):
+    """Recursively replace NaN/Inf with None so JSON is valid."""
+    if obj is None:
+        return None
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, (np.floating,)):
+        val = float(obj)
+        if math.isnan(val) or math.isinf(val):
+            return None
+        return val
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, dict):
+        return {k: clean_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [clean_for_json(v) for v in obj]
+    return obj
+
+
+with open("telemetry.json", "w", encoding="utf-8") as f:
+    json.dump(session_telemetry_view(2025, "Australia", "Race"), f, indent=2)

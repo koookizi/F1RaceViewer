@@ -90,6 +90,8 @@ export interface SessionLeaderboardResponse {
 export interface TelemetrySample {
   // Core timeline
   SessionTime: number; // seconds since session start
+  TimeBin: number; // time bin allocation
+  TimeBinSize: number;
   Distance: number | null; // meters around track
   X: number | null; // track coordinate
   Y: number | null; // track coordinate
@@ -98,19 +100,17 @@ export interface TelemetrySample {
   Speed: number | null; // km/h
   Throttle: number | null; // %
   Brake: number | null; // %
-  Gear: number | null;
+  nGear: number | null;
   RPM: number | null;
   DRS: number | null; // 0/1/2 etc depending on track
 
   // FastF1 telemetry metadata
-  DriverAhead: string | null; // driver code of car ahead
-  GapToAhead_m: number | null; // meters
-  GapToAhead_s: number | null; // seconds
-  GapToAheadStr: string | null; // "+0.237"
+  DistanceToDriverAhead: number | null;
 
   // Live race state (continuous)
   LivePosition: number | null; // 1–20 based on continuous distance
-  PositionsGained: number | null; // from grid vs live position
+  PositionsGained: string | null; // from grid vs live position
+  GridPosition: number | null;
 }
 
 // Entire telemetry output → map of driver code → array of telemetry samples
