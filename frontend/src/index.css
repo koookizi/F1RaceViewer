@@ -2,8 +2,9 @@
 @import "bootstrap-icons/font/bootstrap-icons.css";
 
 @plugin "daisyui" {
-  themes:
-    light --default,
-    dark --prefersdark,
-    night;
+  themes: light --default, dark --prefersdark, night;
+}
+
+html {
+  background-color: var(--color-base-300);
 }

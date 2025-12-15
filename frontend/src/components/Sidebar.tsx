@@ -4,9 +4,9 @@ export function Sidebar() {
   return (
     <div className="drawer lg:drawer-open">
       <input id="my-drawer-4" type="checkbox" className="drawer-toggle" />
-      <div className="drawer-content">
+      <div className="drawer-content flex flex-col min-h-screen">
         {/* Navbar */}
-        <nav className="navbar w-full bg-base-300">
+        <nav className="navbar w-full bg-base-200">
           <label
             htmlFor="my-drawer-4"
             aria-label="open sidebar"
@@ -28,10 +28,10 @@ export function Sidebar() {
               <path d="M14 10l2 2l-2 2"></path>
             </svg>
           </label>
-          <div className="px-4">Navbar Title</div>
+          <div className="px-4 font-bold">F1 Race Viewer</div>
         </nav>
         {/* Page content here */}
-        <main className="flex-1 max-w-full overflow-x-hidden px-6 py-8 md:px-12">
+        <main className="flex-1 max-w-full max-h-full p-5 bg-base-300">
           <Outlet />
         </main>
       </div>
@@ -44,7 +44,7 @@ export function Sidebar() {
         ></label>
         <div className="flex min-h-full flex-col items-start bg-base-200 is-drawer-close:w-14 is-drawer-open:w-64">
           {/* Sidebar content here */}
-          <ul className="menu w-full grow">
+          <ul className="menu w-full grow ">
             {/* List item */}
             <li>
               <NavLink

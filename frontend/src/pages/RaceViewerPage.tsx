@@ -264,118 +264,119 @@ export function RaceViewerPage() {
 
   return (
     <>
-      <h1 className="text-5xl font-bold tracking-tight text-slate-100">
-        Race Viewer
-      </h1>
+      <div className="h-full grid place-items-center">
+        {/* Race selection */}
+        <div className="card card-border bg-base-200 w-200">
+          <div className="card-body">
+            <h2 className="card-title">Race Selection</h2>
+            <div className="card-actions justify-start">
+              {/* Year dropdown */}
+              <div className="dropdown">
+                <div
+                  tabIndex={0}
+                  role="button"
+                  className="btn flex items-center gap-2 bg-base-100"
+                >
+                  {selectedYear || "Select Year"}
+                  <ChevronDownIcon
+                    aria-hidden="true"
+                    className="size-5 opacity-70"
+                  />
+                </div>
 
-      {/* Race selection */}
-      <div className="card card-border bg-base-100 w-auto mt-10 ">
-        <div className="card-body">
-          <h2 className="card-title">Race Selection</h2>
-          <div className="card-actions justify-start">
-            {/* Year dropdown */}
-            <div className="dropdown">
-              <div
-                tabIndex={0}
-                role="button"
-                className="btn flex items-center gap-2"
-              >
-                {selectedYear || "Select Year"}
-                <ChevronDownIcon
-                  aria-hidden="true"
-                  className="size-5 opacity-70"
-                />
+                <ul
+                  tabIndex={0}
+                  className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
+                >
+                  {yearOptions.map((year) => (
+                    <li key={year}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedYear(year)}
+                      >
+                        {year}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
-              <ul
-                tabIndex={0}
-                className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
-              >
-                {yearOptions.map((year) => (
-                  <li key={year}>
-                    <button type="button" onClick={() => setSelectedYear(year)}>
-                      {year}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {/* Country dropdown */}
+              {selectedYear && (
+                <div className="dropdown">
+                  <div
+                    tabIndex={0}
+                    role="button"
+                    className="btn flex items-center gap-2"
+                  >
+                    {selectedCountry || "Select Country"}
+                    <ChevronDownIcon
+                      aria-hidden="true"
+                      className="size-5 opacity-70"
+                    />
+                  </div>
+
+                  <ul
+                    tabIndex={0}
+                    className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
+                  >
+                    {countryOptions.map((country) => (
+                      <li key={country}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCountry(country)}
+                        >
+                          {country}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Sessions dropdown */}
+              {selectedCountry && (
+                <div className="dropdown">
+                  <div
+                    tabIndex={0}
+                    role="button"
+                    className="btn flex items-center gap-2"
+                  >
+                    {selectedSession || "Select Session"}
+                    <ChevronDownIcon
+                      aria-hidden="true"
+                      className="size-5 opacity-70"
+                    />
+                  </div>
+
+                  <ul
+                    tabIndex={0}
+                    className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
+                  >
+                    {sessionsOptions.map((session) => (
+                      <li key={session}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSession(session)}
+                        >
+                          {session}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {selectedSession && (
+                <button
+                  className="btn ms-5"
+                  onClick={() => {
+                    handleSearch();
+                  }}
+                >
+                  Search
+                </button>
+              )}
             </div>
-
-            {/* Country dropdown */}
-            {selectedYear && (
-              <div className="dropdown">
-                <div
-                  tabIndex={0}
-                  role="button"
-                  className="btn flex items-center gap-2"
-                >
-                  {selectedCountry || "Select Country"}
-                  <ChevronDownIcon
-                    aria-hidden="true"
-                    className="size-5 opacity-70"
-                  />
-                </div>
-
-                <ul
-                  tabIndex={0}
-                  className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
-                >
-                  {countryOptions.map((country) => (
-                    <li key={country}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedCountry(country)}
-                      >
-                        {country}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Sessions dropdown */}
-            {selectedCountry && (
-              <div className="dropdown">
-                <div
-                  tabIndex={0}
-                  role="button"
-                  className="btn flex items-center gap-2"
-                >
-                  {selectedSession || "Select Session"}
-                  <ChevronDownIcon
-                    aria-hidden="true"
-                    className="size-5 opacity-70"
-                  />
-                </div>
-
-                <ul
-                  tabIndex={0}
-                  className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
-                >
-                  {sessionsOptions.map((session) => (
-                    <li key={session}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSession(session)}
-                      >
-                        {session}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {selectedSession && (
-              <button
-                className="btn ms-5"
-                onClick={() => {
-                  handleSearch();
-                }}
-              >
-                Search
-              </button>
-            )}
           </div>
         </div>
       </div>
