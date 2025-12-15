@@ -58,7 +58,9 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
     keep_cols = ["Time", "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS", "DistanceToDriverAhead", "DriverAhead"]
 
     # -- get telemetry data for all drivers
+    print("-- Getting telemetry and laps data")
     for drv in session.drivers:
+        print("Getting data for:",drv)
         laps = session.laps.pick_drivers(drv)  # pick_driver (singular) is the usual one
         tel = laps.get_telemetry().copy()
 
@@ -73,11 +75,14 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
         tel["DriverCode"] = session.get_driver(drv)["Abbreviation"]
         tel["SessionTime"] = tel["Time"].dt.total_seconds()
 
+        tel = add_lap_number_from_lapstarts(tel, laps)
+
         all_tel.append(tel)
 
     merged_tel = pd.concat(all_tel, ignore_index=True)
 
     # -- time bin (for comparison of rows by time bin instead of sessionTime -since there has to be a common column in time to compare to)
+    print("-- doing time bin")
     bin_size = 0.2 # seconds
 
     merged_tel["TimeBin"] = (merged_tel["SessionTime"] / bin_size).round().astype("int64") # remember: time bin is not a measurement in seconds, it is a bin allocation
@@ -85,11 +90,14 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
 
     # to ensure that there is only one driver per bin (by first sorting sessiontimes, get rows by timebin and drivernumber (whcih gets possible duplicates),
     #  and remove the other duplicates via .tail(1)
-    merged_tel = (
-    merged_tel.sort_values(["DriverNumber", "SessionTime"])
-          .groupby(["TimeBin", "DriverNumber"], as_index=False)
-          .tail(1)
-    )
+    # merged_tel = (
+    # merged_tel.sort_values(["DriverNumber", "SessionTime"])
+    #       .groupby(["TimeBin", "DriverNumber"], as_index=False)
+    #       .tail(1)
+    # )
+    merged_tel = merged_tel.sort_values("SessionTime").drop_duplicates(
+    subset=["TimeBin", "DriverNumber"], keep="last"
+)
 
     # -- get additional details (e.g Grid positions ...) where applicable
 
@@ -110,15 +118,29 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
     # -- apply additional details to main df
 
     # > grid positions
+    print("-- grid positions")
     merged_tel["GridPosition"] = merged_tel["DriverNumber"].map(grid_positions)
 
     # > live positions
-    merged_tel = (
-    merged_tel.groupby("TimeBin", group_keys=False)
-              .apply(assign_positions_from_driver_ahead)
-              )
+    print("-- live positions")
+    # 1) Ensure one row per (TimeBin, DriverNumber): keep latest Time
+    merged_tel = merged_tel.sort_values("Time").drop_duplicates(
+        subset=["TimeBin", "DriverNumber"],
+        keep="last"
+    )
+
+    # 2) Sort so that "ahead" rows come first within each TimeBin
+    merged_tel = merged_tel.sort_values(
+        ["TimeBin", "LapNumber", "Distance"],
+        ascending=[True, False, False]
+    )
+
+    # 3) Assign positions 1..N within each TimeBin
+    merged_tel["LivePosition"] = merged_tel.groupby("TimeBin").cumcount() + 1
+
 
     # > positions gained
+    print("-- positions gained")
     diff = (merged_tel["GridPosition"] - merged_tel["LivePosition"]).round().astype("Int64")
 
     s = diff.astype("string")                 # "<NA>" supported
@@ -126,26 +148,32 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
     merged_tel.loc[diff > 0, "PositionsGained"] = "+" + s[diff > 0]
     
     # -- clean dataframe ready for json
+    print("-- preparing for json")
     cols = [
         "TimeBin", "TimeBinSize", "SessionTime",
-        "GridPosition", "LivePosition", "PositionsGained",
-        "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS",
-        "DistanceToDriverAhead"
+        "GridPosition", "LivePosition", "PositionsGained", "LapNumber",
+        "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS","DriverNumber","DriverCode"
     ]
-    final = {}
-    for drv in session.drivers:
-        df_drv = merged_tel[merged_tel["DriverNumber"] == drv].copy()
-        df_drv = df_drv[[c for c in cols if c in df_drv.columns]]
+    # 1) Select columns once
+    df = merged_tel[[c for c in cols if c in merged_tel.columns]].copy()
 
-        df_drv = df_drv.map(lambda x: x.item() if hasattr(x, "item") else x)
+    # 2) Clean once (vectorized)
+    df = df.replace([np.inf, -np.inf], np.nan)
 
-        df_drv = df_drv.replace([np.inf, -np.inf], np.nan)
-        df_drv = df_drv.where(pd.notnull(df_drv), None)
+    # Convert numpy scalars -> python scalars + NaN->None in one go:
+    # (this produces dtype=object, which is what you want for JSON)
+    df = df.astype(object).where(df.notna(), None)
 
-        code = session.get_driver(drv)["Abbreviation"]
-        final[code] = df_drv.to_dict(orient="records")
+    print("-- get driver info")
+    code_map = {int(d): session.get_driver(d)["Abbreviation"] for d in session.drivers}
 
-    final = clean_for_json(final)
+    final = {code_map[int(drv)]: g.to_dict("records")
+    for drv, g in df.groupby("DriverNumber", sort=False)}
+
+    # Export to excel
+    print("-- exporting to excel")
+    #merged_tel.to_excel("test_tel.xlsx", index=False)
+
     return JsonResponse(final, safe=False)
 
 
@@ -634,7 +662,49 @@ def prepare_laps_df_for_json(df: pd.DataFrame):
 
     return df
 
+def add_lap_number_from_lapstarts(tel: pd.DataFrame, laps_drv: pd.DataFrame) -> pd.DataFrame:
+    """
+    tel: telemetry for ONE driver, must include column 'Time'
+    laps_drv: session.laps filtered to ONE driver, must include 'LapNumber' and 'LapStartTime'
+    """
+    print("adding lap data to the tel data")
+    tel = tel.sort_values("Time").copy()
+
+    lapstarts = (
+        laps_drv[["LapNumber", "LapStartTime"]]
+        .dropna()
+        .sort_values("LapStartTime")
+        .copy()
+    )
+
+    # Assign the latest lap start that is <= telemetry time
+    tel = pd.merge_asof(
+        tel,
+        lapstarts,
+        left_on="Time",
+        right_on="LapStartTime",
+        direction="backward",
+        allow_exact_matches=True,
+    )
+
+    return tel
+
+def assign_live_position_from_lap_distance(df_bin: pd.DataFrame) -> pd.DataFrame:
+    print("assining the live positions")
+    df_bin = df_bin.copy()
+
+    # You want exactly one row per driver per TimeBin.
+    # If you have multiple samples per driver per bin, keep the latest sample.
+    df_bin = df_bin.sort_values("Time").drop_duplicates(subset=["DriverNumber"], keep="last")
+
+    # Sort "front to back"
+    df_bin = df_bin.sort_values(["LapNumber", "Distance"], ascending=[False, False])
+
+    df_bin["LivePosition"] = range(1, len(df_bin) + 1)
+    return df_bin
+
 def clean_for_json(obj):
+    print("-- cleaning json")
     """Recursively replace NaN/Inf with None so JSON is valid."""
     if obj is None:
         return None
@@ -654,56 +724,3 @@ def clean_for_json(obj):
     if isinstance(obj, list):
         return [clean_for_json(v) for v in obj]
     return obj
-
-def assign_positions_from_driver_ahead(df_bin):
-    """
-    df_bin contains ~20 rows (one per driver) for a single TimeBin.
-    Uses DriverAhead chain to assign LivePosition without using Distance.
-    """
-    df_bin = df_bin.copy()
-
-    # Build mapping: driver -> ahead_driver
-    ahead = dict(zip(df_bin["DriverCode"], df_bin["DriverAhead"]))
-
-    # Find leader(s): no one ahead
-    leaders = [d for d, a in ahead.items() if a is None or (isinstance(a, float) and pd.isna(a))]
-
-    if not leaders:
-        # Fallback if chain info missing: use Distance as a last resort
-        df_bin["LivePosition"] = (
-            df_bin["Distance"].rank(ascending=False, method="first").astype("int32")
-        )
-        return df_bin
-
-    leader = leaders[0]  # normally exactly one
-
-    # Invert mapping: ahead_driver -> driver_behind
-    behind = {}
-    for d, a in ahead.items():
-        if a is None or (isinstance(a, float) and pd.isna(a)):
-            continue
-        # in rare cases data can be messy; keep first occurrence
-        behind.setdefault(a, d)
-
-    # Walk the chain from leader backwards
-    order = [leader]
-    while order[-1] in behind:
-        nxt = behind[order[-1]]
-        if nxt in order:  # guard against loops
-            break
-        order.append(nxt)
-
-    # Assign positions
-    pos_map = {code: i + 1 for i, code in enumerate(order)}
-    df_bin["LivePosition"] = df_bin["DriverCode"].map(pos_map)
-
-    # Any drivers not connected in the chain: append by Distance fallback
-    if df_bin["LivePosition"].isna().any():
-        missing = df_bin[df_bin["LivePosition"].isna()].copy()
-        missing = missing.sort_values("Distance", ascending=False)
-        start = int(df_bin["LivePosition"].max() or 0)
-
-        df_bin.loc[missing.index, "LivePosition"] = range(start + 1, start + 1 + len(missing))
-
-    df_bin["LivePosition"] = df_bin["LivePosition"].astype("int32")
-    return df_bin

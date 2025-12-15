@@ -117,47 +117,41 @@ def session_telemetry_view(year, country, session_name, step=10):
         .apply(assign_live_position_from_lap_distance)
     )
 
-    
-    merged_tel.to_excel("test_telemetry1.xlsx", index=False)
+    # merged_tel.to_excel("test_telemetry1.xlsx", index=False)
 
-    
-    
     # > positions gained
-    # diff = (merged_tel["GridPosition"] - merged_tel["LivePosition"]).round().astype("Int64")
+    diff = (merged_tel["GridPosition"] - merged_tel["LivePosition"]).round().astype("Int64")
 
-    # s = diff.astype("string")                 # "<NA>" supported
-    # merged_tel["PositionsGained"] = s.where(diff.notna(), None)  # nulls -> None
-    # merged_tel.loc[diff > 0, "PositionsGained"] = "+" + s[diff > 0]
+    s = diff.astype("string")                 # "<NA>" supported
+    merged_tel["PositionsGained"] = s.where(diff.notna(), None)  # nulls -> None
+    merged_tel.loc[diff > 0, "PositionsGained"] = "+" + s[diff > 0]
 
     # Export to excel
     # df_ver = merged_tel[merged_tel["DriverCode"] == "ALO"]
     # df_ver.to_excel("ALO_telemetry1.xlsx", index=False)
     
     # -- clean dataframe ready for json
-    # cols = [
-    #     "TimeBin", "TimeBinSize", "SessionTime",
-    #     "GridPosition", "LivePosition", "PositionsGained",
-    #     "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS",
-    #     "DistanceToDriverAhead", "DriverAhead"
-    # ]
-    # final = {}
-    # for drv in session.drivers:
-    #     df_drv = merged_tel[merged_tel["DriverNumber"] == drv].copy()
-    #     df_drv = df_drv[[c for c in cols if c in df_drv.columns]]
+    cols = [
+        "TimeBin", "TimeBinSize", "SessionTime",
+        "GridPosition", "LivePosition", "PositionsGained",
+        "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS"
+    ]
+    final = {}
+    for drv in session.drivers:
+        df_drv = merged_tel[merged_tel["DriverNumber"] == drv].copy()
+        df_drv = df_drv[[c for c in cols if c in df_drv.columns]]
 
-    #     df_drv = df_drv.map(lambda x: x.item() if hasattr(x, "item") else x)
+        df_drv = df_drv.map(lambda x: x.item() if hasattr(x, "item") else x)
 
-    #     df_drv = df_drv.replace([np.inf, -np.inf], np.nan)
-    #     df_drv = df_drv.where(pd.notnull(df_drv), None)
+        df_drv = df_drv.replace([np.inf, -np.inf], np.nan)
+        df_drv = df_drv.where(pd.notnull(df_drv), None)
 
-    #     code = session.get_driver(drv)["Abbreviation"]
-    #     final[code] = df_drv.to_dict(orient="records")
+        code = session.get_driver(drv)["Abbreviation"]
+        final[code] = df_drv.to_dict(orient="records")
 
-    # final = clean_for_json(final)
-    # return final
+    final = clean_for_json(final)
+    return final
     
-
-
 def clean_for_json(obj):
     """Recursively replace NaN/Inf with None so JSON is valid."""
     if obj is None:

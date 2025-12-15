@@ -254,16 +254,6 @@ function getPos(
   // samples must be sorted by TimeBin (they should be from backend)
   for (let i = samples.length - 1; i >= 0; i--) {
     if (samples[i].TimeBin <= targetBin) {
-      if (driver.driver_code === "VER") {
-        console.log(
-          "t:",
-          t,
-          "targetBin:",
-          targetBin,
-          "found:",
-          samples[i].LivePosition
-        );
-      }
       return samples[i].LivePosition ?? null;
     }
   }
