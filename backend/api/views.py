@@ -196,6 +196,7 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
     drivers_data_req = urlopen(f"https://api.openf1.org/v1/drivers?session_key={session_df.loc[0, "session_key"]}")
     drivers_df = pd.DataFrame(json.loads(drivers_data_req.read().decode('utf-8')))
     finalJSON = {}
+    drivers = []
     for _, driver_row in drivers_df.iterrows():
         driver_info = {
             "driver_code": driver_row["name_acronym"],
@@ -208,7 +209,9 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
             "car_data": car_data[car_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
             "gap_data": gap_data[gap_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
         }
-        finalJSON[driver_row["name_acronym"]] = driver_info
+        drivers.append(driver_info)
+
+    finalJSON["drivers"] = drivers
 
     return JsonResponse(finalJSON, safe=False)
 

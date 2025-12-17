@@ -117,6 +117,10 @@ export interface LeaderboardDriverData {
   gap_data: LeaderboardGapData[];
 }
 
+export interface LeaderboardApiResponse {
+  drivers: LeaderboardDriverData[];
+}
+
 export interface LapData {
   Time: number | null;
   LapStartTime: number | null;

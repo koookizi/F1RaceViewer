@@ -5,7 +5,7 @@ import type {
   LapData,
   TelemetryDriverMap,
   TelemetrySample,
-  LeaderboardDriverData,
+  LeaderboardApiResponse,
 } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
 import hardTyre from "../assets/hard.svg";
@@ -36,7 +36,7 @@ export function RacePlaybackLeaderboard({
   const [telemetry, setTelemetry] = useState<TelemetryDriverMap | null>(null);
 
   const [leaderboardData, setLeaderboardData] =
-    useState<LeaderboardDriverData | null>(null);
+    useState<LeaderboardApiResponse | null>(null);
 
   const DRSTest = "Active";
 
@@ -49,7 +49,7 @@ export function RacePlaybackLeaderboard({
 
     fetch(url)
       .then((res) => res.json())
-      .then((json: LeaderboardDriverData) => {
+      .then((json: LeaderboardApiResponse) => {
         console.log("Leaderboard JSON:", json);
         setLeaderboardData(json);
       })
@@ -105,7 +105,7 @@ export function RacePlaybackLeaderboard({
           <thead></thead>
           <tbody>
             <AnimatePresence initial={false}>
-              {lapsData?.drivers
+              {leaderboardData?.drivers
                 .slice()
                 .sort(
                   (a, b) =>
