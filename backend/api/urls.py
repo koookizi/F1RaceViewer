@@ -10,6 +10,7 @@ urlpatterns = [
     path("session/<int:year>/<str:country>/<str:session_name>/playback/", views.session_playback_view, name="session-playback"),
     path("session/<int:year>/<str:country>/<str:session>/weather/", views.session_weather_view, name="session-weather"),
     path("session/<int:year>/<str:country>/<str:session>/laps/", views.session_laps_view, name="session-laps"),
-    path("session/<int:year>/<str:country>/<str:session_name>/telemetry/", views.session_telemetry_view, name="session-telemetry")
+    path("session/<int:year>/<str:country>/<str:session_name>/telemetry/", views.session_telemetry_view, name="session-telemetry"),
+    path("session/<int:year>/<str:country>/<str:session_name>/leaderboard/", views.session_leaderboard_view, name="session-leaderboard")
 
 ]

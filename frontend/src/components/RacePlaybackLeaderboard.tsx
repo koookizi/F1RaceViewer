@@ -5,6 +5,7 @@ import type {
   LapData,
   TelemetryDriverMap,
   TelemetrySample,
+  LeaderboardDriverData,
 } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
 import hardTyre from "../assets/hard.svg";
@@ -34,45 +35,66 @@ export function RacePlaybackLeaderboard({
   );
   const [telemetry, setTelemetry] = useState<TelemetryDriverMap | null>(null);
 
+  const [leaderboardData, setLeaderboardData] =
+    useState<LeaderboardDriverData | null>(null);
+
   const DRSTest = "Active";
 
   useEffect(() => {
     const url = `http://localhost:8000/api/session/${year}/${encodeURIComponent(
       country
-    )}/${encodeURIComponent(session)}/laps/`;
+    )}/${encodeURIComponent(session)}/leaderboard/`;
 
     console.log("Fetching leaderboard from:", url);
 
     fetch(url)
       .then((res) => res.json())
-      .then((json: SessionLeaderboardResponse) => {
+      .then((json: LeaderboardDriverData) => {
         console.log("Leaderboard JSON:", json);
-        setLapsData(json);
+        setLeaderboardData(json);
       })
       .catch((err) => {
         console.error("Failed to load leaderboard data", err);
       });
   }, [searchButton]);
 
-  useEffect(() => {
-    const url = `http://localhost:8000/api/session/${year}/${encodeURIComponent(
-      country
-    )}/${encodeURIComponent(session)}/telemetry/`;
+  //   useEffect(() => {
+  //     const url = `http://localhost:8000/api/session/${year}/${encodeURIComponent(
+  //       country
+  //     )}/${encodeURIComponent(session)}/laps/`;
 
-    console.log("Fetching telemetry from:", url);
+  //     console.log("Fetching laps from:", url);
 
-    fetch(url)
-      .then((res) => res.json())
-      .then((json: TelemetryDriverMap) => {
-        console.log("Telemetry JSON:", json);
-        setTelemetry(json);
-      })
-      .catch((err) => {
-        console.error("Failed to load telemetry data", err);
-      });
-  }, [searchButton]);
+  //     fetch(url)
+  //       .then((res) => res.json())
+  //       .then((json: SessionLeaderboardResponse) => {
+  //         console.log("Laps JSON:", json);
+  //         setLapsData(json);
+  //       })
+  //       .catch((err) => {
+  //         console.error("Failed to load laps data", err);
+  //       });
+  //   }, [searchButton]);
 
-  if (!lapsData || !telemetry) {
+  //   useEffect(() => {
+  //     const url = `http://localhost:8000/api/session/${year}/${encodeURIComponent(
+  //       country
+  //     )}/${encodeURIComponent(session)}/telemetry/`;
+
+  //     console.log("Fetching telemetry from:", url);
+
+  //     fetch(url)
+  //       .then((res) => res.json())
+  //       .then((json: TelemetryDriverMap) => {
+  //         console.log("Telemetry JSON:", json);
+  //         setTelemetry(json);
+  //       })
+  //       .catch((err) => {
+  //         console.error("Failed to load telemetry data", err);
+  //       });
+  //   }, [searchButton]);
+
+  if (!leaderboardData) {
     return <div className="skeleton h-32 w-auto mt-5"></div>;
   }
   return (
@@ -243,9 +265,9 @@ function getCompound(driver: DriverData, t: number) {
 }
 
 function getPos(
-  telemetry: TelemetryDriverMap,
+  telemetry: LeaderboardPositionsData,
   driver: DriverData,
-  t: number
+  currentTime: number
 ): number | null {
   const samples = telemetry[driver.driver_code];
   if (!samples || samples.length === 0) return null;

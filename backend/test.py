@@ -1,97 +1,85 @@
+from urllib.request import urlopen
 import fastf1 
 import pandas as pd
 import numpy as np
 import json
+from datetime import datetime, timezone, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.request import urlopen
+from urllib.parse import urlencode
 import math
 import openpyxl
 
-def add_lap_number_from_lapstarts(tel: pd.DataFrame, laps_drv: pd.DataFrame) -> pd.DataFrame:
-    """
-    tel: telemetry for ONE driver, must include column 'Time'
-    laps_drv: session.laps filtered to ONE driver, must include 'LapNumber' and 'LapStartTime'
-    """
-    tel = tel.sort_values("Time").copy()
+def session_leaderboard_view(year, country, session_name):    
+    # OpenF1
+    session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
+    session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
 
-    lapstarts = (
-        laps_drv[["LapNumber", "LapStartTime"]]
-        .dropna()
-        .sort_values("LapStartTime")
-        .copy()
-    )
+    openf1_start = pd.to_datetime(session_df.loc[0, "date_start"], utc=True)
+    openf1_end = pd.to_datetime(session_df.loc[0, "date_end"], utc=True)
 
-    # Assign the latest lap start that is <= telemetry time
-    tel = pd.merge_asof(
-        tel,
-        lapstarts,
-        left_on="Time",
-        right_on="LapStartTime",
-        direction="backward",
-        allow_exact_matches=True,
-    )
-
-    return tel
-
-def assign_live_position_from_lap_distance(df_bin: pd.DataFrame) -> pd.DataFrame:
-    df_bin = df_bin.copy()
-
-    # You want exactly one row per driver per TimeBin.
-    # If you have multiple samples per driver per bin, keep the latest sample.
-    df_bin = df_bin.sort_values("Time").drop_duplicates(subset=["DriverNumber"], keep="last")
-
-    # Sort "front to back"
-    df_bin = df_bin.sort_values(["LapNumber", "Distance"], ascending=[False, False])
-
-    df_bin["LivePosition"] = range(1, len(df_bin) + 1)
-    return df_bin
-
-
-def session_telemetry_view(year, country, session_name, step=10):
+    # FastF1
     session = fastf1.get_session(year, country, session_name)
     session.load()
 
-    all_tel = []
+    fastf1_start = session.t0_date + session.session_start_time # gets the actual datetime of session start (first telemetry point)
 
-    keep_cols = ["Time", "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS", "DistanceToDriverAhead", "DriverAhead"]
+    # ---
 
-    # -- get telemetry data for all drivers
-    for drv in session.drivers:
-        laps = session.laps.pick_drivers(drv)  # pick_driver (singular) is the usual one
-        tel = laps.get_telemetry().copy()
-
-        # Reduce columns early
-        tel = tel[[c for c in keep_cols if c in tel.columns]]
-
-        # Downsample early (HUGE speed win + smaller JSON)
-        if step and step > 1:
-            tel = tel.iloc[::step].copy()
-
-        tel["DriverNumber"] = drv
-        tel["DriverCode"] = session.get_driver(drv)["Abbreviation"]
-        tel["SessionTime"] = tel["Time"].dt.total_seconds()
-
-        tel = add_lap_number_from_lapstarts(tel, laps)
-
-        all_tel.append(tel)
-
-    merged_tel = pd.concat(all_tel, ignore_index=True)
-
-    # -- time bin (for comparison of rows by time bin instead of sessionTime -since there has to be a common column in time to compare to)
-    bin_size = 0.2 # seconds
-
-    merged_tel["TimeBin"] = (merged_tel["SessionTime"] / bin_size).round().astype("int64") # remember: time bin is not a measurement in seconds, it is a bin allocation
-    merged_tel["TimeBinSize"] = bin_size
-
-    # to ensure that there is only one driver per bin (by first sorting sessiontimes, get rows by timebin and drivernumber (whcih gets possible duplicates),
-    #  and remove the other duplicates via .tail(1)
-    merged_tel = (
-    merged_tel.sort_values(["DriverNumber", "SessionTime"])
-          .groupby(["TimeBin", "DriverNumber"], as_index=False)
-          .tail(1)
+    # get position data
+    positions_data_req = urlopen(f"https://api.openf1.org/v1/position?meeting_key={session_df.loc[0, 'meeting_key']}&date>{session_df.loc[0, "date_start"]}")
+    positions_data = pd.DataFrame(json.loads(positions_data_req.read().decode('utf-8')))
+    positions_data["date"] = pd.to_datetime(
+        positions_data["date"],
+        utc=True,
+        format="ISO8601"
     )
 
-    # -- get additional details (e.g Grid positions ...) where applicable
+    positions_data["SessionTime"] = (
+        positions_data["date"] - session.t0_date.replace(tzinfo=timezone.utc)
+    ).dt.total_seconds()
 
-    # > grid positions
+    positions_data = positions_data[
+    ["SessionTime"] + [c for c in positions_data.columns if c != "SessionTime"]]
+    positions_data.sort_values("SessionTime")
+
+    positions_data = positions_data.drop(columns=['date', 'meeting_key', 'session_key'])
+
+    # > cleans any NaNs for JSON
+    positions_data = positions_data.astype(object)
+    positions_data = positions_data.where(pd.notna(positions_data), None)
+
+    # get lap data
+    laps_data_req = urlopen(f"https://api.openf1.org/v1/laps?session_key={session_df.loc[0, "session_key"]}&date_start>={session_df.loc[0, "date_start"]}")
+    laps_data = pd.DataFrame(json.loads(laps_data_req.read().decode('utf-8')))
+    laps_data["date_start"] = pd.to_datetime(
+        laps_data["date_start"],
+        utc=True,
+        format="ISO8601"
+    )
+
+    laps_data["SessionTime"] = (
+        laps_data["date_start"] - session.t0_date.replace(tzinfo=timezone.utc)
+    ).dt.total_seconds()
+
+    laps_data = laps_data.drop(columns=['meeting_key', 'session_key', 'date_start'])
+
+    laps_data = laps_data[
+    ["SessionTime"] + [c for c in laps_data.columns if c != "SessionTime"]
+    ]
+
+    laps_data = laps_data.astype(object)
+    laps_data = laps_data.where(pd.notna(laps_data), None)
+
+    # get stint data
+    stint_data_req = urlopen(f"https://api.openf1.org/v1/stints?session_key={session_df.loc[0, "session_key"]}")
+    stint_data = pd.DataFrame(json.loads(stint_data_req.read().decode('utf-8')))
+    stint_data = stint_data.drop(columns=['meeting_key', 'session_key'])
+
+    stint_data = stint_data.astype(object)
+    stint_data = stint_data.where(pd.notna(stint_data), None)
+
+    # get car data
     grid_positions = {}
     results = session.results
     if results is not None and not results.empty:
@@ -104,77 +92,82 @@ def session_telemetry_view(year, country, session_name, step=10):
         for drv in session.drivers:
             grid_positions[drv] = None
 
+    keep_cols = ["SessionTime", "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS", "Time"]
 
-    # -- apply additional details to main df
+    all_tel = []
+    for drv in session.drivers:
+        print("Getting data for:",drv)
+        laps = session.laps.pick_drivers(drv)  # pick_driver (singular) is the usual one
+        tel = laps.get_telemetry().copy()
 
-    # > grid positions
-    merged_tel["GridPosition"] = merged_tel["DriverNumber"].map(grid_positions)
+        # Reduce columns early
+        tel = tel[[c for c in keep_cols if c in tel.columns]]
 
-    # > live positions
-    merged_tel = (
-        merged_tel
-        .groupby("TimeBin", group_keys=False)
-        .apply(assign_live_position_from_lap_distance)
+        # Downsample early (HUGE speed win + smaller JSON)
+        step=10
+        if step and step > 1:
+            tel = tel.iloc[::step].copy()
+
+        tel["driver_number"] = drv
+        tel["SessionTime"] = tel["Time"].dt.total_seconds()
+        all_tel.append(tel)
+
+    car_data = pd.concat(all_tel, ignore_index=True)
+    car_data = car_data[
+    ["SessionTime"] + [c for c in car_data.columns if c != "SessionTime"]
+    ]
+
+    car_data = car_data.astype(object)
+    car_data = car_data.where(pd.notna(car_data), None)
+    car_data["driver_number"] = pd.to_numeric(car_data["driver_number"], errors="coerce").astype("Int64") # because FastF1 gives str
+
+    car_data = car_data.drop(columns=['Time'])
+    car_data = car_data[car_data["SessionTime"] >= (fastf1_start - session.t0_date).total_seconds()]  # remove neglible times
+
+    car_data["grid_position"] = car_data["driver_number"].astype(str).map(grid_positions)
+
+    # get gap data
+    gap_data_req = urlopen(f"https://api.openf1.org/v1/intervals?meeting_key={session_df.loc[0, 'meeting_key']}")
+    gap_data = pd.DataFrame(json.loads(gap_data_req.read().decode('utf-8')))
+    gap_data["date"] = pd.to_datetime(
+        gap_data["date"],
+        utc=True,
+        format="ISO8601"
     )
 
-    # merged_tel.to_excel("test_telemetry1.xlsx", index=False)
+    gap_data["SessionTime"] = (
+        gap_data["date"] - session.t0_date.replace(tzinfo=timezone.utc)
+    ).dt.total_seconds()
 
-    # > positions gained
-    diff = (merged_tel["GridPosition"] - merged_tel["LivePosition"]).round().astype("Int64")
+    gap_data = gap_data[
+    ["SessionTime"] + [c for c in gap_data.columns if c != "SessionTime"]]
+    gap_data.sort_values("SessionTime")
 
-    s = diff.astype("string")                 # "<NA>" supported
-    merged_tel["PositionsGained"] = s.where(diff.notna(), None)  # nulls -> None
-    merged_tel.loc[diff > 0, "PositionsGained"] = "+" + s[diff > 0]
+    gap_data = gap_data.drop(columns=['date', 'meeting_key', 'session_key'])
 
-    # Export to excel
-    # df_ver = merged_tel[merged_tel["DriverCode"] == "ALO"]
-    # df_ver.to_excel("ALO_telemetry1.xlsx", index=False)
+    # > cleans any NaNs for JSON
+    gap_data = gap_data.astype(object)
+    gap_data = gap_data.where(pd.notna(gap_data), None)
+
+    # -- get driver info / final structure
+    drivers_data_req = urlopen(f"https://api.openf1.org/v1/drivers?session_key={session_df.loc[0, "session_key"]}")
+    drivers_df = pd.DataFrame(json.loads(drivers_data_req.read().decode('utf-8')))
+    finalJSON = {}
+    for _, driver_row in drivers_df.iterrows():
+        driver_info = {
+            "driver_code": driver_row["name_acronym"],
+            "driver_number": driver_row["driver_number"],
+            "driver_fullName": driver_row["full_name"],
+            "team_colour": driver_row["team_colour"],
+            #"positions_data": positions_data[positions_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
+            #"laps_data": laps_data[laps_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
+            #"stint_data": stint_data[stint_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
+            #"car_data": car_data[car_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
+            #"gap_data": gap_data[gap_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
+        }
+        finalJSON[driver_row["name_acronym"]] = driver_info
+
+    print(json.dumps(finalJSON, indent=4))
     
-    # -- clean dataframe ready for json
-    cols = [
-        "TimeBin", "TimeBinSize", "SessionTime",
-        "GridPosition", "LivePosition", "PositionsGained",
-        "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS"
-    ]
-    final = {}
-    for drv in session.drivers:
-        df_drv = merged_tel[merged_tel["DriverNumber"] == drv].copy()
-        df_drv = df_drv[[c for c in cols if c in df_drv.columns]]
 
-        df_drv = df_drv.map(lambda x: x.item() if hasattr(x, "item") else x)
-
-        df_drv = df_drv.replace([np.inf, -np.inf], np.nan)
-        df_drv = df_drv.where(pd.notnull(df_drv), None)
-
-        code = session.get_driver(drv)["Abbreviation"]
-        final[code] = df_drv.to_dict(orient="records")
-
-    final = clean_for_json(final)
-    return final
-    
-def clean_for_json(obj):
-    """Recursively replace NaN/Inf with None so JSON is valid."""
-    if obj is None:
-        return None
-    if isinstance(obj, float):
-        if math.isnan(obj) or math.isinf(obj):
-            return None
-        return obj
-    if isinstance(obj, (np.floating,)):
-        val = float(obj)
-        if math.isnan(val) or math.isinf(val):
-            return None
-        return val
-    if isinstance(obj, (np.integer,)):
-        return int(obj)
-    if isinstance(obj, dict):
-        return {k: clean_for_json(v) for k, v in obj.items()}
-    if isinstance(obj, list):
-        return [clean_for_json(v) for v in obj]
-    return obj
-
-
-# with open("telemetry.json", "w", encoding="utf-8") as f:
-#     json.dump(session_telemetry_view(2025, "Australia", "Race"), f, indent=2)
-
-session_telemetry_view(2025, "Australia", "Race")
+session_leaderboard_view(2025, "United Kingdom", "Race")

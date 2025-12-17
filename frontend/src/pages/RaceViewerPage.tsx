@@ -29,19 +29,21 @@ export interface Result {
 }
 
 export function RaceViewerPage() {
+  // -- Race selection
   const [yearOptions, setYearOptions] = useState<string[]>([]);
   const [selectedYear, setSelectedYear] = useState<string>("");
   const [countryOptions, setCountryOptions] = useState<string[]>([]);
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [sessionsOptions, setSessionsOptions] = useState<string[]>([]);
   const [selectedSession, setSelectedSession] = useState<string>("");
+  const [searchButton, setSearchButton] = useState(false);
+  const [showRaceSelection, setShowRaceSelection] = useState(true);
+
+  // -- Summary
   const [circuitName, setCircuitName] = useState("");
   const [results, setResults] = useState<Result[]>([]);
-  const [searchButton, setSearchButton] = useState(false);
   const [loadingResults, setLoadingResults] = useState(false);
   const [showResultsBox, setShowResultsBox] = useState(false);
-  const [activeTab, setActiveTab] = useState<"summary" | "playback" | "">("");
-  const [showTabs, setShowTabs] = useState(false);
   const [showStartGrid, setShowStartGrid] = useState(false);
   const raceSessionsWithGridPos = [
     "Race",
@@ -49,18 +51,16 @@ export function RaceViewerPage() {
     "Sprint Shootout",
     "Sprint Qualifying",
   ];
+
+  // -- Tabs
+  const [activeTab, setActiveTab] = useState<"summary" | "playback" | "">("");
+  const [showTabs, setShowTabs] = useState(false);
+
   const [showSummarySection, setShowSummarySection] = useState(false);
   const [showRacePlayBackSection, setShowRacePlayBackSection] = useState(false);
 
   // -- Race Playback
   const [currentTime, setCurrentTime] = useState(0);
-  const [showRacePlayBackBox, setShowRacePlayBackBox] = useState(false);
-  const [showRacePlayBackHeader, setShowRacePlayBackHeader] = useState(false);
-  const [showRacePlayBackWeatherInfo, setShowRacePlayBackWeatherInfo] =
-    useState(false);
-  const [showRacePlayBackLeaderboard, setShowRacePlayBackLeaderboard] =
-    useState(false);
-
   const [data, setData] = useState<PlaybackData | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
@@ -166,6 +166,7 @@ export function RaceViewerPage() {
     setActiveTab("summary");
     setSearchButton(true);
     setLoadingResults(true);
+    setShowRaceSelection(false);
 
     if (raceSessionsWithGridPos.includes(selectedSession)) {
       console.log("showing start grid");
@@ -266,122 +267,125 @@ export function RaceViewerPage() {
 
   return (
     <>
-      <div className="h-full grid place-items-center">
-        {/* Race selection */}
-        <div className="card card-border bg-base-200 w-200">
-          <div className="card-body">
-            <h2 className="card-title">Race Selection</h2>
-            <div className="card-actions justify-start">
-              {/* Year dropdown */}
-              <div className="dropdown">
-                <div
-                  tabIndex={0}
-                  role="button"
-                  className="btn flex items-center gap-2 bg-base-100"
-                >
-                  {selectedYear || "Select Year"}
-                  <ChevronDownIcon
-                    aria-hidden="true"
-                    className="size-5 opacity-70"
-                  />
+      {/* Race Selection Section */}
+      {showRaceSelection && (
+        <div className="h-full grid place-items-center">
+          {/* Race selection */}
+          <div className="card card-border bg-base-200 w-200">
+            <div className="card-body">
+              <h2 className="card-title">Race Selection</h2>
+              <div className="card-actions justify-start">
+                {/* Year dropdown */}
+                <div className="dropdown">
+                  <div
+                    tabIndex={0}
+                    role="button"
+                    className="btn flex items-center gap-2 bg-base-100"
+                  >
+                    {selectedYear || "Select Year"}
+                    <ChevronDownIcon
+                      aria-hidden="true"
+                      className="size-5 opacity-70"
+                    />
+                  </div>
+
+                  <ul
+                    tabIndex={0}
+                    className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
+                  >
+                    {yearOptions.map((year) => (
+                      <li key={year}>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedYear(year)}
+                        >
+                          {year}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
 
-                <ul
-                  tabIndex={0}
-                  className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
-                >
-                  {yearOptions.map((year) => (
-                    <li key={year}>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedYear(year)}
-                      >
-                        {year}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                {/* Country dropdown */}
+                {selectedYear && (
+                  <div className="dropdown">
+                    <div
+                      tabIndex={0}
+                      role="button"
+                      className="btn flex items-center gap-2"
+                    >
+                      {selectedCountry || "Select Country"}
+                      <ChevronDownIcon
+                        aria-hidden="true"
+                        className="size-5 opacity-70"
+                      />
+                    </div>
+
+                    <ul
+                      tabIndex={0}
+                      className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
+                    >
+                      {countryOptions.map((country) => (
+                        <li key={country}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCountry(country)}
+                          >
+                            {country}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Sessions dropdown */}
+                {selectedCountry && (
+                  <div className="dropdown">
+                    <div
+                      tabIndex={0}
+                      role="button"
+                      className="btn flex items-center gap-2"
+                    >
+                      {selectedSession || "Select Session"}
+                      <ChevronDownIcon
+                        aria-hidden="true"
+                        className="size-5 opacity-70"
+                      />
+                    </div>
+
+                    <ul
+                      tabIndex={0}
+                      className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
+                    >
+                      {sessionsOptions.map((session) => (
+                        <li key={session}>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSession(session)}
+                          >
+                            {session}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {selectedSession && (
+                  <button
+                    className="btn ms-5"
+                    onClick={() => {
+                      handleSearch();
+                    }}
+                  >
+                    Search
+                  </button>
+                )}
               </div>
-
-              {/* Country dropdown */}
-              {selectedYear && (
-                <div className="dropdown">
-                  <div
-                    tabIndex={0}
-                    role="button"
-                    className="btn flex items-center gap-2"
-                  >
-                    {selectedCountry || "Select Country"}
-                    <ChevronDownIcon
-                      aria-hidden="true"
-                      className="size-5 opacity-70"
-                    />
-                  </div>
-
-                  <ul
-                    tabIndex={0}
-                    className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
-                  >
-                    {countryOptions.map((country) => (
-                      <li key={country}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCountry(country)}
-                        >
-                          {country}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Sessions dropdown */}
-              {selectedCountry && (
-                <div className="dropdown">
-                  <div
-                    tabIndex={0}
-                    role="button"
-                    className="btn flex items-center gap-2"
-                  >
-                    {selectedSession || "Select Session"}
-                    <ChevronDownIcon
-                      aria-hidden="true"
-                      className="size-5 opacity-70"
-                    />
-                  </div>
-
-                  <ul
-                    tabIndex={0}
-                    className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
-                  >
-                    {sessionsOptions.map((session) => (
-                      <li key={session}>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedSession(session)}
-                        >
-                          {session}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {selectedSession && (
-                <button
-                  className="btn ms-5"
-                  onClick={() => {
-                    handleSearch();
-                  }}
-                >
-                  Search
-                </button>
-              )}
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* -- Main session section -- */}
       {/* Tabs */}

@@ -41,6 +41,82 @@ export type WeatherApiResponse = {
   rangeWindSpeed: [number, number];
 };
 
+// Leaderboard Data Types
+
+export interface LeaderboardPositionsData {
+  SessionTime: number;
+  driver_number: number;
+  position: number;
+}
+
+export interface LeaderboardLapsData {
+  SessionTime: number;
+  driver_number: number;
+  lap_number: number;
+
+  duration_sector_1: number;
+  duration_sector_2: number;
+  duration_sector_3: number;
+
+  i1_speed: number;
+  i2_speed: number;
+
+  is_pit_out_lap: boolean;
+
+  lap_duration: number;
+
+  segments_sector_1: Array<number>;
+  segments_sector_2: Array<number>;
+  segments_sector_3: Array<number>;
+
+  st_speed: number;
+}
+
+export interface LeaderboardStintData {
+  stint_number: number;
+  driver_number: number;
+  lap_start: number;
+  lap_end: number;
+  compound: "SOFT" | "MEDIUM" | "HARD" | "INTERMEDIATE" | "WET" | "UNKNOWN";
+  tyre_age_at_start: number;
+}
+
+export interface LeaderboardCarData {
+  SessionTime: number;
+  Distance: number;
+  X: number;
+  Y: number;
+
+  Speed: number;
+  Throttle: number;
+  Brake: boolean;
+  nGear: number;
+  RPM: number;
+  DRS: number;
+
+  driver_number: number;
+  grid_position: number;
+}
+
+export interface LeaderboardGapData {
+  SessionTime: number;
+  gap_to_leader: number;
+  interval: number;
+  driver_number: number;
+}
+
+export interface LeaderboardDriverData {
+  driver_code: string;
+  driver_number: number;
+  driver_fullName: string;
+  team_colour: string;
+  positions_data: LeaderboardPositionsData[];
+  laps_data: LeaderboardLapsData[];
+  stint_data: LeaderboardStintData[];
+  car_data: LeaderboardCarData[];
+  gap_data: LeaderboardGapData[];
+}
+
 export interface LapData {
   Time: number | null;
   LapStartTime: number | null;
