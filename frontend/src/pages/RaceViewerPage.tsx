@@ -436,6 +436,7 @@ export function RaceViewerPage() {
               country={selectedCountry}
               session={selectedSession}
               currentTime={currentTime}
+              searchButton={searchButton}
             />
 
             {/* Race playback circuit */}
