@@ -28,7 +28,7 @@ export function PlaybackControls({
     return <div className="skeleton h-24 w-auto mt-2"></div>;
   }
 
-  const { raceDuration, totalLaps, drivers } = data;
+  const { raceDuration, totalLaps, drivers, playbackControlOffset } = data;
 
   const leader = drivers[0];
   const leaderPos = leader
@@ -95,7 +95,7 @@ export function PlaybackControls({
           {/* slider */}
           <input
             type="range"
-            min={0}
+            min={playbackControlOffset}
             max={raceDuration}
             step={0.2}
             value={currentTime}

@@ -19,6 +19,7 @@ type RacePlaybackLeaderboardProps = {
   country: string;
   session: string;
   currentTime: number;
+  searchButton: boolean;
 };
 
 export function RacePlaybackLeaderboard({
@@ -26,6 +27,7 @@ export function RacePlaybackLeaderboard({
   country,
   session,
   currentTime,
+  searchButton,
 }: RacePlaybackLeaderboardProps) {
   const [lapsData, setLapsData] = useState<SessionLeaderboardResponse | null>(
     null
@@ -50,7 +52,7 @@ export function RacePlaybackLeaderboard({
       .catch((err) => {
         console.error("Failed to load leaderboard data", err);
       });
-  }, [year, country, session]);
+  }, [searchButton]);
 
   useEffect(() => {
     const url = `http://localhost:8000/api/session/${year}/${encodeURIComponent(
@@ -68,7 +70,7 @@ export function RacePlaybackLeaderboard({
       .catch((err) => {
         console.error("Failed to load telemetry data", err);
       });
-  }, [year, country, session]);
+  }, [searchButton]);
 
   if (!lapsData || !telemetry) {
     return <div className="skeleton h-32 w-auto mt-5"></div>;

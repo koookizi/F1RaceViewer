@@ -3,12 +3,15 @@ import React from "react";
 import type { PlaybackData } from "../types";
 import { getPositionAtTime } from "../helpers/playback";
 
-type RacePlaybackProps = {
+type RacePlaybackCircuitProps = {
   data: PlaybackData | null;
   currentTime: number;
 };
 
-export function RacePlayback({ data, currentTime }: RacePlaybackProps) {
+export function RacePlaybackCircuit({
+  data,
+  currentTime,
+}: RacePlaybackCircuitProps) {
   if (!data) {
     return <div className="skeleton h-32 w-auto mt-5"></div>;
   }

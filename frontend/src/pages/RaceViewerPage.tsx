@@ -2,7 +2,7 @@ import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { useState, useEffect, useRef } from "react";
 import { DriverAvatar } from "../components/DriverAvatar";
 import { StartingGrid } from "../components/StartingGrid";
-import { RacePlayback } from "../components/RacePlayback";
+import { RacePlaybackCircuit } from "../components/RacePlaybackCircuit";
 import { RacePlaybackLeaderboard } from "../components/RacePlaybackLeaderboard";
 import { WeatherInfo } from "../components/RacePlaybackWeatherInfo";
 import { PlaybackControls } from "../components/PlaybackControls";
@@ -74,16 +74,18 @@ export function RaceViewerPage() {
     const url = `http://localhost:8000/api/session/${selectedYear}/${encodeURIComponent(
       selectedCountry
     )}/${encodeURIComponent(selectedSession)}/playback/`;
+    console.log("Fetching playback from:", url);
 
     fetch(url)
       .then((res) => res.json())
       .then((json: PlaybackData) => {
         setData(json);
-        setCurrentTime(0);
+        setCurrentTime(json.playbackControlOffset);
         setIsPlaying(false);
+        console.log("Playback JSON:", json);
       })
       .catch((err) => console.error("Failed to load playback", err));
-  }, [selectedYear, selectedCountry, selectedSession]);
+  }, [searchButton]);
 
   // Animation loop
   useEffect(() => {
@@ -437,7 +439,7 @@ export function RaceViewerPage() {
             />
 
             {/* Race playback circuit */}
-            <RacePlayback data={data} currentTime={currentTime} />
+            <RacePlaybackCircuit data={data} currentTime={currentTime} />
           </>
         )}
       </div>

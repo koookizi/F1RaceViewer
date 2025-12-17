@@ -7,6 +7,10 @@ import pandas as pd
 import numpy as np
 from functools import lru_cache
 from .helpers.geometry import rotate, normalize_xy
+import json
+from datetime import datetime
+from urllib.request import urlopen
+from datetime import timezone
 
 
 def season_years(request):
@@ -314,11 +318,23 @@ def session_weather_view(request, year: int, country: str, session: str):
          })
 
 @lru_cache(maxsize=32)
-def session_playback_view(request, year: int, country: str, session: str):
-    session = fastf1.get_session(year, country, session)
+def session_playback_view(request, year: int, country: str, session_name: str):
+    # OpenF1
+    session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
+    session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
+
+    openf1_start = pd.to_datetime(session_df.loc[0, "date_start"], utc=True)
+    openf1_end = pd.to_datetime(session_df.loc[0, "date_end"], utc=True)
+
+    # FastF1
+    session = fastf1.get_session(year, country, session_name)
     session.load()
 
     circuit_info = session.get_circuit_info() # gets rotation angle, corner pos, numbers etc.
+
+    fastf1_start = session.t0_date + session.session_start_time # gets the actual datetime of session start (first telemetry point)
+    playbackControlOffset = (fastf1_start - session.t0_date).total_seconds() # in seconds
+    fastf1_openf1_offset = (fastf1_start.replace(tzinfo=timezone.utc) - openf1_start).total_seconds() # in seconds. fastf1 is the later one
 
     # --- build track polyline (using fastest lap of pole or just first driver) 
     ref_driver = session.drivers[0]
@@ -407,6 +423,7 @@ def session_playback_view(request, year: int, country: str, session: str):
         "drivers": drivers_payload,
         "raceDuration": race_duration,
         "totalLaps": total_laps,
+        "playbackControlOffset" : playbackControlOffset
     })
 
 @lru_cache(maxsize=32)

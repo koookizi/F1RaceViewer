@@ -18,6 +18,7 @@ export type PlaybackData = {
   drivers: DriverSeries[];
   raceDuration: number;
   totalLaps: number;
+  playbackControlOffset: number;
 };
 
 export type WeatherSample = {
