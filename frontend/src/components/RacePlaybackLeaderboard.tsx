@@ -6,6 +6,13 @@ import type {
   TelemetryDriverMap,
   TelemetrySample,
   LeaderboardApiResponse,
+  LeaderboardDriverData,
+  LeaderboardPositionsData,
+  LeaderboardLapsData,
+  LeaderboardStintData,
+  LeaderboardPitData,
+  Compound,
+  LeaderboardCarData,
 } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
 import hardTyre from "../assets/hard.svg";
@@ -37,8 +44,6 @@ export function RacePlaybackLeaderboard({
 
   const [leaderboardData, setLeaderboardData] =
     useState<LeaderboardApiResponse | null>(null);
-
-  const DRSTest = "Active";
 
   useEffect(() => {
     const url = `http://localhost:8000/api/session/${year}/${encodeURIComponent(
@@ -109,8 +114,8 @@ export function RacePlaybackLeaderboard({
                 .slice()
                 .sort(
                   (a, b) =>
-                    (getPos(telemetry, a, currentTime) ?? 9999) -
-                    (getPos(telemetry, b, currentTime) ?? 9999)
+                    (getPos(a.positions_data, currentTime) ?? 9999) -
+                    (getPos(b.positions_data, currentTime) ?? 9999)
                 )
                 .map((driver) => (
                   <motion.tr
@@ -125,18 +130,18 @@ export function RacePlaybackLeaderboard({
                       <div
                         className="badge font-bold flex py-4 w-23 ps-6 "
                         style={{
-                          backgroundColor: `#${driver.teamColour}`,
-                          color: `color-mix(in srgb, #${driver.teamColour} 20%, black)`,
+                          backgroundColor: `#${driver.team_colour}`,
+                          color: `color-mix(in srgb, #${driver.team_colour} 20%, black)`,
                           filter: "brightness(0.8)",
                           border: 0,
                         }}
                       >
-                        {getPos(telemetry, driver, currentTime)}
+                        {getPos(driver.positions_data, currentTime)}
                         <div
                           className="badge font-bold"
                           style={{
                             backgroundColor: "white",
-                            color: `#${driver.teamColour}`,
+                            color: `#${driver.team_colour}`,
                             border: 0,
                           }}
                         >
@@ -146,7 +151,13 @@ export function RacePlaybackLeaderboard({
                     </td>
                     <td>
                       {(() => {
-                        switch (DRSTest) {
+                        switch (
+                          getDRSPITStatus(
+                            driver.pit_data,
+                            driver.car_data,
+                            currentTime
+                          )
+                        ) {
                           case "Off":
                             return (
                               <div className="badge border-2 font-bold bg-transparent text-[#3f3f46] border-[#3f3f46] h-8">
@@ -184,7 +195,13 @@ export function RacePlaybackLeaderboard({
                       <div className="flex items-center">
                         <div>
                           {(() => {
-                            switch (getCompound(driver, currentTime)) {
+                            switch (
+                              getCompound(
+                                driver.pit_data,
+                                driver.stint_data,
+                                currentTime
+                              )
+                            ) {
                               case "UNKNOWN":
                                 return (
                                   <img src={unknownTyre} className="h-8" />
@@ -213,8 +230,22 @@ export function RacePlaybackLeaderboard({
                           })()}
                         </div>
                         <div className="ms-3">
-                          <p>LAP {getTyreLife(driver, currentTime)}</p>
-                          <p>STINT {getStint(driver, currentTime)}</p>
+                          <p>
+                            LAP{" "}
+                            {getTyreLife(
+                              driver.laps_data,
+                              driver.stint_data,
+                              currentTime
+                            )}
+                          </p>
+                          <p>
+                            STINT{" "}
+                            {getStint(
+                              driver.laps_data,
+                              driver.stint_data,
+                              currentTime
+                            )}
+                          </p>
                         </div>
                       </div>
                     </td>
@@ -223,11 +254,19 @@ export function RacePlaybackLeaderboard({
                         className="font-bold h-8 text-xl"
                         style={{
                           color: getPositionsGainedColour(
-                            getPositionsGained(driver, currentTime)
+                            getPositionsGained(
+                              driver.positions_data,
+                              driver.car_data,
+                              currentTime
+                            )
                           ),
                         }}
                       >
-                        {getPositionsGained(driver, currentTime)}
+                        {getPositionsGained(
+                          driver.positions_data,
+                          driver.car_data,
+                          currentTime
+                        )}
                       </span>
                     </td>
                   </motion.tr>
@@ -240,83 +279,164 @@ export function RacePlaybackLeaderboard({
   );
 }
 
-function getCompound(driver: DriverData, t: number) {
-  const idx = driver.data.findIndex(
-    (row) =>
-      row.LapStartTime != null &&
-      row.Time != null &&
-      t >= row.LapStartTime &&
-      t < row.Time
-  );
-
-  const currentCompoundRow = idx !== -1 ? driver.data[idx] : null;
-  let previousRow: LapData | null;
-  try {
-    previousRow = idx > 0 ? driver.data[idx - 1] : null;
-  } catch {
-    previousRow = idx !== -1 ? driver.data[idx] : null;
-  }
-
-  if (currentCompoundRow?.FreshTyre && t >= currentCompoundRow.PitOutTime) {
-    return currentCompoundRow?.Compound;
-  } else {
-    return previousRow?.Compound;
-  }
-}
-
-function getPos(
-  telemetry: LeaderboardPositionsData,
-  driver: DriverData,
+function atOrBefore<T extends { SessionTime: number }>(
+  rows: T[],
   currentTime: number
-): number | null {
-  const samples = telemetry[driver.driver_code];
-  if (!samples || samples.length === 0) return null;
+): T | null {
+  if (!rows.length) return null;
+  if (currentTime < rows[0].SessionTime) return null;
 
-  const binSize = samples[0].TimeBinSize;
-  const targetBin = Math.round(t / binSize);
+  let lo = 0,
+    hi = rows.length - 1,
+    ans = -1;
 
-  // samples must be sorted by TimeBin (they should be from backend)
-  for (let i = samples.length - 1; i >= 0; i--) {
-    if (samples[i].TimeBin <= targetBin) {
-      return samples[i].LivePosition ?? null;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (rows[mid].SessionTime <= currentTime) {
+      ans = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
     }
   }
 
-  return null;
+  return ans >= 0 ? rows[ans] : null;
 }
 
-function getTyreLife(driver: DriverData, t: number) {
-  return driver.data.find((row) => t >= row.LapStartTime && t < row.Time)
-    ?.TyreLife;
+function getDRSPITStatus(
+  pits: LeaderboardPitData[],
+  car: LeaderboardCarData[],
+  currentTime: number
+): string | null {
+  if (!car.length) return null;
+
+  if (currentTime < car[0].SessionTime) {
+    return "Off";
+  }
+
+  const carRow = atOrBefore(car, currentTime);
+  if (!carRow) return "Off";
+
+  const pitRow = atOrBefore(pits, currentTime);
+  if (
+    pitRow &&
+    carRow.SessionTime >= pitRow.SessionTime &&
+    carRow.SessionTime <= pitRow.SessionTime + pitRow.pit_duration
+  ) {
+    return "Pit";
+  }
+
+  switch (carRow.DRS) {
+    case 0:
+    case 1:
+      return "Off";
+    case 8:
+      return "Possible";
+    case 10:
+    case 12:
+    case 14:
+      return "Active";
+    default:
+      return "Off";
+  }
 }
 
-function getStint(driver: DriverData, t: number) {
-  const idx = driver.data.findIndex(
-    (row) =>
-      row.LapStartTime != null &&
-      row.Time != null &&
-      t >= row.LapStartTime &&
-      t < row.Time
+function getCompound(
+  pits: LeaderboardPitData[],
+  stints: LeaderboardStintData[],
+  currentTime: number
+): Compound {
+  if (!pits.length) return null;
+  if (currentTime < pits[0].SessionTime) {
+    return stints[0]?.compound ?? "UNKNOWN";
+  }
+
+  const pitRow = atOrBefore(pits, currentTime);
+  if (!pitRow) return "UNKNOWN";
+
+  const stint = stints.find(
+    (s) => pitRow.lap_number >= s.lap_start && pitRow.lap_number <= s.lap_end
   );
-
-  const currentStintRow = idx !== -1 ? driver.data[idx] : null;
-  let previousRow: LapData | null;
-  try {
-    previousRow = idx > 0 ? driver.data[idx - 1] : null;
-  } catch {
-    previousRow = idx !== -1 ? driver.data[idx] : null;
-  }
-
-  if (currentStintRow?.FreshTyre && t >= currentStintRow.PitOutTime) {
-    return currentStintRow?.Stint;
-  } else {
-    return previousRow?.Stint;
-  }
+  return stint?.compound ?? "UNKNOWN";
 }
 
-function getPositionsGained(driver: DriverData, t: number) {
-  return driver.data.find((row) => t >= row.LapStartTime && t < row.Time)
-    ?.PositionsGained;
+function getPos(
+  positions: LeaderboardPositionsData[],
+  currentTime: number
+): number | null {
+  if (!positions.length) return null;
+
+  if (currentTime < positions[0].SessionTime) {
+    return positions[0].position;
+  }
+
+  const row = atOrBefore(positions, currentTime);
+  return row ? row.position : null;
+}
+
+function getTyreLife(
+  laps: LeaderboardLapsData[],
+  stints: LeaderboardStintData[],
+  currentTime: number
+): number | null {
+  if (!stints.length) return null;
+
+  const lapRow = atOrBefore(laps, currentTime);
+  if (!lapRow) return stints[0].tyre_age_at_start;
+
+  const lap = lapRow.lap_number;
+
+  const stint = stints.find((s) => lap >= s.lap_start && lap <= s.lap_end);
+  if (!stint) return stints[0].tyre_age_at_start;
+
+  return stint.tyre_age_at_start + (lap - stint.lap_start);
+}
+
+function getStint(
+  laps: LeaderboardLapsData[],
+  stints: LeaderboardStintData[],
+  currentTime: number
+): number | null {
+  if (!stints.length) return null;
+
+  const lapRow = atOrBefore(laps, currentTime);
+  if (!lapRow) return stints[0].stint_number;
+
+  const lap = lapRow.lap_number;
+
+  const stint = stints.find((s) => lap >= s.lap_start && lap <= s.lap_end);
+  if (!stint) return stints[0].stint_number;
+
+  return stint.stint_number;
+}
+
+function getPositionsGained(
+  positions: LeaderboardPositionsData[],
+  car: LeaderboardCarData[],
+  currentTime: number
+): string | null {
+  if (!car.length) return null;
+
+  if (currentTime < car[0].SessionTime) {
+    return null;
+  }
+
+  const carRow = atOrBefore(car, currentTime);
+  if (!carRow) return null;
+
+  const gridPosition = carRow.grid_position;
+  if (gridPosition === 0) return null; // unknown grid position
+  const currentPosition = getPos(positions, currentTime);
+  if (currentPosition === null) return null;
+
+  const result = gridPosition - currentPosition;
+  if (result > 0) {
+    return `+${result}`;
+  } else if (result < 0) {
+    return `${result}`;
+  } else {
+    return "0";
+  }
 }
 
 function getPositionsGainedColour(pg: string | null | undefined) {

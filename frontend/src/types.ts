@@ -72,12 +72,21 @@ export interface LeaderboardLapsData {
   st_speed: number;
 }
 
+export type Compound =
+  | "SOFT"
+  | "MEDIUM"
+  | "HARD"
+  | "INTERMEDIATE"
+  | "WET"
+  | "UNKNOWN"
+  | null;
+
 export interface LeaderboardStintData {
   stint_number: number;
   driver_number: number;
   lap_start: number;
   lap_end: number;
-  compound: "SOFT" | "MEDIUM" | "HARD" | "INTERMEDIATE" | "WET" | "UNKNOWN";
+  compound: Compound;
   tyre_age_at_start: number;
 }
 
@@ -105,6 +114,13 @@ export interface LeaderboardGapData {
   driver_number: number;
 }
 
+export interface LeaderboardPitData {
+  SessionTime: number;
+  pit_duration: number;
+  driver_number: number;
+  lap_number: number;
+}
+
 export interface LeaderboardDriverData {
   driver_code: string;
   driver_number: number;
@@ -115,6 +131,7 @@ export interface LeaderboardDriverData {
   stint_data: LeaderboardStintData[];
   car_data: LeaderboardCarData[];
   gap_data: LeaderboardGapData[];
+  pit_data: LeaderboardPitData[];
 }
 
 export interface LeaderboardApiResponse {

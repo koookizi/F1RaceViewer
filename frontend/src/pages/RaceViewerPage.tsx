@@ -390,7 +390,7 @@ export function RaceViewerPage() {
       {/* -- Main session section -- */}
       {/* Tabs */}
       {showTabs && (
-        <div role="tablist" className="tabs tabs-box mt-4">
+        <div role="tablist" className="tabs tabs-box">
           <button
             role="tab"
             className={`tab ${activeTab === "summary" ? "tab-active" : ""}`}

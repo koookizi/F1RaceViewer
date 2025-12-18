@@ -70,7 +70,7 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
     # ---
 
     # get position data
-    positions_data_req = urlopen(f"https://api.openf1.org/v1/position?meeting_key={session_df.loc[0, 'meeting_key']}&date>{session_df.loc[0, "date_start"]}")
+    positions_data_req = urlopen(f"https://api.openf1.org/v1/position?meeting_key={session_df.loc[0, 'meeting_key']}&date>={session_df.loc[0, "date_start"]}")
     positions_data = pd.DataFrame(json.loads(positions_data_req.read().decode('utf-8')))
     positions_data["date"] = pd.to_datetime(
         positions_data["date"],
@@ -121,6 +121,29 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
 
     stint_data = stint_data.astype(object)
     stint_data = stint_data.where(pd.notna(stint_data), None)
+
+    # get pit data
+    pit_data_req = urlopen(f"https://api.openf1.org/v1/pit?session_key={session_df.loc[0, 'session_key']}&date>={session_df.loc[0, 'date_start']}")
+    pit_data = pd.DataFrame(json.loads(pit_data_req.read().decode('utf-8')))
+    pit_data["date"] = pd.to_datetime(
+        pit_data["date"],
+        utc=True,
+        format="ISO8601"
+    )
+
+    pit_data["SessionTime"] = (
+        pit_data["date"] - session.t0_date.replace(tzinfo=timezone.utc)
+    ).dt.total_seconds()
+
+    pit_data = pit_data[
+    ["SessionTime"] + [c for c in pit_data.columns if c != "SessionTime"]]
+    pit_data.sort_values("SessionTime")
+
+    pit_data = pit_data.drop(columns=['date', 'meeting_key', 'session_key'])
+
+    # > cleans any NaNs for JSON
+    pit_data = pit_data.astype(object)
+    pit_data = pit_data.where(pd.notna(pit_data), None)
 
     # get car data
     grid_positions = {}
@@ -208,6 +231,7 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
             "stint_data": stint_data[stint_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
             "car_data": car_data[car_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
             "gap_data": gap_data[gap_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
+            "pit_data": pit_data[pit_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
         }
         drivers.append(driver_info)
 

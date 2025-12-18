@@ -79,52 +79,75 @@ def session_leaderboard_view(year, country, session_name):
     stint_data = stint_data.astype(object)
     stint_data = stint_data.where(pd.notna(stint_data), None)
 
+    # get pit data
+    pit_data_req = urlopen(f"https://api.openf1.org/v1/pit?session_key={session_df.loc[0, 'session_key']}&date>={session_df.loc[0, 'date_start']}")
+    pit_data = pd.DataFrame(json.loads(pit_data_req.read().decode('utf-8')))
+    pit_data["date"] = pd.to_datetime(
+        pit_data["date"],
+        utc=True,
+        format="ISO8601"
+    )
+
+    pit_data["SessionTime"] = (
+        pit_data["date"] - session.t0_date.replace(tzinfo=timezone.utc)
+    ).dt.total_seconds()
+
+    pit_data = pit_data[
+    ["SessionTime"] + [c for c in pit_data.columns if c != "SessionTime"]]
+    pit_data.sort_values("SessionTime")
+
+    pit_data = pit_data.drop(columns=['date', 'meeting_key', 'session_key'])
+
+    # > cleans any NaNs for JSON
+    pit_data = pit_data.astype(object)
+    pit_data = pit_data.where(pd.notna(pit_data), None)
+
     # get car data
-    grid_positions = {}
-    results = session.results
-    if results is not None and not results.empty:
-        for drv in session.drivers:
-            try:
-                grid_positions[drv] = int(results.loc[drv]["GridPosition"])
-            except Exception:
-                grid_positions[drv] = None
-    else:
-        for drv in session.drivers:
-            grid_positions[drv] = None
+    # grid_positions = {}
+    # results = session.results
+    # if results is not None and not results.empty:
+    #     for drv in session.drivers:
+    #         try:
+    #             grid_positions[drv] = int(results.loc[drv]["GridPosition"])
+    #         except Exception:
+    #             grid_positions[drv] = None
+    # else:
+    #     for drv in session.drivers:
+    #         grid_positions[drv] = None
 
-    keep_cols = ["SessionTime", "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS", "Time"]
+    # keep_cols = ["SessionTime", "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS", "Time"]
 
-    all_tel = []
-    for drv in session.drivers:
-        print("Getting data for:",drv)
-        laps = session.laps.pick_drivers(drv)  # pick_driver (singular) is the usual one
-        tel = laps.get_telemetry().copy()
+    # all_tel = []
+    # for drv in session.drivers:
+    #     print("Getting data for:",drv)
+    #     laps = session.laps.pick_drivers(drv)  # pick_driver (singular) is the usual one
+    #     tel = laps.get_telemetry().copy()
 
-        # Reduce columns early
-        tel = tel[[c for c in keep_cols if c in tel.columns]]
+    #     # Reduce columns early
+    #     tel = tel[[c for c in keep_cols if c in tel.columns]]
 
-        # Downsample early (HUGE speed win + smaller JSON)
-        step=10
-        if step and step > 1:
-            tel = tel.iloc[::step].copy()
+    #     # Downsample early (HUGE speed win + smaller JSON)
+    #     step=10
+    #     if step and step > 1:
+    #         tel = tel.iloc[::step].copy()
 
-        tel["driver_number"] = drv
-        tel["SessionTime"] = tel["Time"].dt.total_seconds()
-        all_tel.append(tel)
+    #     tel["driver_number"] = drv
+    #     tel["SessionTime"] = tel["Time"].dt.total_seconds()
+    #     all_tel.append(tel)
 
-    car_data = pd.concat(all_tel, ignore_index=True)
-    car_data = car_data[
-    ["SessionTime"] + [c for c in car_data.columns if c != "SessionTime"]
-    ]
+    # car_data = pd.concat(all_tel, ignore_index=True)
+    # car_data = car_data[
+    # ["SessionTime"] + [c for c in car_data.columns if c != "SessionTime"]
+    # ]
 
-    car_data = car_data.astype(object)
-    car_data = car_data.where(pd.notna(car_data), None)
-    car_data["driver_number"] = pd.to_numeric(car_data["driver_number"], errors="coerce").astype("Int64") # because FastF1 gives str
+    # car_data = car_data.astype(object)
+    # car_data = car_data.where(pd.notna(car_data), None)
+    # car_data["driver_number"] = pd.to_numeric(car_data["driver_number"], errors="coerce").astype("Int64") # because FastF1 gives str
 
-    car_data = car_data.drop(columns=['Time'])
-    car_data = car_data[car_data["SessionTime"] >= (fastf1_start - session.t0_date).total_seconds()]  # remove neglible times
+    # car_data = car_data.drop(columns=['Time'])
+    # car_data = car_data[car_data["SessionTime"] >= (fastf1_start - session.t0_date).total_seconds()]  # remove neglible times
 
-    car_data["grid_position"] = car_data["driver_number"].astype(str).map(grid_positions)
+    # car_data["grid_position"] = car_data["driver_number"].astype(str).map(grid_positions)
 
     # get gap data
     gap_data_req = urlopen(f"https://api.openf1.org/v1/intervals?meeting_key={session_df.loc[0, 'meeting_key']}")
@@ -162,8 +185,9 @@ def session_leaderboard_view(year, country, session_name):
             #"positions_data": positions_data[positions_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
             #"laps_data": laps_data[laps_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
             #"stint_data": stint_data[stint_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
-            #"car_data": car_data[car_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
+            "car_data": car_data[car_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
             #"gap_data": gap_data[gap_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
+            #"pit_data": pit_data[pit_data["driver_number"] == driver_row["driver_number"]].to_dict(orient="records"),
         }
         finalJSON[driver_row["name_acronym"]] = driver_info
 
