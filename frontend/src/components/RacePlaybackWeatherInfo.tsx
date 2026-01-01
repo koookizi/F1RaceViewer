@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { WeatherApiResponse, WeatherSample } from "../types";
+import { TelemetryRing } from "../components/TelemetryRing";
+import { TelemetryPill } from "../components/TelemetryPill";
 
 type RacePlaybackProps = {
   weatherData: WeatherApiResponse | null;
@@ -28,7 +30,7 @@ export function WeatherInfo({ weatherData, currentTime }: RacePlaybackProps) {
   }, [weatherData]);
 
   if (!weatherData) {
-    return <div className="skeleton h-24 w-auto"></div>;
+    return;
   }
 
   const w = getWeatherAtTime(weatherData.weather, currentTime);
@@ -72,296 +74,46 @@ export function WeatherInfo({ weatherData, currentTime }: RacePlaybackProps) {
     w.wind_dir != null ? calculatePercentage([0, 360], w.wind_dir) : null;
 
   return (
-    <div className="card card-border bg-base-100 w-full">
-      <div className="card-body">
-        <div className="flex gap-4 overflow-x-auto overflow-y-hidden whitespace-nowrap mx-auto">
-          <div className="flex items-center gap-4 -mb-9">
-            {/* Gauge Component */}
-            <div className="relative size-30">
-              <svg
-                className="size-full rotate-180"
-                viewBox="0 0 36 36"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* Background Circle (Gauge) */}
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  className="stroke-current text-orange-100 dark:text-neutral-700"
-                  strokeWidth="3"
-                  stroke-dasharray="50 100"
-                  strokeLinecap="round"
-                ></circle>
-
-                {/* Gauge Progress */}
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  style={
-                    {
-                      color: airTempColour,
-                    } as React.CSSProperties
-                  }
-                  className="stroke-current"
-                  strokeWidth="1"
-                  stroke-dasharray={`${(airTempPercentage ?? 0) / 2} 100`}
-                  strokeLinecap="round"
-                ></circle>
-              </svg>
-
-              {/* Value Text */}
-              <div
-                className="absolute top-9 start-1/2 transform -translate-x-1/2 text-center"
-                style={
-                  {
-                    color: airTempColour,
-                  } as React.CSSProperties
-                }
-              >
-                <span className="text-2xl font-bold ">
-                  {w.air_temp?.toFixed(1)}°C
-                </span>
-                <span className="text-xs  block">AIR</span>
-              </div>
-            </div>
-            {/* End Gauge Component */}
-            {/* Gauge Component */}
-            <div className="relative size-30">
-              <svg
-                className="size-full rotate-180"
-                viewBox="0 0 36 36"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* Background Circle (Gauge) */}
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  className="stroke-current text-orange-100 dark:text-neutral-700"
-                  strokeWidth="3"
-                  stroke-dasharray="50 100"
-                  strokeLinecap="round"
-                ></circle>
-
-                {/* Gauge Progress */}
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  style={
-                    {
-                      color: trackTempColour,
-                    } as React.CSSProperties
-                  }
-                  className="stroke-current"
-                  strokeWidth="1"
-                  stroke-dasharray={`${(trackTempPercentage ?? 0) / 2} 100`}
-                  strokeLinecap="round"
-                ></circle>
-              </svg>
-
-              {/* Value Text */}
-              <div
-                className="absolute top-9 start-1/2 transform -translate-x-1/2 text-center"
-                style={
-                  {
-                    color: trackTempColour,
-                  } as React.CSSProperties
-                }
-              >
-                <span className="text-2xl font-bold ">
-                  {w.track_temp?.toFixed(1)}°C
-                </span>
-                <span className="text-xs  block">TRACK</span>
-              </div>
-            </div>
-            {/* End Gauge Component */}
-            {/* Gauge Component */}
-            <div className="relative size-30">
-              <svg
-                className="size-full rotate-180"
-                viewBox="0 0 36 36"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* Background Circle (Gauge) */}
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  className="stroke-current text-orange-100 dark:text-neutral-700"
-                  strokeWidth="3"
-                  stroke-dasharray="50 100"
-                  strokeLinecap="round"
-                ></circle>
-
-                {/* Gauge Progress */}
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  style={
-                    {
-                      color: humidityColour,
-                    } as React.CSSProperties
-                  }
-                  className="stroke-current"
-                  strokeWidth="1"
-                  stroke-dasharray={`${(humidityPercentage ?? 0) / 2} 100`}
-                  strokeLinecap="round"
-                ></circle>
-              </svg>
-
-              {/* Value Text */}
-              <div
-                className="absolute top-9 start-1/2 transform -translate-x-1/2 text-center"
-                style={
-                  {
-                    color: humidityColour,
-                  } as React.CSSProperties
-                }
-              >
-                <span className="text-2xl font-bold ">
-                  {w.humidity?.toFixed(1)}%
-                </span>
-                <span className="text-xs  block">HUMIDITY</span>
-              </div>
-            </div>
-            {/* End Gauge Component */}
-            {/* Gauge Component */}
-            <div className="relative size-30">
-              <svg
-                className="size-full rotate-180"
-                viewBox="0 0 36 36"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* Background Circle (Gauge) */}
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  className="stroke-current text-orange-100 dark:text-neutral-700"
-                  strokeWidth="3"
-                  stroke-dasharray="50 100"
-                  strokeLinecap="round"
-                ></circle>
-
-                {/* Gauge Progress */}
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  style={
-                    {
-                      color: pressureColour,
-                    } as React.CSSProperties
-                  }
-                  className="stroke-current"
-                  strokeWidth="1"
-                  stroke-dasharray={`${(pressurePercentage ?? 0) / 2} 100`}
-                  strokeLinecap="round"
-                ></circle>
-              </svg>
-
-              {/* Value Text */}
-              <div
-                className="absolute top-9 start-1/2 transform -translate-x-1/2 text-center"
-                style={
-                  {
-                    color: pressureColour,
-                  } as React.CSSProperties
-                }
-              >
-                <span className="text-2xl font-bold ">
-                  {w.pressure?.toFixed(1)}mb
-                </span>
-                <span className="text-xs  block">PRESSURE</span>
-              </div>
-            </div>
-            {/* End Gauge Component */}
-            {/* Gauge Component */}
-            <div className="relative size-30">
-              <svg
-                className="size-full rotate-180"
-                viewBox="0 0 36 36"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                {/* Background Circle (Gauge) */}
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  className="stroke-current text-orange-100 dark:text-neutral-700"
-                  strokeWidth="3"
-                  stroke-dasharray="50 100"
-                  strokeLinecap="round"
-                ></circle>
-
-                {/* Gauge Progress */}
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="16"
-                  fill="none"
-                  style={
-                    {
-                      color: windSpeedColour,
-                    } as React.CSSProperties
-                  }
-                  className="stroke-current"
-                  strokeWidth="1"
-                  stroke-dasharray={`${(windSpeedPercentage ?? 0) / 2} 100`}
-                  strokeLinecap="round"
-                ></circle>
-              </svg>
-
-              {/* Value Text */}
-              <div
-                className="absolute top-9 start-1/2 transform -translate-x-1/2 text-center"
-                style={
-                  {
-                    color: windSpeedColour,
-                  } as React.CSSProperties
-                }
-              >
-                <span className="text-2xl font-bold ">
-                  {w.wind_speed?.toFixed(1)}m/s
-                </span>
-                <span className="text-xs  block">WIND SPEED</span>
-              </div>
-            </div>
-            {/* End Gauge Component */}
-            {/* Gauge Component */}
-            <div className="relative size-30">
-              {/* Value Text */}
-              <div
-                className="absolute top-9 start-1/2 transform -translate-x-1/2 text-center"
-                style={
-                  {
-                    color: airTempColour,
-                  } as React.CSSProperties
-                }
-              >
-                <span className="text-2xl font-bold ">
-                  {w.wind_dir?.toFixed(1)}°
-                </span>
-                <span className="text-xs  block">WIND DIR</span>
-              </div>
-            </div>
-            {/* End Gauge Component */}
-          </div>
-        </div>
-      </div>
+    <div className="flex gap-4 overflow-x-auto overflow-y-hidden whitespace-nowrap mx-auto items-center justify-center">
+      <TelemetryPill
+        items={[
+          {
+            percent: airTempPercentage ?? 0,
+            valueText: w.air_temp != null ? w.air_temp.toFixed(1) : "",
+            label: "AIR",
+            subLabel: "°C",
+            color: airTempColour ?? "#fff",
+          },
+          {
+            percent: trackTempPercentage ?? 0,
+            valueText: w.track_temp != null ? w.track_temp.toFixed(1) : "",
+            label: "TRC",
+            subLabel: "°C",
+            color: trackTempColour ?? "#fff",
+          },
+          {
+            percent: humidityPercentage ?? 0,
+            valueText: w.humidity != null ? w.humidity.toFixed(1) : "",
+            label: "HMD",
+            subLabel: "%",
+            color: humidityColour ?? "#fff",
+          },
+          {
+            percent: pressurePercentage ?? 0,
+            valueText: w.pressure != null ? w.pressure.toFixed(1) : "",
+            label: "PRS",
+            subLabel: "mb",
+            color: pressureColour ?? "#fff",
+          },
+          {
+            percent: windSpeedPercentage ?? 0,
+            valueText: w.wind_speed != null ? w.wind_speed.toFixed(1) : "",
+            label: "WND",
+            subLabel: "m/s",
+            color: windSpeedColour ?? "#fff",
+          },
+        ]}
+      />
     </div>
   );
 }

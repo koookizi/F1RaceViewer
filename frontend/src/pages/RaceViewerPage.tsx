@@ -5,12 +5,14 @@ import { StartingGrid } from "../components/StartingGrid";
 import { RacePlaybackCircuit } from "../components/RacePlaybackCircuit";
 import { RacePlaybackLeaderboard } from "../components/RacePlaybackLeaderboard";
 import { WeatherInfo } from "../components/RacePlaybackWeatherInfo";
+import { RacePlaybackHeader } from "../components/RacePlaybackHeader";
 import { PlaybackControls } from "../components/PlaybackControls";
 import type {
   PlaybackData,
   LeaderboardApiResponse,
   WeatherApiResponse,
 } from "../types";
+import { teamBgByDriverNumber } from "../helpers/team_colour";
 
 export interface Result {
   position: number;
@@ -465,9 +467,13 @@ export function RaceViewerPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-3">
                   {/* Race playback weather info */}
-                  <WeatherInfo
+                  <RacePlaybackHeader
                     weatherData={weather}
+                    playbackData={data}
                     currentTime={currentTime}
+                    circuitName={circuitName}
+                    selectedSession={selectedSession}
+                    selectedYear={selectedYear}
                   />
                 </div>
                 <div className="col-span-2">
@@ -513,7 +519,7 @@ export function RaceViewerPage() {
                           </p>
 
                           <div className="overflow-x-auto">
-                            <table className="table mt-5">
+                            <table className="table [&_td]:py-2">
                               {!loadingResults && (
                                 <thead>
                                   <>
@@ -577,7 +583,10 @@ export function RaceViewerPage() {
                                           key={`${r.driverNumber}-${r.position}`}
                                           style={{
                                             backgroundColor:
-                                              "#" + r.team_color + "33",
+                                              teamBgByDriverNumber(
+                                                leaderboardData,
+                                                Number(r.driverNumber)
+                                              ) ?? "transparent",
                                           }}
                                         >
                                           <td>{r.position}</td>
@@ -602,6 +611,13 @@ export function RaceViewerPage() {
                                       sortedResults.map((r) => (
                                         <tr
                                           key={`${r.driverNumber}-${r.position}`}
+                                          style={{
+                                            backgroundColor:
+                                              teamBgByDriverNumber(
+                                                leaderboardData,
+                                                Number(r.driverNumber)
+                                              ) ?? "transparent",
+                                          }}
                                         >
                                           <td>{r.position}</td>
                                           <td>{r.driverNumber}</td>
@@ -627,6 +643,13 @@ export function RaceViewerPage() {
                                       sortedResults.map((r) => (
                                         <tr
                                           key={`${r.driverNumber}-${r.position}`}
+                                          style={{
+                                            backgroundColor:
+                                              teamBgByDriverNumber(
+                                                leaderboardData,
+                                                Number(r.driverNumber)
+                                              ) ?? "transparent",
+                                          }}
                                         >
                                           <td>{r.position}</td>
                                           <td>{r.driverNumber}</td>

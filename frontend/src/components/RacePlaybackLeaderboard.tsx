@@ -7,6 +7,7 @@ import type {
   LeaderboardPitData,
   Compound,
   LeaderboardCarData,
+  LeaderboardGapData,
 } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
 import hardTyre from "../assets/hard.svg";
@@ -32,7 +33,7 @@ export function RacePlaybackLeaderboard({
     <div className="card card-border bg-base-100">
       <div className="card-body">
         <h2 className="card-title">Leaderboard</h2>
-        <table className="table mt-5">
+        <table className="table [&_td]:py-1">
           <thead></thead>
           <tbody>
             <AnimatePresence initial={false}>
@@ -155,23 +156,24 @@ export function RacePlaybackLeaderboard({
                             }
                           })()}
                         </div>
-                        <div className="ms-3">
-                          <p>
+                        <div className="flex flex-col leading-none justify-center ms-3">
+                          <span className="text-[1.2em] font-semibold">
                             LAP{" "}
                             {getTyreLife(
                               driver.laps_data,
                               driver.stint_data,
                               currentTime
                             )}
-                          </p>
-                          <p>
+                          </span>
+
+                          <span className="text-[0.87em] opacity-70">
                             STINT{" "}
                             {getStint(
                               driver.laps_data,
                               driver.stint_data,
                               currentTime
                             )}
-                          </p>
+                          </span>
                         </div>
                       </div>
                     </td>
@@ -194,6 +196,21 @@ export function RacePlaybackLeaderboard({
                           currentTime
                         )}
                       </span>
+                    </td>
+                    <td>
+                      <div className="flex flex-col leading-none">
+                        <span className="text-[1.2em] font-semibold">
+                          {formatGap(
+                            getGapToCarAhead(driver.gap_data, currentTime)
+                          )}
+                        </span>
+
+                        <span className="text-[0.87em] opacity-70">
+                          {formatGap(
+                            getGapToLeader(driver.gap_data, currentTime)
+                          )}
+                        </span>
+                      </div>
                     </td>
                   </motion.tr>
                 ))}
@@ -363,6 +380,42 @@ function getPositionsGained(
   } else {
     return "0";
   }
+}
+
+function getGapToCarAhead(
+  gap: LeaderboardGapData[],
+  currentTime: number
+): number | null {
+  if (!gap.length) return null;
+
+  if (currentTime < gap[0].SessionTime) {
+    return gap[0].interval;
+  }
+
+  const row = atOrBefore(gap, currentTime);
+  return row ? row.interval : null;
+}
+
+function getGapToLeader(
+  gap: LeaderboardGapData[],
+  currentTime: number
+): number | null {
+  if (!gap.length) return null;
+
+  if (currentTime < gap[0].SessionTime) {
+    return gap[0].gap_to_leader;
+  }
+
+  const row = atOrBefore(gap, currentTime);
+  return row ? row.gap_to_leader : null;
+}
+
+function formatGap(value: number | null): string {
+  if (value == null) return "-";
+  if (value === 0) return "LEADER";
+
+  const sign = value > 0 ? "+" : "-";
+  return `${sign}${Math.abs(value).toFixed(3)}`;
 }
 
 function getPositionsGainedColour(pg: string | null | undefined) {
