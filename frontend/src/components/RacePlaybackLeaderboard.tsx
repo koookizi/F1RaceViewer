@@ -1,12 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type {
-  SessionLeaderboardResponse,
-  DriverData,
-  LapData,
-  TelemetryDriverMap,
-  TelemetrySample,
   LeaderboardApiResponse,
-  LeaderboardDriverData,
   LeaderboardPositionsData,
   LeaderboardLapsData,
   LeaderboardStintData,
@@ -23,87 +17,19 @@ import unknownTyre from "../assets/unknown.svg";
 import wetTyre from "../assets/wet.svg";
 
 type RacePlaybackLeaderboardProps = {
-  year: number;
-  country: string;
-  session: string;
+  leaderboardData: LeaderboardApiResponse | null;
   currentTime: number;
-  searchButton: boolean;
 };
 
 export function RacePlaybackLeaderboard({
-  year,
-  country,
-  session,
+  leaderboardData,
   currentTime,
-  searchButton,
 }: RacePlaybackLeaderboardProps) {
-  const [lapsData, setLapsData] = useState<SessionLeaderboardResponse | null>(
-    null
-  );
-  const [telemetry, setTelemetry] = useState<TelemetryDriverMap | null>(null);
-
-  const [leaderboardData, setLeaderboardData] =
-    useState<LeaderboardApiResponse | null>(null);
-
-  useEffect(() => {
-    const url = `http://localhost:8000/api/session/${year}/${encodeURIComponent(
-      country
-    )}/${encodeURIComponent(session)}/leaderboard/`;
-
-    console.log("Fetching leaderboard from:", url);
-
-    fetch(url)
-      .then((res) => res.json())
-      .then((json: LeaderboardApiResponse) => {
-        console.log("Leaderboard JSON:", json);
-        setLeaderboardData(json);
-      })
-      .catch((err) => {
-        console.error("Failed to load leaderboard data", err);
-      });
-  }, [searchButton]);
-
-  //   useEffect(() => {
-  //     const url = `http://localhost:8000/api/session/${year}/${encodeURIComponent(
-  //       country
-  //     )}/${encodeURIComponent(session)}/laps/`;
-
-  //     console.log("Fetching laps from:", url);
-
-  //     fetch(url)
-  //       .then((res) => res.json())
-  //       .then((json: SessionLeaderboardResponse) => {
-  //         console.log("Laps JSON:", json);
-  //         setLapsData(json);
-  //       })
-  //       .catch((err) => {
-  //         console.error("Failed to load laps data", err);
-  //       });
-  //   }, [searchButton]);
-
-  //   useEffect(() => {
-  //     const url = `http://localhost:8000/api/session/${year}/${encodeURIComponent(
-  //       country
-  //     )}/${encodeURIComponent(session)}/telemetry/`;
-
-  //     console.log("Fetching telemetry from:", url);
-
-  //     fetch(url)
-  //       .then((res) => res.json())
-  //       .then((json: TelemetryDriverMap) => {
-  //         console.log("Telemetry JSON:", json);
-  //         setTelemetry(json);
-  //       })
-  //       .catch((err) => {
-  //         console.error("Failed to load telemetry data", err);
-  //       });
-  //   }, [searchButton]);
-
   if (!leaderboardData) {
-    return <div className="skeleton h-32 w-auto mt-5"></div>;
+    return <div className="skeleton h-32 w-auto"></div>;
   }
   return (
-    <div className="card card-border bg-base-100 mt-5 ">
+    <div className="card card-border bg-base-100">
       <div className="card-body">
         <h2 className="card-title">Leaderboard</h2>
         <table className="table mt-5">

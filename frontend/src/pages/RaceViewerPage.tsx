@@ -6,7 +6,11 @@ import { RacePlaybackCircuit } from "../components/RacePlaybackCircuit";
 import { RacePlaybackLeaderboard } from "../components/RacePlaybackLeaderboard";
 import { WeatherInfo } from "../components/RacePlaybackWeatherInfo";
 import { PlaybackControls } from "../components/PlaybackControls";
-import type { PlaybackData } from "../types";
+import type {
+  PlaybackData,
+  LeaderboardApiResponse,
+  WeatherApiResponse,
+} from "../types";
 
 export interface Result {
   position: number;
@@ -64,6 +68,11 @@ export function RaceViewerPage() {
   const [data, setData] = useState<PlaybackData | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
+
+  const [leaderboardData, setLeaderboardData] =
+    useState<LeaderboardApiResponse | null>(null);
+
+  const [weather, setWeather] = useState<WeatherApiResponse | null>(null);
 
   const frameRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
@@ -168,6 +177,7 @@ export function RaceViewerPage() {
     setLoadingResults(true);
     setShowRaceSelection(false);
 
+    // Fetches results + starting grid data
     if (raceSessionsWithGridPos.includes(selectedSession)) {
       console.log("showing start grid");
       setShowStartGrid(true);
@@ -185,6 +195,33 @@ export function RaceViewerPage() {
       })
       .finally(() => {
         setLoadingResults(false);
+      });
+
+    // Fetches leaderboard data
+    console.log("Fetching leaderboard data");
+    fetch(
+      `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/leaderboard/`
+    )
+      .then((res) => res.json())
+      .then((json: LeaderboardApiResponse) => {
+        console.log("Leaderboard JSON:", json);
+        setLeaderboardData(json);
+      })
+      .catch((err) => {
+        console.error("Failed to load leaderboard data", err);
+      });
+
+    // Fetches weather data
+    fetch(
+      `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/weather/`
+    )
+      .then((res) => res.json())
+      .then((json: WeatherApiResponse) => {
+        console.log("Weather JSON:", json);
+        setWeather(json);
+      })
+      .catch((err) => {
+        console.error("Failed to load weather", err);
       });
   };
 
@@ -410,222 +447,235 @@ export function RaceViewerPage() {
       )}
 
       {/* -- Race Playback section */}
-      <div className="mt-4">
+      <div className="">
         {showRacePlayBackSection && (
           <>
-            {/* Header */}
+            <div className="mt-2 pb-24">
+              {/* Race playback circuit */}
+              <PlaybackControls
+                data={data}
+                currentTime={currentTime}
+                setCurrentTime={setCurrentTime}
+                isPlaying={isPlaying}
+                setIsPlaying={setIsPlaying}
+                speedMultiplier={speedMultiplier}
+                setSpeedMultiplier={setSpeedMultiplier}
+              />
 
-            {/* Race playback circuit */}
-            <PlaybackControls
-              data={data}
-              currentTime={currentTime}
-              setCurrentTime={setCurrentTime}
-              isPlaying={isPlaying}
-              setIsPlaying={setIsPlaying}
-              speedMultiplier={speedMultiplier}
-              setSpeedMultiplier={setSpeedMultiplier}
-            />
-
-            {/* Race playback weather info */}
-            <WeatherInfo
-              year={parseInt(selectedYear)}
-              country={selectedCountry}
-              session={selectedSession}
-              currentTime={currentTime}
-            />
-
-            {/* Race playback leaderboard */}
-            <RacePlaybackLeaderboard
-              year={parseInt(selectedYear)}
-              country={selectedCountry}
-              session={selectedSession}
-              currentTime={currentTime}
-              searchButton={searchButton}
-            />
-
-            {/* Race playback circuit */}
-            <RacePlaybackCircuit data={data} currentTime={currentTime} />
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-3">
+                  {/* Race playback weather info */}
+                  <WeatherInfo
+                    weatherData={weather}
+                    currentTime={currentTime}
+                  />
+                </div>
+                <div className="col-span-2">
+                  {/* Race playback leaderboard */}
+                  <RacePlaybackLeaderboard
+                    leaderboardData={leaderboardData}
+                    currentTime={currentTime}
+                  />
+                </div>
+                <div>
+                  {/* Race playback circuit */}
+                  <RacePlaybackCircuit data={data} currentTime={currentTime} />
+                </div>
+              </div>
+            </div>
           </>
         )}
       </div>
 
       {/* -- Summary section */}
-      <div className="mt-4">
+      <div className="">
         {showSummarySection && (
           <>
-            {/* Results */}
-            {showResultsBox && (
-              <>
-                <div className="card card-border bg-base-100 w-auto mt-5">
-                  <div className="card-body">
-                    <h2 className="card-title">
-                      {circuitName.toUpperCase()} {selectedYear} GRAND PRIX -{" "}
-                      {selectedSession.toUpperCase()}
-                    </h2>
-                    <p>
-                      Results of the selected session.
-                      <br />
-                      <em>
-                        Note: Certain sessions, particularly older sessions, may
-                        not have lap data available.
-                      </em>
-                    </p>
+            <div className="mt-2">
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-3">
+                  {/* Results */}
+                  {showResultsBox && (
+                    <>
+                      <div className="card card-border bg-base-100 w-auto">
+                        <div className="card-body">
+                          <h2 className="card-title">
+                            {circuitName.toUpperCase()} {selectedYear} GRAND
+                            PRIX - {selectedSession.toUpperCase()}
+                          </h2>
+                          <p>
+                            Results of the selected session.
+                            <br />
+                            <em>
+                              Note: Certain sessions, particularly older
+                              sessions, may not have lap data available.
+                            </em>
+                          </p>
 
-                    <div className="overflow-x-auto">
-                      <table className="table mt-5">
-                        {!loadingResults && (
-                          <thead>
-                            <>
-                              {selectedSession.includes("Practice") && (
-                                <tr>
-                                  <th>Pos</th>
-                                  <th>Driver No.</th>
-                                  <th></th>
-                                  <th>Driver</th>
-                                  <th>Team</th>
-                                  <th>Time</th>
-                                  <th>Laps</th>
-                                </tr>
+                          <div className="overflow-x-auto">
+                            <table className="table mt-5">
+                              {!loadingResults && (
+                                <thead>
+                                  <>
+                                    {selectedSession.includes("Practice") && (
+                                      <tr>
+                                        <th>Pos</th>
+                                        <th>Driver No.</th>
+                                        <th></th>
+                                        <th>Driver</th>
+                                        <th>Team</th>
+                                        <th>Time</th>
+                                        <th>Laps</th>
+                                      </tr>
+                                    )}
+
+                                    {(selectedSession.includes("Qualifying") ||
+                                      selectedSession.includes("Shootout")) && (
+                                      <tr>
+                                        <th>Pos</th>
+                                        <th>Driver No.</th>
+                                        <th></th>
+                                        <th>Driver</th>
+                                        <th>Team</th>
+                                        <th>Q1</th>
+                                        <th>Q2</th>
+                                        <th>Q3</th>
+                                        <th>Laps</th>
+                                      </tr>
+                                    )}
+
+                                    {(selectedSession.includes("Race") ||
+                                      selectedSession.includes("Sprint")) && (
+                                      <tr>
+                                        <th>Pos</th>
+                                        <th>Driver No.</th>
+                                        <th></th>
+                                        <th>Driver</th>
+                                        <th>Team</th>
+                                        <th>Laps</th>
+                                        <th>Best Lap Time</th>
+                                        <th>Last Lap Time</th>
+                                        <th>Points</th>
+                                        <th>Status</th>
+                                      </tr>
+                                    )}
+                                  </>
+                                </thead>
                               )}
-
-                              {(selectedSession.includes("Qualifying") ||
-                                selectedSession.includes("Shootout")) && (
-                                <tr>
-                                  <th>Pos</th>
-                                  <th>Driver No.</th>
-                                  <th></th>
-                                  <th>Driver</th>
-                                  <th>Team</th>
-                                  <th>Q1</th>
-                                  <th>Q2</th>
-                                  <th>Q3</th>
-                                  <th>Laps</th>
-                                </tr>
-                              )}
-
-                              {(selectedSession.includes("Race") ||
-                                selectedSession.includes("Sprint")) && (
-                                <tr>
-                                  <th>Pos</th>
-                                  <th>Driver No.</th>
-                                  <th></th>
-                                  <th>Driver</th>
-                                  <th>Team</th>
-                                  <th>Laps</th>
-                                  <th>Best Lap Time</th>
-                                  <th>Last Lap Time</th>
-                                  <th>Points</th>
-                                  <th>Status</th>
-                                </tr>
-                              )}
-                            </>
-                          </thead>
-                        )}
-                        <tbody>
-                          {loadingResults ? (
-                            <tr>
-                              <td colSpan={7} className="p-0">
-                                <div className="skeleton h-32 w-auto"></div>
-                              </td>
-                            </tr>
-                          ) : (
-                            <>
-                              {selectedSession.includes("Practice") &&
-                                sortedResults.map((r) => (
-                                  <tr
-                                    key={`${r.driverNumber}-${r.position}`}
-                                    style={{
-                                      backgroundColor:
-                                        "#" + r.team_color + "33",
-                                    }}
-                                  >
-                                    <td>{r.position}</td>
-                                    <td>{r.driverNumber}</td>
-                                    <td>
-                                      <div className="flex items-center gap-3">
-                                        <DriverAvatar
-                                          name={r.name}
-                                          headshotUrl={r.headshot_url}
-                                        />
-                                      </div>
+                              <tbody>
+                                {loadingResults ? (
+                                  <tr>
+                                    <td colSpan={7} className="p-0">
+                                      <div className="skeleton h-32 w-auto"></div>
                                     </td>
-                                    <td>{r.name}</td>
-                                    <td>{r.team}</td>
-                                    <td>{r.bestLapTime}</td>
-                                    <td>{r.numberOfLaps}</td>
                                   </tr>
-                                ))}
+                                ) : (
+                                  <>
+                                    {selectedSession.includes("Practice") &&
+                                      sortedResults.map((r) => (
+                                        <tr
+                                          key={`${r.driverNumber}-${r.position}`}
+                                          style={{
+                                            backgroundColor:
+                                              "#" + r.team_color + "33",
+                                          }}
+                                        >
+                                          <td>{r.position}</td>
+                                          <td>{r.driverNumber}</td>
+                                          <td>
+                                            <div className="flex items-center gap-3">
+                                              <DriverAvatar
+                                                name={r.name}
+                                                headshotUrl={r.headshot_url}
+                                              />
+                                            </div>
+                                          </td>
+                                          <td>{r.name}</td>
+                                          <td>{r.team}</td>
+                                          <td>{r.bestLapTime}</td>
+                                          <td>{r.numberOfLaps}</td>
+                                        </tr>
+                                      ))}
 
-                              {(selectedSession.includes("Qualifying") ||
-                                selectedSession.includes("Shootout")) &&
-                                sortedResults.map((r) => (
-                                  <tr key={`${r.driverNumber}-${r.position}`}>
-                                    <td>{r.position}</td>
-                                    <td>{r.driverNumber}</td>
-                                    <td>
-                                      <div className="flex items-center gap-3">
-                                        <DriverAvatar
-                                          name={r.name}
-                                          headshotUrl={r.headshot_url}
-                                        />
-                                      </div>
-                                    </td>
-                                    <td>{r.name}</td>
-                                    <td>{r.team}</td>
-                                    <td>{r.q1}</td>
-                                    <td>{r.q2}</td>
-                                    <td>{r.q3}</td>
-                                    <td>{r.bestLapTime}</td>
-                                  </tr>
-                                ))}
+                                    {(selectedSession.includes("Qualifying") ||
+                                      selectedSession.includes("Shootout")) &&
+                                      sortedResults.map((r) => (
+                                        <tr
+                                          key={`${r.driverNumber}-${r.position}`}
+                                        >
+                                          <td>{r.position}</td>
+                                          <td>{r.driverNumber}</td>
+                                          <td>
+                                            <div className="flex items-center gap-3">
+                                              <DriverAvatar
+                                                name={r.name}
+                                                headshotUrl={r.headshot_url}
+                                              />
+                                            </div>
+                                          </td>
+                                          <td>{r.name}</td>
+                                          <td>{r.team}</td>
+                                          <td>{r.q1}</td>
+                                          <td>{r.q2}</td>
+                                          <td>{r.q3}</td>
+                                          <td>{r.bestLapTime}</td>
+                                        </tr>
+                                      ))}
 
-                              {(selectedSession.includes("Race") ||
-                                selectedSession.includes("Sprint")) &&
-                                sortedResults.map((r) => (
-                                  <tr key={`${r.driverNumber}-${r.position}`}>
-                                    <td>{r.position}</td>
-                                    <td>{r.driverNumber}</td>
-                                    <td>
-                                      <div className="flex items-center gap-3">
-                                        <DriverAvatar
-                                          name={r.name}
-                                          headshotUrl={r.headshot_url}
-                                        />
-                                      </div>
-                                    </td>
-                                    <td>{r.name}</td>
-                                    <td>{r.team}</td>
-                                    <td>{r.numberOfLaps}</td>
-                                    <td>{r.bestLapTime}</td>
-                                    <td>{r.lastLapTime}</td>
-                                    <td>{r.points}</td>
-                                    <td>{r.status}</td>
-                                  </tr>
-                                ))}
-                            </>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                                    {(selectedSession.includes("Race") ||
+                                      selectedSession.includes("Sprint")) &&
+                                      sortedResults.map((r) => (
+                                        <tr
+                                          key={`${r.driverNumber}-${r.position}`}
+                                        >
+                                          <td>{r.position}</td>
+                                          <td>{r.driverNumber}</td>
+                                          <td>
+                                            <div className="flex items-center gap-3">
+                                              <DriverAvatar
+                                                name={r.name}
+                                                headshotUrl={r.headshot_url}
+                                              />
+                                            </div>
+                                          </td>
+                                          <td>{r.name}</td>
+                                          <td>{r.team}</td>
+                                          <td>{r.numberOfLaps}</td>
+                                          <td>{r.bestLapTime}</td>
+                                          <td>{r.lastLapTime}</td>
+                                          <td>{r.points}</td>
+                                          <td>{r.status}</td>
+                                        </tr>
+                                      ))}
+                                  </>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </>
-            )}
-            {/* Starting grid */}
-            {showStartGrid && (
-              <div className="card card-border bg-base-100 mt-5 ">
-                <div className="card-body">
-                  <h2 className="card-title">STARTING GRID</h2>
-                  <div className="mt-2">
-                    {loadingResults ? (
-                      <div className="skeleton h-32 w-auto"></div>
-                    ) : (
-                      <StartingGrid results={results} />
-                    )}
-                  </div>
+                <div className="col-span-3">
+                  {/* Starting grid */}
+                  {showStartGrid && (
+                    <div className="card card-border bg-base-100">
+                      <div className="card-body">
+                        <h2 className="card-title">STARTING GRID</h2>
+                        <div className="mt-2">
+                          {loadingResults ? (
+                            <div className="skeleton h-32 w-auto"></div>
+                          ) : (
+                            <StartingGrid results={results} />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
           </>
         )}
       </div>

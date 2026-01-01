@@ -41,58 +41,61 @@ export function PlaybackControls({
   };
 
   return (
-    <div className="card card-border bg-base-100">
-      <div className="card-body">
+    <div className="fixed bottom-0 inset-x-0 z-50 border-t border-neutral-700 bg-base-100/95 backdrop-blur">
+      <div className="max-w-7xl mx-auto px-4 py-3">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
+          {/* Top row */}
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              className="btn px-3 py-1 rounded bg-neutral-600 text-white text-sm"
+              className="btn btn-sm px-4 bg-neutral-600 text-white"
               onClick={() => setIsPlaying((p) => !p)}
             >
               {isPlaying ? "Pause" : "Play"}
             </button>
 
-            <div className="tabs tabs-box">
+            <div className="tabs tabs-boxed tabs-sm">
               <input
                 type="radio"
-                onClick={() => setSpeedMultiplier(1)}
                 name="playback_speed"
                 className="tab"
                 aria-label="x1"
+                onClick={() => setSpeedMultiplier(1)}
                 defaultChecked={speedMultiplier === 1}
               />
               <input
                 type="radio"
-                onClick={() => setSpeedMultiplier(5)}
                 name="playback_speed"
                 className="tab"
                 aria-label="x5"
+                onClick={() => setSpeedMultiplier(5)}
               />
               <input
                 type="radio"
-                onClick={() => setSpeedMultiplier(20)}
                 name="playback_speed"
                 className="tab"
                 aria-label="x20"
+                onClick={() => setSpeedMultiplier(20)}
               />
               <input
                 type="radio"
-                onClick={() => setSpeedMultiplier(50)}
                 name="playback_speed"
                 className="tab"
                 aria-label="x50"
+                onClick={() => setSpeedMultiplier(50)}
               />
             </div>
 
-            <span className="text-sm text-gray-300">
-              t = {currentTime.toFixed(1)}s / {raceDuration.toFixed(1)}s
-            </span>
-            <span className="text-sm text-gray-300">
-              Lap {currentLap} / {totalLaps}
-            </span>
+            <div className="ml-auto flex gap-4 text-sm text-gray-300">
+              <span>
+                t = {currentTime.toFixed(1)}s / {raceDuration.toFixed(1)}s
+              </span>
+              <span>
+                Lap {currentLap} / {totalLaps}
+              </span>
+            </div>
           </div>
 
-          {/* slider */}
+          {/* Scrubber */}
           <input
             type="range"
             min={playbackControlOffset}
@@ -100,7 +103,7 @@ export function PlaybackControls({
             step={0.2}
             value={currentTime}
             onChange={(e) => handleScrub(parseFloat(e.target.value))}
-            className="w-full range range-neutral bg-neutral-800"
+            className="range range-neutral w-full"
           />
         </div>
       </div>

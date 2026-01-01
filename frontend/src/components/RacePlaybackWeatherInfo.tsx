@@ -2,22 +2,11 @@ import React, { useEffect, useState } from "react";
 import type { WeatherApiResponse, WeatherSample } from "../types";
 
 type RacePlaybackProps = {
-  year: number;
-  country: string;
-  session: string;
+  weatherData: WeatherApiResponse | null;
   currentTime: number;
 };
 
-export function WeatherInfo({
-  year,
-  country,
-  session,
-  currentTime,
-}: RacePlaybackProps) {
-  const [weather, setWeather] = useState<WeatherSample[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+export function WeatherInfo({ weatherData, currentTime }: RacePlaybackProps) {
   const [rangeAirTemp, setRangeAirTemp] = useState<[number, number]>([0, 0]);
   const [rangeHumidity, setRangeHumidity] = useState<[number, number]>([0, 0]);
   const [rangePressure, setRangePressure] = useState<[number, number]>([0, 0]);
@@ -29,38 +18,20 @@ export function WeatherInfo({
   ]);
 
   useEffect(() => {
-    if (!year || !country || !session) {
-      setWeather([]);
-      return;
+    if (weatherData) {
+      setRangeAirTemp(weatherData.rangeAirTemp);
+      setRangeHumidity(weatherData.rangeHumidity);
+      setRangePressure(weatherData.rangePressure);
+      setRangeTrackTemp(weatherData.rangeTrackTemp);
+      setRangeWindSpeed(weatherData.rangeWindSpeed);
     }
+  }, [weatherData]);
 
-    setLoading(true);
-    setError(null);
+  if (!weatherData) {
+    return <div className="skeleton h-24 w-auto"></div>;
+  }
 
-    fetch(
-      `http://localhost:8000/api/session/${year}/${country}/${session}/weather/`
-    )
-      .then((res) => res.json())
-      .then((data: WeatherApiResponse) => {
-        setWeather(data.weather ?? []);
-        setRangeAirTemp(data.rangeAirTemp);
-        setRangeHumidity(data.rangeHumidity);
-        setRangePressure(data.rangePressure);
-        setRangeTrackTemp(data.rangeTrackTemp);
-        setRangeWindSpeed(data.rangeWindSpeed);
-      })
-      .catch((err) => {
-        console.error("Failed to load weather", err);
-        setError("Failed to load weather");
-      })
-      .finally(() => setLoading(false));
-  }, [year, country, session]);
-
-  if (loading) return <div className="skeleton h-24 w-auto mt-3"></div>;
-  if (error) return <div>{error}</div>;
-  if (!weather.length) return <div>No weather data</div>;
-
-  const w = getWeatherAtTime(weather, currentTime);
+  const w = getWeatherAtTime(weatherData.weather, currentTime);
   if (!w) return <div>No weather</div>;
   const airTempPercentage =
     w.air_temp != null ? calculatePercentage(rangeAirTemp, w.air_temp) : null;
@@ -101,7 +72,7 @@ export function WeatherInfo({
     w.wind_dir != null ? calculatePercentage([0, 360], w.wind_dir) : null;
 
   return (
-    <div className="card card-border bg-base-100 w-full mt-3">
+    <div className="card card-border bg-base-100 w-full">
       <div className="card-body">
         <div className="flex gap-4 overflow-x-auto overflow-y-hidden whitespace-nowrap mx-auto">
           <div className="flex items-center gap-4 -mb-9">
@@ -137,7 +108,7 @@ export function WeatherInfo({
                   }
                   className="stroke-current"
                   strokeWidth="1"
-                  stroke-dasharray={`${airTempPercentage / 2} 100`}
+                  stroke-dasharray={`${(airTempPercentage ?? 0) / 2} 100`}
                   strokeLinecap="round"
                 ></circle>
               </svg>
@@ -190,7 +161,7 @@ export function WeatherInfo({
                   }
                   className="stroke-current"
                   strokeWidth="1"
-                  stroke-dasharray={`${trackTempPercentage / 2} 100`}
+                  stroke-dasharray={`${(trackTempPercentage ?? 0) / 2} 100`}
                   strokeLinecap="round"
                 ></circle>
               </svg>
@@ -243,7 +214,7 @@ export function WeatherInfo({
                   }
                   className="stroke-current"
                   strokeWidth="1"
-                  stroke-dasharray={`${humidityPercentage / 2} 100`}
+                  stroke-dasharray={`${(humidityPercentage ?? 0) / 2} 100`}
                   strokeLinecap="round"
                 ></circle>
               </svg>
@@ -296,7 +267,7 @@ export function WeatherInfo({
                   }
                   className="stroke-current"
                   strokeWidth="1"
-                  stroke-dasharray={`${pressurePercentage / 2} 100`}
+                  stroke-dasharray={`${(pressurePercentage ?? 0) / 2} 100`}
                   strokeLinecap="round"
                 ></circle>
               </svg>
@@ -349,7 +320,7 @@ export function WeatherInfo({
                   }
                   className="stroke-current"
                   strokeWidth="1"
-                  stroke-dasharray={`${windSpeedPercentage / 2} 100`}
+                  stroke-dasharray={`${(windSpeedPercentage ?? 0) / 2} 100`}
                   strokeLinecap="round"
                 ></circle>
               </svg>

@@ -13,16 +13,16 @@ export function RacePlaybackCircuit({
   currentTime,
 }: RacePlaybackCircuitProps) {
   if (!data) {
-    return <div className="skeleton h-32 w-auto mt-5"></div>;
+    return <div className="skeleton h-32 w-auto"></div>;
   }
 
   const { track, drivers } = data;
 
   return (
-    <div className="w-full flex justify-center mt-5">
+    <div className="w-full flex justify-center">
       <svg
         viewBox="-1.2 -1.2 2.4 2.4"
-        className="w-full max-w-3xl border rounded-xl bg-neutral-900"
+        className="w-full max-w-3xl rounded-xl bg-neutral-900"
       >
         {/* track polyline */}
         <polyline
