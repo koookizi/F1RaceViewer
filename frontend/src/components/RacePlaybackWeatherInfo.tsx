@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import type { WeatherApiResponse, WeatherSample } from "../types";
-import { TelemetryRing } from "../components/TelemetryRing";
 import { TelemetryPill } from "../components/TelemetryPill";
 
 type RacePlaybackProps = {

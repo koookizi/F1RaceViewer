@@ -8,6 +8,7 @@ import type {
   Compound,
   LeaderboardCarData,
   LeaderboardGapData,
+  LeaderboardDriverData,
 } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
 import hardTyre from "../assets/hard.svg";
@@ -16,6 +17,8 @@ import mediumTyre from "../assets/medium.svg";
 import softTyre from "../assets/soft.svg";
 import unknownTyre from "../assets/unknown.svg";
 import wetTyre from "../assets/wet.svg";
+import { atOrBefore } from "../helpers/leaderboard";
+import { SectorWidget } from "../components/SectorWidget";
 
 type RacePlaybackLeaderboardProps = {
   leaderboardData: LeaderboardApiResponse | null;
@@ -32,7 +35,6 @@ export function RacePlaybackLeaderboard({
   return (
     <div className="card card-border bg-base-100">
       <div className="card-body">
-        <h2 className="card-title">Leaderboard</h2>
         <table className="table [&_td]:py-1">
           <thead></thead>
           <tbody>
@@ -221,6 +223,65 @@ export function RacePlaybackLeaderboard({
                         </span>
                       </div>
                     </td>
+                    <td>
+                      <div className="flex flex-col leading-none">
+                        <span
+                          className="text-[1.2em] font-semibold"
+                          style={{
+                            color: getLapTimeColorHex(
+                              getLastLapTime(driver.laps_data, currentTime),
+                              driver,
+                              leaderboardData?.drivers,
+                              currentTime
+                            ),
+                          }}
+                        >
+                          {formatLapTime(
+                            getLastLapTime(driver.laps_data, currentTime)
+                          )}
+                        </span>
+
+                        <span
+                          className="text-[0.87em] opacity-70"
+                          style={{
+                            color: getLapTimeColorHex(
+                              getBestLapTime(driver.laps_data, currentTime),
+                              driver,
+                              leaderboardData?.drivers,
+                              currentTime
+                            ),
+                          }}
+                        >
+                          {formatLapTime(
+                            getBestLapTime(driver.laps_data, currentTime)
+                          )}
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <SectorWidget
+                        driver={driver}
+                        allDrivers={leaderboardData?.drivers}
+                        currentTime={currentTime}
+                        sector={1}
+                      />
+                    </td>
+                    <td>
+                      <SectorWidget
+                        driver={driver}
+                        allDrivers={leaderboardData?.drivers}
+                        currentTime={currentTime}
+                        sector={2}
+                      />
+                    </td>
+                    <td>
+                      <SectorWidget
+                        driver={driver}
+                        allDrivers={leaderboardData?.drivers}
+                        currentTime={currentTime}
+                        sector={3}
+                      />
+                    </td>
                   </motion.tr>
                 ))}
             </AnimatePresence>
@@ -229,30 +290,6 @@ export function RacePlaybackLeaderboard({
       </div>
     </div>
   );
-}
-
-function atOrBefore<T extends { SessionTime: number }>(
-  rows: T[],
-  currentTime: number
-): T | null {
-  if (!rows.length) return null;
-  if (currentTime < rows[0].SessionTime) return null;
-
-  let lo = 0,
-    hi = rows.length - 1,
-    ans = -1;
-
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1;
-    if (rows[mid].SessionTime <= currentTime) {
-      ans = mid;
-      lo = mid + 1;
-    } else {
-      hi = mid - 1;
-    }
-  }
-
-  return ans >= 0 ? rows[ans] : null;
 }
 
 function getDRSPITStatus(
@@ -419,6 +456,51 @@ function getGapToLeader(
   return row ? row.gap_to_leader : null;
 }
 
+function getLastLapTime(
+  laps: LeaderboardLapsData[],
+  currentTime: number
+): number | null {
+  if (!laps.length) return null;
+
+  if (currentTime < laps[0].SessionTime) {
+    return laps[0].lap_duration;
+  }
+
+  const lap = atOrBefore(laps, currentTime);
+  return lap ? lap.lap_duration : null;
+}
+
+function getBestLapTime(
+  laps: LeaderboardLapsData[],
+  currentTime: number
+): number | null {
+  if (!laps.length) return null;
+
+  // Only laps completed at or before currentTime
+  const completed = laps.filter((l) => l.SessionTime <= currentTime);
+
+  if (!completed.length) return null;
+
+  return completed.reduce(
+    (best, lap) => Math.min(best, lap.lap_duration),
+    Infinity
+  );
+}
+
+function formatLapTime(seconds: number | null): string {
+  if (seconds == null || seconds <= 0) return "—";
+
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds - minutes * 60;
+
+  const secs = Math.floor(remainder);
+  const millis = Math.round((remainder - secs) * 1000);
+
+  return `${minutes}:${secs.toString().padStart(2, "0")}.${millis
+    .toString()
+    .padStart(3, "0")}`;
+}
+
 function formatGap(value: number | null): string {
   if (value == null) return "-";
   if (value === 0) return "LEADER";
@@ -432,6 +514,72 @@ function getPositionsGainedColour(pg: string | null | undefined) {
   if (pg.startsWith("+")) return "#00c851"; // green
   if (pg.startsWith("-")) return "#ff4444"; // red;
   return "inherit"; // "0"
+}
+
+// F1 universal-ish colours (common across timing UIs)
+const LAP_PURPLE = "#A855F7"; // session best
+const LAP_GREEN = "#22C55E"; // personal best
+const LAP_NEUTRAL = "#E5E7EB"; // normal/unknown (light grey)
+const LAP_DIM = "#9CA3AF"; // no data / invalid
+
+function getLapTimeColorHex(
+  displayedLapTime: number | null, // the number you are showing (last lap OR best lap)
+  driver: LeaderboardDriverData,
+  allDrivers: LeaderboardDriverData[],
+  currentTime: number
+): string {
+  if (displayedLapTime == null || displayedLapTime <= 0) return LAP_DIM;
+
+  const displayedMs = Math.round(displayedLapTime * 1000);
+
+  // Driver best so far (PB) up to currentTime
+  const driverBestMs = getDriverBestLapMsSoFar(driver.laps_data, currentTime);
+  if (driverBestMs == null) return LAP_DIM;
+
+  // Session best so far up to currentTime (across all drivers)
+  const sessionBestMs = getSessionBestLapMsSoFar(allDrivers, currentTime);
+  if (sessionBestMs == null) return LAP_DIM;
+
+  if (displayedMs === sessionBestMs) return LAP_PURPLE;
+  if (displayedMs === driverBestMs) return LAP_GREEN;
+
+  return LAP_NEUTRAL;
+}
+
+function getDriverBestLapMsSoFar(
+  laps: LeaderboardLapsData[],
+  currentTime: number
+): number | null {
+  let best = Infinity;
+
+  for (const l of laps) {
+    if (l.SessionTime > currentTime) continue; // order-independent
+    if (l.lap_duration <= 0) continue;
+    if (l.is_pit_out_lap) continue;
+    const ms = Math.round(l.lap_duration * 1000);
+    if (ms < best) best = ms;
+  }
+
+  return best === Infinity ? null : best;
+}
+
+function getSessionBestLapMsSoFar(
+  drivers: LeaderboardDriverData[],
+  currentTime: number
+): number | null {
+  let best = Infinity;
+
+  for (const d of drivers) {
+    for (const l of d.laps_data) {
+      if (l.SessionTime > currentTime) continue; // order-independent
+      if (l.lap_duration <= 0) continue;
+      if (l.is_pit_out_lap) continue;
+      const ms = Math.round(l.lap_duration * 1000);
+      if (ms < best) best = ms;
+    }
+  }
+
+  return best === Infinity ? null : best;
 }
 
 function getGapTrendColorHex(
