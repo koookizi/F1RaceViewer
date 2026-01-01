@@ -19,6 +19,7 @@ export type PlaybackData = {
   raceDuration: number;
   totalLaps: number;
   playbackControlOffset: number;
+  sessionStart: string;
 };
 
 export type WeatherSample = {
@@ -39,6 +40,25 @@ export type WeatherApiResponse = {
   rangePressure: [number, number];
   rangeTrackTemp: [number, number];
   rangeWindSpeed: [number, number];
+};
+
+export type RaceControlApiResponse = {
+  SessionTime: number;
+  driver_number: number | null;
+  lap_number: number;
+  category: string;
+  flag: string | null;
+  scope: string | null;
+  sector: number | null;
+  message: string;
+  time: string;
+};
+
+export type TeamRadioApiResponse = {
+  SessionTime: number;
+  driver_number: number | null;
+  recording_url: string;
+  time: string;
 };
 
 // Leaderboard Data Types

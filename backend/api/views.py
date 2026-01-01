@@ -53,6 +53,100 @@ def session_circuit(request, year: int, country: str):
     return JsonResponse({"circuit": event.circuit})
 
 @lru_cache(maxsize=32)
+def session_teamradio_view(request, year: int, country: str, session_name: str):    
+    # OpenF1
+    session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
+    session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
+
+    # FastF1
+    session = fastf1.get_session(year, country, session_name)
+    session.load()
+
+    fastf1_start = session.t0_date + session.session_start_time # gets the actual datetime of session start (first telemetry point)
+
+    # ---
+
+    # get team radio data
+    teamradio_data_req = urlopen(f"https://api.openf1.org/v1/team_radio?session_key={session_df.loc[0, 'session_key']}&date>{session_df.loc[0, "date_start"]}")
+    teamradio_data = pd.DataFrame(json.loads(teamradio_data_req.read().decode('utf-8')))
+    teamradio_data["date"] = pd.to_datetime(
+        teamradio_data["date"],
+        utc=True,
+        format="ISO8601"
+    )
+
+    teamradio_data["SessionTime"] = (
+        teamradio_data["date"] - session.t0_date.replace(tzinfo=timezone.utc)
+    ).dt.total_seconds()
+
+    teamradio_data = teamradio_data[
+    ["SessionTime"] + [c for c in teamradio_data.columns if c != "SessionTime"]]
+    teamradio_data.sort_values("SessionTime")
+
+    teamradio_data["time"] = (
+    pd.to_datetime(teamradio_data["date"])
+    .dt.strftime("%H:%M:%S")
+)
+
+    teamradio_data = teamradio_data.drop(columns=['date', 'meeting_key', 'session_key'])
+
+    # > cleans any NaNs for JSON
+    teamradio_data = teamradio_data.astype(object)
+    teamradio_data = teamradio_data.where(pd.notna(teamradio_data), None)
+
+    # -- final structure
+    finalJSON = teamradio_data.to_dict(orient="records")
+
+    return JsonResponse(finalJSON, safe=False)
+
+@lru_cache(maxsize=32)
+def session_racecontrol_view(request, year: int, country: str, session_name: str):    
+    # OpenF1
+    session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
+    session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
+
+    # FastF1
+    session = fastf1.get_session(year, country, session_name)
+    session.load()
+
+    fastf1_start = session.t0_date + session.session_start_time # gets the actual datetime of session start (first telemetry point)
+
+    # ---
+
+    # get race control data
+    racecontrol_data_req = urlopen(f"https://api.openf1.org/v1/race_control?session_key={session_df.loc[0, 'session_key']}&date>{session_df.loc[0, "date_start"]}")
+    racecontrol_data = pd.DataFrame(json.loads(racecontrol_data_req.read().decode('utf-8')))
+    racecontrol_data["date"] = pd.to_datetime(
+        racecontrol_data["date"],
+        utc=True,
+        format="ISO8601"
+    )
+
+    racecontrol_data["SessionTime"] = (
+        racecontrol_data["date"] - session.t0_date.replace(tzinfo=timezone.utc)
+    ).dt.total_seconds()
+
+    racecontrol_data = racecontrol_data[
+    ["SessionTime"] + [c for c in racecontrol_data.columns if c != "SessionTime"]]
+    racecontrol_data.sort_values("SessionTime")
+
+    racecontrol_data["time"] = (
+    pd.to_datetime(racecontrol_data["date"])
+    .dt.strftime("%H:%M:%S")
+)
+
+    racecontrol_data = racecontrol_data.drop(columns=['date', 'meeting_key', 'session_key'])
+
+    # > cleans any NaNs for JSON
+    racecontrol_data = racecontrol_data.astype(object)
+    racecontrol_data = racecontrol_data.where(pd.notna(racecontrol_data), None)
+
+    # -- final structure
+    finalJSON = racecontrol_data.to_dict(orient="records")
+
+    return JsonResponse(finalJSON, safe=False)
+
+@lru_cache(maxsize=32)
 def session_leaderboard_view(request, year: int, country: str, session_name: str):    
     # OpenF1
     session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
@@ -523,6 +617,14 @@ def session_playback_view(request, year: int, country: str, session_name: str):
     playbackControlOffset = (fastf1_start - session.t0_date).total_seconds() # in seconds
     fastf1_openf1_offset = (fastf1_start.replace(tzinfo=timezone.utc) - openf1_start).total_seconds() # in seconds. fastf1 is the later one
 
+    # --- get session start time
+    session_start_time = (
+    session.t0_date
+    .tz_localize("UTC")
+    .strftime("%Y-%m-%dT%H:%M:%SZ")
+)
+
+
     # --- build track polyline (using fastest lap of pole or just first driver) 
     ref_driver = session.drivers[0]
     ref_lap = session.laps.pick_drivers(ref_driver).pick_fastest()
@@ -610,7 +712,8 @@ def session_playback_view(request, year: int, country: str, session_name: str):
         "drivers": drivers_payload,
         "raceDuration": race_duration,
         "totalLaps": total_laps,
-        "playbackControlOffset" : playbackControlOffset
+        "playbackControlOffset" : playbackControlOffset,
+        "sessionStart" : session_start_time
     })
 
 @lru_cache(maxsize=32)

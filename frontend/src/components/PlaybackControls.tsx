@@ -1,7 +1,7 @@
 // src/components/PlaybackControls.tsx
 import React from "react";
 import type { PlaybackData } from "../types";
-import { getPositionAtTime } from "../helpers/playback";
+import { getPositionAtTime, formatWallClockTime } from "../helpers/playback";
 
 type PlaybackControlsProps = {
   data: PlaybackData | null;
@@ -13,11 +13,14 @@ type PlaybackControlsProps = {
 
   speedMultiplier: number;
   setSpeedMultiplier: (value: number) => void;
+
+  sessionStart: string;
 };
 
 export function PlaybackControls({
   data,
   currentTime,
+  sessionStart,
   setCurrentTime,
   isPlaying,
   setIsPlaying,
@@ -86,9 +89,7 @@ export function PlaybackControls({
             </div>
 
             <div className="ml-auto flex gap-4 text-sm text-gray-300">
-              <span>
-                t = {currentTime.toFixed(1)}s / {raceDuration.toFixed(1)}s
-              </span>
+              <span>{formatWallClockTime(sessionStart, currentTime)}</span>
               <span>
                 Lap {currentLap} / {totalLaps}
               </span>

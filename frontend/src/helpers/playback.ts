@@ -18,3 +18,24 @@ export function getPositionAtTime(samples: any[], t: number) {
   }
   return samples[samples.length - 1];
 }
+
+export function formatWallClockTime(
+  sessionStart: string | Date | null,
+  sessionTimeSeconds: number | null
+): string {
+  if (!sessionStart || sessionTimeSeconds == null) return "--:--:--";
+
+  const start =
+    typeof sessionStart === "string" ? new Date(sessionStart) : sessionStart;
+
+  if (isNaN(start.getTime())) return "--:--:--";
+
+  // Add SessionTime (seconds) to t0 (UTC instant)
+  const wallTime = new Date(start.getTime() + sessionTimeSeconds * 1000);
+
+  const hh = wallTime.getUTCHours().toString().padStart(2, "0");
+  const mm = wallTime.getUTCMinutes().toString().padStart(2, "0");
+  const ss = wallTime.getUTCSeconds().toString().padStart(2, "0");
+
+  return `${hh}:${mm}:${ss}`;
+}

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { WeatherApiResponse, PlaybackData } from "../types";
 import { WeatherInfo } from "../components/RacePlaybackWeatherInfo";
-import { getPositionAtTime } from "../helpers/playback";
+import { getPositionAtTime, formatWallClockTime } from "../helpers/playback";
 
 type RacePlaybackHeaderProps = {
   weatherData: WeatherApiResponse | null;
@@ -10,6 +10,7 @@ type RacePlaybackHeaderProps = {
   circuitName: string;
   selectedYear: string;
   selectedSession: string;
+  sessionStart: string;
 };
 
 export function RacePlaybackHeader({
@@ -19,6 +20,7 @@ export function RacePlaybackHeader({
   circuitName,
   selectedYear,
   selectedSession,
+  sessionStart,
 }: RacePlaybackHeaderProps) {
   if (!weatherData || !playbackData) {
     return <div className="skeleton h-24 w-auto mt-2"></div>;
@@ -38,10 +40,16 @@ export function RacePlaybackHeader({
       <div className="card-body p-3">
         <div className="grid grid-cols-3 gap-2">
           <div className="col-span-1 p-3">
-            <h2 className="card-title">
-              {circuitName.toUpperCase()} {selectedYear} GRAND PRIX -{" "}
-              {selectedSession.toUpperCase()}
-            </h2>
+            <div className="flex flex-col leading-none">
+              <span className="text-[1.2em] opacity-70">
+                {circuitName.toUpperCase()} {selectedYear} GRAND PRIX -{" "}
+                {selectedSession.toUpperCase()}{" "}
+              </span>
+
+              <span className="text-[2.1em] font-semibold">
+                {formatWallClockTime(sessionStart, currentTime)}
+              </span>
+            </div>
           </div>
           <div className="col-span-1">
             <WeatherInfo weatherData={weatherData} currentTime={currentTime} />

@@ -5,11 +5,14 @@ import { StartingGrid } from "../components/StartingGrid";
 import { RacePlaybackCircuit } from "../components/RacePlaybackCircuit";
 import { RacePlaybackLeaderboard } from "../components/RacePlaybackLeaderboard";
 import { RacePlaybackHeader } from "../components/RacePlaybackHeader";
+import { RacePlaybackRaceControl } from "../components/RacePlaybackRaceControl";
 import { PlaybackControls } from "../components/PlaybackControls";
 import type {
   PlaybackData,
   LeaderboardApiResponse,
   WeatherApiResponse,
+  RaceControlApiResponse,
+  TeamRadioApiResponse,
 } from "../types";
 import { teamBgByDriver } from "../helpers/team_colour";
 
@@ -69,63 +72,90 @@ export function RaceViewerPage() {
   const [data, setData] = useState<PlaybackData | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
+  const [sessionStart, setSessionStart] = useState("");
 
   const [leaderboardData, setLeaderboardData] =
     useState<LeaderboardApiResponse | null>(null);
 
   const [weather, setWeather] = useState<WeatherApiResponse | null>(null);
 
+  const [raceControlData, setRaceControlData] =
+    useState<RaceControlApiResponse | null>(null);
+
+  const [teamRadioData, setTeamRadioData] =
+    useState<TeamRadioApiResponse | null>(null);
+
   const frameRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
 
-  // Helper function for getting playback data for race viewer
-  // Fetch playback data
-  useEffect(() => {
-    const url = `http://localhost:8000/api/session/${selectedYear}/${encodeURIComponent(
-      selectedCountry
-    )}/${encodeURIComponent(selectedSession)}/playback/`;
-    console.log("Fetching playback from:", url);
+  // Animation loop (safe: no nested setState)
+  const isPlayingRef = useRef(isPlaying);
+  const speedRef = useRef(speedMultiplier);
+  const dataRef = useRef<PlaybackData | null>(data);
+  const simTimeRef = useRef<number>(0); // authoritative time
+  const lastUiCommitRef = useRef<number>(0); // last timestamp we set React state
 
-    fetch(url)
-      .then((res) => res.json())
-      .then((json: PlaybackData) => {
-        setData(json);
-        setCurrentTime(json.playbackControlOffset);
-        setIsPlaying(false);
-        console.log("Playback JSON:", json);
-      })
-      .catch((err) => console.error("Failed to load playback", err));
-  }, [searchButton]);
-
-  // Animation loop
   useEffect(() => {
-    if (!isPlaying || !data) {
-      // if paused, make sure nothing keeps running
-      if (frameRef.current !== null) {
-        cancelAnimationFrame(frameRef.current);
-        frameRef.current = null;
-      }
-      lastTimestampRef.current = null;
-      return;
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    speedRef.current = speedMultiplier;
+  }, [speedMultiplier]);
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
+
+  // Animation loop (throttled to avoid max-depth + lag)
+  useEffect(() => {
+    // Always cancel any existing RAF before deciding what to do (StrictMode-safe)
+    if (frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
     }
+    lastTimestampRef.current = null;
+
+    if (!isPlaying || !data) return;
+
+    const raceDuration = data.raceDuration;
 
     const tick = (timestamp: number) => {
+      // stop if paused while a frame was in-flight
+      if (!isPlaying) {
+        frameRef.current = null;
+        lastTimestampRef.current = null;
+        return;
+      }
+
       if (lastTimestampRef.current == null) {
         lastTimestampRef.current = timestamp;
       }
 
-      const deltaSec =
-        ((timestamp - lastTimestampRef.current) / 1000) * speedMultiplier;
+      const deltaReal = (timestamp - lastTimestampRef.current) / 1000;
       lastTimestampRef.current = timestamp;
 
-      setCurrentTime((prev) => {
-        const next = Math.min(prev + deltaSec, data.raceDuration);
-        if (next >= data.raceDuration) {
-          // stop at end
-          setIsPlaying(false);
-        }
-        return next;
-      });
+      // advance simulation time in a ref (not state)
+      const deltaSim = deltaReal * speedMultiplier;
+      simTimeRef.current = Math.min(
+        simTimeRef.current + deltaSim,
+        raceDuration
+      );
+
+      const reachedEnd = simTimeRef.current >= raceDuration;
+
+      // Commit UI state at most ~30fps (every 33ms) to reduce rerenders/effects
+      if (timestamp - lastUiCommitRef.current >= 33 || reachedEnd) {
+        lastUiCommitRef.current = timestamp;
+        setCurrentTime(simTimeRef.current);
+      }
+
+      if (reachedEnd) {
+        setIsPlaying(false);
+        frameRef.current = null;
+        lastTimestampRef.current = null;
+        return;
+      }
 
       frameRef.current = requestAnimationFrame(tick);
     };
@@ -139,7 +169,8 @@ export function RaceViewerPage() {
       }
       lastTimestampRef.current = null;
     };
-  }, [isPlaying, speedMultiplier, data]);
+  }, [isPlaying, speedMultiplier, data, setCurrentTime, setIsPlaying]);
+
   // Handles Summary section
   useEffect(() => {
     if (showSummarySection) {
@@ -198,6 +229,24 @@ export function RaceViewerPage() {
         setLoadingResults(false);
       });
 
+    // Fetches playback data
+    console.log("Fetching playback data");
+    fetch(
+      `http://localhost:8000/api/session/${selectedYear}/${encodeURIComponent(
+        selectedCountry
+      )}/${encodeURIComponent(selectedSession)}/playback/`
+    )
+      .then((res) => res.json())
+      .then((json: PlaybackData) => {
+        setData(json);
+        setCurrentTime(json.playbackControlOffset);
+        simTimeRef.current = json.playbackControlOffset;
+        setIsPlaying(false);
+        setSessionStart(json.sessionStart);
+        console.log("Playback JSON:", json);
+      })
+      .catch((err) => console.error("Failed to load playback", err));
+
     // Fetches leaderboard data
     console.log("Fetching leaderboard data");
     fetch(
@@ -222,7 +271,33 @@ export function RaceViewerPage() {
         setWeather(json);
       })
       .catch((err) => {
-        console.error("Failed to load weather", err);
+        console.error("Failed to load weather data", err);
+      });
+
+    // Fetches race control data
+    fetch(
+      `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/racecontrol/`
+    )
+      .then((res) => res.json())
+      .then((json: RaceControlApiResponse) => {
+        console.log("Race control JSON:", json);
+        setRaceControlData(json);
+      })
+      .catch((err) => {
+        console.error("Failed to load race control data", err);
+      });
+
+    // Fetches team radio data
+    fetch(
+      `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/teamradio/`
+    )
+      .then((res) => res.json())
+      .then((json: TeamRadioApiResponse) => {
+        console.log("Team radio JSON:", json);
+        setTeamRadioData(json);
+      })
+      .catch((err) => {
+        console.error("Failed to load team radio data", err);
       });
   };
 
@@ -456,6 +531,7 @@ export function RaceViewerPage() {
               <PlaybackControls
                 data={data}
                 currentTime={currentTime}
+                sessionStart={sessionStart}
                 setCurrentTime={setCurrentTime}
                 isPlaying={isPlaying}
                 setIsPlaying={setIsPlaying}
@@ -463,31 +539,39 @@ export function RaceViewerPage() {
                 setSpeedMultiplier={setSpeedMultiplier}
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div className="md:col-span-3">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                <div className="md:col-span-12">
                   {/* Race playback weather info */}
                   <RacePlaybackHeader
                     weatherData={weather}
                     playbackData={data}
                     currentTime={currentTime}
+                    sessionStart={sessionStart}
                     circuitName={circuitName}
                     selectedSession={selectedSession}
                     selectedYear={selectedYear}
                   />
                 </div>
-                <div className="md:col-span-2">
+                <div className="md:col-span-8">
                   {/* Race playback leaderboard */}
                   <RacePlaybackLeaderboard
                     leaderboardData={leaderboardData}
                     currentTime={currentTime}
                   />
                 </div>
-                <div>
+                <div className="md:col-span-4">
                   {/* Race playback circuit */}
                   <RacePlaybackCircuit
                     data={data}
                     currentTime={currentTime}
                     leaderboardData={leaderboardData}
+                  />
+                </div>
+                <div className="md:col-span-6">
+                  {/* Race control */}
+                  <RacePlaybackRaceControl
+                    raceControlData={raceControlData}
+                    currentTime={currentTime}
                   />
                 </div>
               </div>

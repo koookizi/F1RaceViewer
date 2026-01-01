@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
-import { useSpring } from "framer-motion";
+import { useMotionValue, useSpring, useMotionValueEvent } from "framer-motion";
+
 import "react-circular-progressbar/dist/styles.css";
 
 type TelemetryRingProps = {
@@ -26,19 +27,47 @@ export function TelemetryRing({
   color,
   size = 54,
   strokeWidth = 10,
-  gapRatio = 0.82, // leaves a gap like your screenshot
+  gapRatio = 0.82,
 }: TelemetryRingProps) {
-  const clamped = clamp(percent, 0, 100);
+  const clamped = Math.max(0, Math.min(100, percent ?? 0));
 
-  // Animate percent with a spring and feed it into the progressbar
-  const spring = useSpring(clamped, { stiffness: 140, damping: 22 });
-  const [animated, setAnimated] = useState(clamped);
+  const mv = useMotionValue(clamped);
+  const spring = useSpring(mv, { stiffness: 140, damping: 22 });
 
-  useEffect(() => {
-    spring.set(clamped);
-  }, [clamped, spring]);
+  const [animated, setAnimated] = React.useState(clamped);
 
-  useEffect(() => spring.on("change", (v) => setAnimated(v)), [spring]);
+  // drive mv from props
+  React.useEffect(() => {
+    mv.set(clamped);
+  }, [clamped, mv]);
+
+  // throttle setState to once per frame + avoid redundant sets
+  const rafRef = React.useRef<number | null>(null);
+  const latestRef = React.useRef<number>(clamped);
+  const lastCommittedRef = React.useRef<number>(clamped);
+
+  useMotionValueEvent(spring, "change", (v) => {
+    latestRef.current = v;
+
+    if (rafRef.current != null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+
+      // round to reduce churn; change 1 => integer %, 0.1 => tenth precision
+      const next = Math.round(latestRef.current * 10) / 10;
+
+      if (next !== lastCommittedRef.current) {
+        lastCommittedRef.current = next;
+        setAnimated(next);
+      }
+    });
+  });
+
+  React.useEffect(() => {
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   // Where the arc starts (rotation). This positions the gap at the bottom.
   // CircularProgressbar rotation is in turns (1 = full circle).
