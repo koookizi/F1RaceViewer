@@ -35,7 +35,7 @@ export function RacePlaybackLeaderboard({
   return (
     <div className="card card-border bg-base-100">
       <div className="card-body">
-        <div className="w-full overflow-x-auto">
+        <div className="w-full overflow-x-auto overflow-anchor-none">
           <table className="table [&_td]:py-1 min-w-max">
             <thead></thead>
             <tbody>

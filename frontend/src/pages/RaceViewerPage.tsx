@@ -15,6 +15,7 @@ import type {
   TeamRadioApiResponse,
 } from "../types";
 import { teamBgByDriver } from "../helpers/team_colour";
+import { RacePlaybackTeamRadio } from "../components/RacePlaybackTeamRadio";
 
 export interface Result {
   position: number;
@@ -571,6 +572,14 @@ export function RaceViewerPage() {
                   {/* Race control */}
                   <RacePlaybackRaceControl
                     raceControlData={raceControlData}
+                    currentTime={currentTime}
+                  />
+                </div>
+                <div className="md:col-span-6">
+                  {/* Race control */}
+                  <RacePlaybackTeamRadio
+                    teamRadioData={teamRadioData}
+                    leaderboardData={leaderboardData}
                     currentTime={currentTime}
                   />
                 </div>
