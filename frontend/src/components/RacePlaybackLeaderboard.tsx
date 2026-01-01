@@ -199,7 +199,16 @@ export function RacePlaybackLeaderboard({
                     </td>
                     <td>
                       <div className="flex flex-col leading-none">
-                        <span className="text-[1.2em] font-semibold">
+                        <span
+                          className="text-[1.2em] font-semibold"
+                          style={{
+                            color: getGapTrendColorHex(
+                              driver.gap_data,
+                              currentTime,
+                              "interval"
+                            ),
+                          }}
+                        >
                           {formatGap(
                             getGapToCarAhead(driver.gap_data, currentTime)
                           )}
@@ -423,4 +432,39 @@ function getPositionsGainedColour(pg: string | null | undefined) {
   if (pg.startsWith("+")) return "#00c851"; // green
   if (pg.startsWith("-")) return "#ff4444"; // red;
   return "inherit"; // "0"
+}
+
+function getGapTrendColorHex(
+  gap: LeaderboardGapData[],
+  currentTime: number,
+  kind: "interval" | "leader",
+  epsilon = 0.001
+): string {
+  if (!gap.length) return "#9CA3AF"; // neutral
+
+  const currentRow =
+    currentTime < gap[0].SessionTime ? gap[0] : atOrBefore(gap, currentTime);
+  if (!currentRow) return "#9CA3AF";
+
+  const currentValue =
+    kind === "interval" ? currentRow.interval : currentRow.gap_to_leader;
+
+  // No trend color if leader/invalid
+  if (currentValue == null) return "#9CA3AF";
+
+  // Find previous row (strictly before currentRow)
+  const idx = gap.findIndex((g) => g.SessionTime === currentRow.SessionTime);
+  const prevRow = idx > 0 ? gap[idx - 1] : null;
+
+  if (!prevRow) return "#9CA3AF";
+
+  const prevValue =
+    kind === "interval" ? prevRow.interval : prevRow.gap_to_leader;
+
+  if (prevValue == null) return "#9CA3AF";
+
+  const delta = currentValue - prevValue;
+
+  if (Math.abs(delta) <= epsilon) return "#9CA3AF"; // stable
+  return delta < 0 ? "#22C55E" : "#EF4444"; // closing : opening
 }
