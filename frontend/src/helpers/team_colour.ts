@@ -1,15 +1,27 @@
 import type { LeaderboardApiResponse } from "../types";
 
-export function teamBgByDriverNumber(
+export function teamBgByDriver(
   data: LeaderboardApiResponse | null,
-  driverNumber: number,
-  alphaHex = "33"
-) {
-  const raw = data?.drivers.find(
-    (d) => d.driver_number === driverNumber
-  )?.team_colour;
-  if (!raw) return undefined;
+  driver: number | string,
+  alpha: string | "opaque" = "33"
+): string | undefined {
+  if (!data) return undefined;
 
-  const hex = raw.startsWith("#") ? raw.slice(1) : raw;
-  return `#${hex}${alphaHex}`;
+  const d = data.drivers.find((drv) =>
+    typeof driver === "number"
+      ? drv.driver_number === driver
+      : drv.driver_code === driver
+  );
+
+  if (!d?.team_colour) return undefined;
+
+  const hex = d.team_colour.startsWith("#")
+    ? d.team_colour.slice(1)
+    : d.team_colour;
+
+  if (alpha === "opaque") {
+    return `#${hex}`;
+  }
+
+  return `#${hex}${alpha}`;
 }

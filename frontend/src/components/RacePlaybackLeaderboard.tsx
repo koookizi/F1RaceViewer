@@ -35,258 +35,269 @@ export function RacePlaybackLeaderboard({
   return (
     <div className="card card-border bg-base-100">
       <div className="card-body">
-        <table className="table [&_td]:py-1">
-          <thead></thead>
-          <tbody>
-            <AnimatePresence initial={false}>
-              {leaderboardData?.drivers
-                .slice()
-                .sort(
-                  (a, b) =>
-                    (getPos(a.positions_data, currentTime) ?? 9999) -
-                    (getPos(b.positions_data, currentTime) ?? 9999)
-                )
-                .map((driver) => (
-                  <motion.tr
-                    key={driver.driver_code}
-                    layout // <- this is what animates the movement
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 10 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  >
-                    <td>
-                      <div
-                        className="badge font-bold flex py-4 w-23 ps-6 "
-                        style={{
-                          backgroundColor: `#${driver.team_colour}`,
-                          color: `color-mix(in srgb, #${driver.team_colour} 20%, black)`,
-                          filter: "brightness(0.8)",
-                          border: 0,
-                        }}
-                      >
-                        {getPos(driver.positions_data, currentTime)}
+        <div className="w-full overflow-x-auto">
+          <table className="table [&_td]:py-1 min-w-max">
+            <thead></thead>
+            <tbody>
+              <AnimatePresence initial={false}>
+                {leaderboardData?.drivers
+                  .slice()
+                  .sort(
+                    (a, b) =>
+                      (getPos(a.positions_data, currentTime) ?? 9999) -
+                      (getPos(b.positions_data, currentTime) ?? 9999)
+                  )
+                  .map((driver) => (
+                    <motion.tr
+                      key={driver.driver_code}
+                      layout // <- this is what animates the movement
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 10 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 30,
+                      }}
+                    >
+                      <td>
                         <div
-                          className="badge font-bold"
+                          className="badge font-bold flex py-4 w-23 ps-6 "
                           style={{
-                            backgroundColor: "white",
-                            color: `#${driver.team_colour}`,
+                            backgroundColor: `#${driver.team_colour}`,
+                            color: `color-mix(in srgb, #${driver.team_colour} 20%, black)`,
+                            filter: "brightness(0.8)",
                             border: 0,
                           }}
                         >
-                          {driver.driver_code}
+                          {getPos(driver.positions_data, currentTime)}
+                          <div
+                            className="badge font-bold"
+                            style={{
+                              backgroundColor: "white",
+                              color: `#${driver.team_colour}`,
+                              border: 0,
+                            }}
+                          >
+                            {driver.driver_code}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      {(() => {
-                        switch (
-                          getDRSPITStatus(
-                            driver.pit_data,
-                            driver.car_data,
-                            currentTime
-                          )
-                        ) {
-                          case "Off":
-                            return (
-                              <div className="badge border-2 font-bold bg-transparent text-[#3f3f46] border-[#3f3f46] h-8">
-                                DRS
-                              </div>
-                            );
+                      </td>
+                      <td>
+                        {(() => {
+                          switch (
+                            getDRSPITStatus(
+                              driver.pit_data,
+                              driver.car_data,
+                              currentTime
+                            )
+                          ) {
+                            case "Off":
+                              return (
+                                <div className="badge border-2 font-bold bg-transparent text-[#3f3f46] border-[#3f3f46] h-8">
+                                  DRS
+                                </div>
+                              );
 
-                          case "Possible":
-                            return (
-                              <div className="badge border-2 font-bold bg-transparent text-[#9f9fa8] border-[#9f9fa8] h-8">
-                                DRS
-                              </div>
-                            );
+                            case "Possible":
+                              return (
+                                <div className="badge border-2 font-bold bg-transparent text-[#9f9fa8] border-[#9f9fa8] h-8">
+                                  DRS
+                                </div>
+                              );
 
-                          case "Active":
-                            return (
-                              <div className="badge border-2 font-bold bg-transparent text-[#5ab982] border-[#5ab982] h-8">
-                                DRS
-                              </div>
-                            );
+                            case "Active":
+                              return (
+                                <div className="badge border-2 font-bold bg-transparent text-[#5ab982] border-[#5ab982] h-8">
+                                  DRS
+                                </div>
+                              );
 
-                          case "Pit":
-                            return (
-                              <div className="badge border-2 font-bold bg-transparent text-[#5eb5d6] border-[#5eb5d6] h-8">
-                                PIT
-                              </div>
-                            );
+                            case "Pit":
+                              return (
+                                <div className="badge border-2 font-bold bg-transparent text-[#5eb5d6] border-[#5eb5d6] h-8">
+                                  PIT
+                                </div>
+                              );
 
-                          default:
-                            return null;
-                        }
-                      })()}
-                    </td>
-                    <td>
-                      <div className="flex items-center">
-                        <div>
-                          {(() => {
-                            switch (
-                              getCompound(
-                                driver.pit_data,
+                            default:
+                              return null;
+                          }
+                        })()}
+                      </td>
+                      <td>
+                        <div className="flex items-center">
+                          <div>
+                            {(() => {
+                              switch (
+                                getCompound(
+                                  driver.pit_data,
+                                  driver.stint_data,
+                                  currentTime
+                                )
+                              ) {
+                                case "UNKNOWN":
+                                  return (
+                                    <img src={unknownTyre} className="h-8" />
+                                  );
+
+                                case "WET":
+                                  return <img src={wetTyre} className="h-8" />;
+
+                                case "SOFT":
+                                  return <img src={softTyre} className="h-8" />;
+
+                                case "MEDIUM":
+                                  return (
+                                    <img src={mediumTyre} className="h-8" />
+                                  );
+
+                                case "INTERMEDIATE":
+                                  return (
+                                    <img
+                                      src={intermediateTyre}
+                                      className="h-8"
+                                    />
+                                  );
+
+                                case "HARD":
+                                  return <img src={hardTyre} className="h-8" />;
+
+                                default:
+                                  return null;
+                              }
+                            })()}
+                          </div>
+                          <div className="flex flex-col leading-none justify-center ms-3">
+                            <span className="text-[1.2em] font-semibold">
+                              LAP{" "}
+                              {getTyreLife(
+                                driver.laps_data,
                                 driver.stint_data,
                                 currentTime
-                              )
-                            ) {
-                              case "UNKNOWN":
-                                return (
-                                  <img src={unknownTyre} className="h-8" />
-                                );
+                              )}
+                            </span>
 
-                              case "WET":
-                                return <img src={wetTyre} className="h-8" />;
-
-                              case "SOFT":
-                                return <img src={softTyre} className="h-8" />;
-
-                              case "MEDIUM":
-                                return <img src={mediumTyre} className="h-8" />;
-
-                              case "INTERMEDIATE":
-                                return (
-                                  <img src={intermediateTyre} className="h-8" />
-                                );
-
-                              case "HARD":
-                                return <img src={hardTyre} className="h-8" />;
-
-                              default:
-                                return null;
-                            }
-                          })()}
+                            <span className="text-[0.87em] opacity-70">
+                              STINT{" "}
+                              {getStint(
+                                driver.laps_data,
+                                driver.stint_data,
+                                currentTime
+                              )}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-col leading-none justify-center ms-3">
-                          <span className="text-[1.2em] font-semibold">
-                            LAP{" "}
-                            {getTyreLife(
-                              driver.laps_data,
-                              driver.stint_data,
-                              currentTime
+                      </td>
+                      <td>
+                        <span
+                          className="font-bold h-8 text-xl"
+                          style={{
+                            color: getPositionsGainedColour(
+                              getPositionsGained(
+                                driver.positions_data,
+                                driver.car_data,
+                                currentTime
+                              )
+                            ),
+                          }}
+                        >
+                          {getPositionsGained(
+                            driver.positions_data,
+                            driver.car_data,
+                            currentTime
+                          )}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="flex flex-col leading-none">
+                          <span
+                            className="text-[1.2em] font-semibold"
+                            style={{
+                              color: getGapTrendColorHex(
+                                driver.gap_data,
+                                currentTime,
+                                "interval"
+                              ),
+                            }}
+                          >
+                            {formatGap(
+                              getGapToCarAhead(driver.gap_data, currentTime)
                             )}
                           </span>
 
                           <span className="text-[0.87em] opacity-70">
-                            STINT{" "}
-                            {getStint(
-                              driver.laps_data,
-                              driver.stint_data,
-                              currentTime
+                            {formatGap(
+                              getGapToLeader(driver.gap_data, currentTime)
                             )}
                           </span>
                         </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span
-                        className="font-bold h-8 text-xl"
-                        style={{
-                          color: getPositionsGainedColour(
-                            getPositionsGained(
-                              driver.positions_data,
-                              driver.car_data,
-                              currentTime
-                            )
-                          ),
-                        }}
-                      >
-                        {getPositionsGained(
-                          driver.positions_data,
-                          driver.car_data,
-                          currentTime
-                        )}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="flex flex-col leading-none">
-                        <span
-                          className="text-[1.2em] font-semibold"
-                          style={{
-                            color: getGapTrendColorHex(
-                              driver.gap_data,
-                              currentTime,
-                              "interval"
-                            ),
-                          }}
-                        >
-                          {formatGap(
-                            getGapToCarAhead(driver.gap_data, currentTime)
-                          )}
-                        </span>
+                      </td>
+                      <td>
+                        <div className="flex flex-col leading-none">
+                          <span
+                            className="text-[1.2em] font-semibold"
+                            style={{
+                              color: getLapTimeColorHex(
+                                getLastLapTime(driver.laps_data, currentTime),
+                                driver,
+                                leaderboardData?.drivers,
+                                currentTime
+                              ),
+                            }}
+                          >
+                            {formatLapTime(
+                              getLastLapTime(driver.laps_data, currentTime)
+                            )}
+                          </span>
 
-                        <span className="text-[0.87em] opacity-70">
-                          {formatGap(
-                            getGapToLeader(driver.gap_data, currentTime)
-                          )}
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      <div className="flex flex-col leading-none">
-                        <span
-                          className="text-[1.2em] font-semibold"
-                          style={{
-                            color: getLapTimeColorHex(
-                              getLastLapTime(driver.laps_data, currentTime),
-                              driver,
-                              leaderboardData?.drivers,
-                              currentTime
-                            ),
-                          }}
-                        >
-                          {formatLapTime(
-                            getLastLapTime(driver.laps_data, currentTime)
-                          )}
-                        </span>
-
-                        <span
-                          className="text-[0.87em] opacity-70"
-                          style={{
-                            color: getLapTimeColorHex(
-                              getBestLapTime(driver.laps_data, currentTime),
-                              driver,
-                              leaderboardData?.drivers,
-                              currentTime
-                            ),
-                          }}
-                        >
-                          {formatLapTime(
-                            getBestLapTime(driver.laps_data, currentTime)
-                          )}
-                        </span>
-                      </div>
-                    </td>
-                    <td>
-                      <SectorWidget
-                        driver={driver}
-                        allDrivers={leaderboardData?.drivers}
-                        currentTime={currentTime}
-                        sector={1}
-                      />
-                    </td>
-                    <td>
-                      <SectorWidget
-                        driver={driver}
-                        allDrivers={leaderboardData?.drivers}
-                        currentTime={currentTime}
-                        sector={2}
-                      />
-                    </td>
-                    <td>
-                      <SectorWidget
-                        driver={driver}
-                        allDrivers={leaderboardData?.drivers}
-                        currentTime={currentTime}
-                        sector={3}
-                      />
-                    </td>
-                  </motion.tr>
-                ))}
-            </AnimatePresence>
-          </tbody>
-        </table>
+                          <span
+                            className="text-[0.87em] opacity-70"
+                            style={{
+                              color: getLapTimeColorHex(
+                                getBestLapTime(driver.laps_data, currentTime),
+                                driver,
+                                leaderboardData?.drivers,
+                                currentTime
+                              ),
+                            }}
+                          >
+                            {formatLapTime(
+                              getBestLapTime(driver.laps_data, currentTime)
+                            )}
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <SectorWidget
+                          driver={driver}
+                          allDrivers={leaderboardData?.drivers}
+                          currentTime={currentTime}
+                          sector={1}
+                        />
+                      </td>
+                      <td>
+                        <SectorWidget
+                          driver={driver}
+                          allDrivers={leaderboardData?.drivers}
+                          currentTime={currentTime}
+                          sector={2}
+                        />
+                      </td>
+                      <td>
+                        <SectorWidget
+                          driver={driver}
+                          allDrivers={leaderboardData?.drivers}
+                          currentTime={currentTime}
+                          sector={3}
+                        />
+                      </td>
+                    </motion.tr>
+                  ))}
+              </AnimatePresence>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

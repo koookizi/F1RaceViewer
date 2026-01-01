@@ -4,7 +4,6 @@ import { DriverAvatar } from "../components/DriverAvatar";
 import { StartingGrid } from "../components/StartingGrid";
 import { RacePlaybackCircuit } from "../components/RacePlaybackCircuit";
 import { RacePlaybackLeaderboard } from "../components/RacePlaybackLeaderboard";
-import { WeatherInfo } from "../components/RacePlaybackWeatherInfo";
 import { RacePlaybackHeader } from "../components/RacePlaybackHeader";
 import { PlaybackControls } from "../components/PlaybackControls";
 import type {
@@ -12,7 +11,7 @@ import type {
   LeaderboardApiResponse,
   WeatherApiResponse,
 } from "../types";
-import { teamBgByDriverNumber } from "../helpers/team_colour";
+import { teamBgByDriver } from "../helpers/team_colour";
 
 export interface Result {
   position: number;
@@ -464,8 +463,8 @@ export function RaceViewerPage() {
                 setSpeedMultiplier={setSpeedMultiplier}
               />
 
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <div className="md:col-span-3">
                   {/* Race playback weather info */}
                   <RacePlaybackHeader
                     weatherData={weather}
@@ -476,7 +475,7 @@ export function RaceViewerPage() {
                     selectedYear={selectedYear}
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   {/* Race playback leaderboard */}
                   <RacePlaybackLeaderboard
                     leaderboardData={leaderboardData}
@@ -485,7 +484,11 @@ export function RaceViewerPage() {
                 </div>
                 <div>
                   {/* Race playback circuit */}
-                  <RacePlaybackCircuit data={data} currentTime={currentTime} />
+                  <RacePlaybackCircuit
+                    data={data}
+                    currentTime={currentTime}
+                    leaderboardData={leaderboardData}
+                  />
                 </div>
               </div>
             </div>
@@ -583,7 +586,7 @@ export function RaceViewerPage() {
                                           key={`${r.driverNumber}-${r.position}`}
                                           style={{
                                             backgroundColor:
-                                              teamBgByDriverNumber(
+                                              teamBgByDriver(
                                                 leaderboardData,
                                                 Number(r.driverNumber)
                                               ) ?? "transparent",
@@ -613,7 +616,7 @@ export function RaceViewerPage() {
                                           key={`${r.driverNumber}-${r.position}`}
                                           style={{
                                             backgroundColor:
-                                              teamBgByDriverNumber(
+                                              teamBgByDriver(
                                                 leaderboardData,
                                                 Number(r.driverNumber)
                                               ) ?? "transparent",
@@ -645,7 +648,7 @@ export function RaceViewerPage() {
                                           key={`${r.driverNumber}-${r.position}`}
                                           style={{
                                             backgroundColor:
-                                              teamBgByDriverNumber(
+                                              teamBgByDriver(
                                                 leaderboardData,
                                                 Number(r.driverNumber)
                                               ) ?? "transparent",
