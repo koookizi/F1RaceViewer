@@ -76,6 +76,7 @@ export function RaceViewerPage() {
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
   const [sessionStart, setSessionStart] = useState("");
   const [selectedDriver, setSelectedDriver] = useState<number | null>(null);
+  const [teamRadioAutoplay, setTeamRadioAutoplay] = useState(false);
 
   const [leaderboardData, setLeaderboardData] =
     useState<LeaderboardApiResponse | null>(null);
@@ -584,6 +585,7 @@ export function RaceViewerPage() {
                       data={data}
                       currentTime={currentTime}
                       leaderboardData={leaderboardData}
+                      selectedDriver={selectedDriver}
                     />
                   </div>
                   <div className="col-span-1">
@@ -606,6 +608,8 @@ export function RaceViewerPage() {
                   {/* Race control */}
                   <RacePlaybackTeamRadio
                     teamRadioData={teamRadioData}
+                    teamRadioAutoplay={teamRadioAutoplay}
+                    setTeamRadioAutoplay={setTeamRadioAutoplay}
                     leaderboardData={leaderboardData}
                     currentTime={currentTime}
                   />

@@ -13,12 +13,16 @@ type RacePlaybackTeamRadioProps = {
   teamRadioData: TeamRadioApiResponse[] | null;
   leaderboardData: LeaderboardApiResponse | null;
   currentTime: number;
+  teamRadioAutoplay: boolean;
+  setTeamRadioAutoplay: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
 export function RacePlaybackTeamRadio({
   teamRadioData,
   currentTime,
   leaderboardData,
+  teamRadioAutoplay,
+  setTeamRadioAutoplay,
 }: RacePlaybackTeamRadioProps) {
   if (!teamRadioData) {
     return <div className="skeleton h-24 w-auto"></div>;
@@ -51,8 +55,20 @@ export function RacePlaybackTeamRadio({
     <div className="card card-border bg-base-100 w-full">
       <div className="card-body p-3 max-h-80 overflow-y-auto">
         <ul className="list bg-base-100 rounded-box shadow-md">
-          <li className="p-4 pb-2 text-xs opacity-60 tracking-wide">
-            Team Radio
+          <li className="p-4 pb-2 text-xs opacity-60 tracking-wide flex items-center">
+            <span>Team Radio</span>
+
+            <button
+              type="button"
+              className={`btn btn-sm transition ml-auto ${
+                teamRadioAutoplay ? "btn-success btn-active" : "btn-ghost"
+              }`}
+              onClick={() => setTeamRadioAutoplay((v) => !v)}
+              aria-pressed={teamRadioAutoplay}
+              title="Toggle team radio autoplay"
+            >
+              {teamRadioAutoplay ? "Autoplay ON" : "Autoplay OFF"}
+            </button>
           </li>
 
           <AnimatePresence initial={false}>
@@ -134,7 +150,10 @@ export function RacePlaybackTeamRadio({
 
                         {/* Playback bar */}
                         <div className="flex-1 flex items-center">
-                          <AudioPlaybackBar src={msg.recording_url} />
+                          <AudioPlaybackBar
+                            src={msg.recording_url}
+                            teamRadioAutoplay={teamRadioAutoplay}
+                          />
                         </div>
                       </div>
                     </div>

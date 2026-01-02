@@ -3,9 +3,14 @@ import React, { useEffect, useRef, useState } from "react";
 type AudioPlaybackBarProps = {
   src: string;
   className?: string;
+  teamRadioAutoplay: boolean;
 };
 
-export function AudioPlaybackBar({ src, className }: AudioPlaybackBarProps) {
+export function AudioPlaybackBar({
+  src,
+  className,
+  teamRadioAutoplay,
+}: AudioPlaybackBarProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
@@ -31,6 +36,12 @@ export function AudioPlaybackBar({ src, className }: AudioPlaybackBarProps) {
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
 
+    if (teamRadioAutoplay) {
+      audio.play().catch(() => {
+        // browser blocked it (safe to ignore)
+      });
+    }
+
     return () => {
       audio.pause();
       audio.src = "";
@@ -41,7 +52,7 @@ export function AudioPlaybackBar({ src, className }: AudioPlaybackBarProps) {
       audio.removeEventListener("ended", onEnded);
       audioRef.current = null;
     };
-  }, [src, isSeeking]);
+  }, [src]);
 
   const togglePlay = async () => {
     const audio = audioRef.current;

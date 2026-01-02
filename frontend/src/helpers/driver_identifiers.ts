@@ -13,6 +13,17 @@ export function getDriverAbbreviation(
   return driver?.driver_code ?? null;
 }
 
+export function getDriverNumberByAbbreviation(
+  leaderboard: LeaderboardApiResponse | null,
+  driverCode: string | null
+): number | null {
+  if (!leaderboard || !driverCode) return null;
+
+  const driver = leaderboard.drivers.find((d) => d.driver_code === driverCode);
+
+  return driver?.driver_number ?? null;
+}
+
 export function getDriverFullNameByNumber(
   leaderboardData: LeaderboardApiResponse | null,
   driverNumber: number | null
