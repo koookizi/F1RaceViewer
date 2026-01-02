@@ -77,7 +77,6 @@ export function RacePlaybackLeaderboard({
                           className="btn btn-square btn-sm"
                           onClick={() => {
                             const driverNo = driver.driver_number;
-                            console.log(`test - ${driverNo}`);
 
                             setSelectedDriver((prev) =>
                               prev === driverNo ? null : driverNo

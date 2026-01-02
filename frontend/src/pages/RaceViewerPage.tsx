@@ -16,6 +16,7 @@ import type {
 } from "../types";
 import { teamBgByDriver } from "../helpers/team_colour";
 import { RacePlaybackTeamRadio } from "../components/RacePlaybackTeamRadio";
+import { RacePlaybackCarData } from "../components/RacePlaybackCarData";
 
 export interface Result {
   position: number;
@@ -179,6 +180,11 @@ export function RaceViewerPage() {
       lastTimestampRef.current = null;
     };
   }, [isPlaying, speedMultiplier, data, setCurrentTime, setIsPlaying]);
+
+  // Prints selected driver (for debug)
+  useEffect(() => {
+    console.log("Selected driver:", selectedDriver);
+  }, [selectedDriver]);
 
   // Handles Summary section
   useEffect(() => {
@@ -571,13 +577,23 @@ export function RaceViewerPage() {
                     setSelectedDriver={setSelectedDriver}
                   />
                 </div>
-                <div className="md:col-span-4">
-                  {/* Race playback circuit */}
-                  <RacePlaybackCircuit
-                    data={data}
-                    currentTime={currentTime}
-                    leaderboardData={leaderboardData}
-                  />
+                <div className="grid col-span-4 grid-cols-1 gap-2 self-start h-fit">
+                  <div className="col-span-1">
+                    {/* Race playback circuit */}
+                    <RacePlaybackCircuit
+                      data={data}
+                      currentTime={currentTime}
+                      leaderboardData={leaderboardData}
+                    />
+                  </div>
+                  <div className="col-span-1">
+                    {/* Driver data */}
+                    <RacePlaybackCarData
+                      leaderboardData={leaderboardData}
+                      currentTime={currentTime}
+                      selectedDriver={selectedDriver}
+                    />
+                  </div>
                 </div>
                 <div className="md:col-span-6">
                   {/* Race control */}

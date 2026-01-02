@@ -257,7 +257,7 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
     all_tel = []
     for drv in session.drivers:
         print("Getting data for:",drv)
-        laps = session.laps.pick_drivers(drv)  # pick_driver (singular) is the usual one
+        laps = session.laps.pick_drivers(drv) 
         tel = laps.get_telemetry().copy()
 
         # Reduce columns early
@@ -269,7 +269,7 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
             tel = tel.iloc[::step].copy()
 
         tel["driver_number"] = drv
-        tel["SessionTime"] = tel["Time"].dt.total_seconds()
+        tel["SessionTime"] = tel["SessionTime"].dt.total_seconds()
         all_tel.append(tel)
 
     car_data = pd.concat(all_tel, ignore_index=True)
@@ -282,7 +282,6 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
     car_data["driver_number"] = pd.to_numeric(car_data["driver_number"], errors="coerce").astype("Int64") # because FastF1 gives str
 
     car_data = car_data.drop(columns=['Time'])
-    car_data = car_data[car_data["SessionTime"] >= (fastf1_start - session.t0_date).total_seconds()]  # remove neglible times
 
     car_data["grid_position"] = car_data["driver_number"].astype(str).map(grid_positions)
 

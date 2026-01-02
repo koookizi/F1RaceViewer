@@ -58,7 +58,7 @@ export function RacePlaybackHeader({
             <div className="flex items-center justify-end h-full text-right">
               <span className="text-4xl leading-none font-bold">
                 {currentLap} / {totalLaps}
-              </span>{" "}
+              </span>
             </div>
           </div>
         </div>

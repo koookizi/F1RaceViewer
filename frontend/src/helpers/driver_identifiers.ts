@@ -12,3 +12,19 @@ export function getDriverAbbreviation(
 
   return driver?.driver_code ?? null;
 }
+
+export function getDriverFullNameByNumber(
+  leaderboardData: LeaderboardApiResponse | null,
+  driverNumber: number | null
+): string | null {
+  if (!leaderboardData) return null;
+
+  const driver = leaderboardData.drivers.find(
+    (d) => d.driver_number === driverNumber
+  );
+
+  if (!driver) return null;
+
+  // adjust field names if yours differ
+  return `${driver.driver_fullName}`;
+}
