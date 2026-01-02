@@ -3,24 +3,34 @@ import React, { useEffect, useRef, useState } from "react";
 type AudioPlaybackBarProps = {
   src: string;
   className?: string;
-  teamRadioAutoplay: boolean;
+  autoPlayEnabled: boolean;
+  autoPlayToken: number;
 };
 
 export function AudioPlaybackBar({
   src,
   className,
-  teamRadioAutoplay,
+  autoPlayEnabled,
+  autoPlayToken,
 }: AudioPlaybackBarProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastAutoPlayTokenRef = useRef<number | null>(null);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0); // seconds
   const [current, setCurrent] = useState(0); // seconds
   const [isSeeking, setIsSeeking] = useState(false);
 
+  // Create / destroy audio only when src changes
   useEffect(() => {
     const audio = new Audio(src);
     audioRef.current = audio;
+
+    // reset state for new src
+    setIsPlaying(false);
+    setDuration(0);
+    setCurrent(0);
+    lastAutoPlayTokenRef.current = null;
 
     const onLoaded = () => setDuration(audio.duration || 0);
     const onTime = () => {
@@ -36,12 +46,6 @@ export function AudioPlaybackBar({
     audio.addEventListener("pause", onPause);
     audio.addEventListener("ended", onEnded);
 
-    if (teamRadioAutoplay) {
-      audio.play().catch(() => {
-        // browser blocked it (safe to ignore)
-      });
-    }
-
     return () => {
       audio.pause();
       audio.src = "";
@@ -50,9 +54,29 @@ export function AudioPlaybackBar({
       audio.removeEventListener("play", onPlay);
       audio.removeEventListener("pause", onPause);
       audio.removeEventListener("ended", onEnded);
-      audioRef.current = null;
+      if (audioRef.current === audio) audioRef.current = null;
     };
-  }, [src]);
+    // include isSeeking so the handler reads the latest value (safe)
+  }, [src, isSeeking]);
+
+  // Autoplay ONLY when token bumps, and only if enabled
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (!autoPlayEnabled) return;
+
+    // only once per token bump
+    if (lastAutoPlayTokenRef.current === autoPlayToken) return;
+    lastAutoPlayTokenRef.current = autoPlayToken;
+
+    // start from beginning (optional)
+    audio.currentTime = 0;
+
+    audio.play().catch(() => {
+      // browser may block autoplay; ignore
+    });
+  }, [autoPlayEnabled, autoPlayToken]);
 
   const togglePlay = async () => {
     const audio = audioRef.current;
@@ -82,7 +106,6 @@ export function AudioPlaybackBar({
         onClick={togglePlay}
       >
         {isPlaying ? (
-          // pause icon
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -92,7 +115,6 @@ export function AudioPlaybackBar({
             <path d="M6 5h4v14H6V5zm8 0h4v14h-4V5z" />
           </svg>
         ) : (
-          // play icon
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"

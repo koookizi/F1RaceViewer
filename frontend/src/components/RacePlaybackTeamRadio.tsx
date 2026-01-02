@@ -15,6 +15,8 @@ type RacePlaybackTeamRadioProps = {
   currentTime: number;
   teamRadioAutoplay: boolean;
   setTeamRadioAutoplay: React.Dispatch<React.SetStateAction<boolean>>;
+  isScrubbing: boolean;
+  teamRadioAutoplayToken: number;
 };
 
 export function RacePlaybackTeamRadio({
@@ -23,6 +25,8 @@ export function RacePlaybackTeamRadio({
   leaderboardData,
   teamRadioAutoplay,
   setTeamRadioAutoplay,
+  isScrubbing,
+  teamRadioAutoplayToken,
 }: RacePlaybackTeamRadioProps) {
   if (!teamRadioData) {
     return <div className="skeleton h-24 w-auto"></div>;
@@ -72,7 +76,7 @@ export function RacePlaybackTeamRadio({
           </li>
 
           <AnimatePresence initial={false}>
-            {messages.map((msg) => {
+            {messages.map((msg, index) => {
               const key = teamRadioKey(msg);
               const shouldPulse = pulseKeys.has(key);
 
@@ -152,7 +156,10 @@ export function RacePlaybackTeamRadio({
                         <div className="flex-1 flex items-center">
                           <AudioPlaybackBar
                             src={msg.recording_url}
-                            teamRadioAutoplay={teamRadioAutoplay}
+                            autoPlayEnabled={
+                              teamRadioAutoplay && !isScrubbing && index === 0
+                            }
+                            autoPlayToken={teamRadioAutoplayToken}
                           />
                         </div>
                       </div>

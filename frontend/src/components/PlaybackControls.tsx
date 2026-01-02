@@ -15,6 +15,9 @@ type PlaybackControlsProps = {
   setSpeedMultiplier: (value: number) => void;
 
   sessionStart: string;
+
+  setIsScrubbing: (v: boolean) => void;
+  triggerTeamRadioAutoplay: () => void;
 };
 
 export function PlaybackControls({
@@ -26,6 +29,8 @@ export function PlaybackControls({
   setIsPlaying,
   speedMultiplier,
   setSpeedMultiplier,
+  setIsScrubbing,
+  triggerTeamRadioAutoplay,
 }: PlaybackControlsProps) {
   if (!data) {
     return <div className="skeleton h-24 w-auto mt-2"></div>;
@@ -104,6 +109,16 @@ export function PlaybackControls({
             step={0.2}
             value={currentTime}
             onChange={(e) => handleScrub(parseFloat(e.target.value))}
+            onMouseDown={() => setIsScrubbing(true)}
+            onMouseUp={() => {
+              setIsScrubbing(false);
+              triggerTeamRadioAutoplay(); // ✅ scrub finished → autoplay first
+            }}
+            onTouchStart={() => setIsScrubbing(true)}
+            onTouchEnd={() => {
+              setIsScrubbing(false);
+              triggerTeamRadioAutoplay(); // ✅ scrub finished → autoplay first
+            }}
             className="range range-neutral w-full"
           />
         </div>

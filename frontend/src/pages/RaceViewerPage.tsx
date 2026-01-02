@@ -77,6 +77,8 @@ export function RaceViewerPage() {
   const [sessionStart, setSessionStart] = useState("");
   const [selectedDriver, setSelectedDriver] = useState<number | null>(null);
   const [teamRadioAutoplay, setTeamRadioAutoplay] = useState(false);
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const [teamRadioAutoplayToken, setTeamRadioAutoplayToken] = useState(0);
 
   const [leaderboardData, setLeaderboardData] =
     useState<LeaderboardApiResponse | null>(null);
@@ -206,6 +208,7 @@ export function RaceViewerPage() {
       case "playback":
         setShowSummarySection(false);
         setShowRacePlayBackSection(true);
+        setTeamRadioAutoplayToken(1);
         break;
 
       default:
@@ -554,6 +557,10 @@ export function RaceViewerPage() {
                 setIsPlaying={setIsPlaying}
                 speedMultiplier={speedMultiplier}
                 setSpeedMultiplier={setSpeedMultiplier}
+                setIsScrubbing={setIsScrubbing}
+                triggerTeamRadioAutoplay={() =>
+                  setTeamRadioAutoplayToken((t) => t + 1)
+                }
               />
 
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
@@ -612,6 +619,10 @@ export function RaceViewerPage() {
                     setTeamRadioAutoplay={setTeamRadioAutoplay}
                     leaderboardData={leaderboardData}
                     currentTime={currentTime}
+                    isScrubbing={isScrubbing}
+                    teamRadioAutoplayToken={teamRadioAutoplayToken}
+                    teamRadioAutoplay={teamRadioAutoplay}
+                    setTeamRadioAutoplay={setTeamRadioAutoplay}
                   />
                 </div>
               </div>
