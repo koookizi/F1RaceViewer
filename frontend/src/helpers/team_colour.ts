@@ -2,7 +2,7 @@ import type { LeaderboardApiResponse } from "../types";
 
 export function teamBgByDriver(
   data: LeaderboardApiResponse | null,
-  driver: number | string,
+  driver: number | string | null,
   alpha: string | "opaque" = "33"
 ): string | undefined {
   if (!data) return undefined;

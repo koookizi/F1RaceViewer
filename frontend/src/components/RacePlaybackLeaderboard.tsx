@@ -23,11 +23,17 @@ import { SectorWidget } from "../components/SectorWidget";
 type RacePlaybackLeaderboardProps = {
   leaderboardData: LeaderboardApiResponse | null;
   currentTime: number;
+  selectedDriver: number | string | null;
+  setSelectedDriver: (
+    value: number | null | ((prev: number | null) => number | null)
+  ) => void;
 };
 
 export function RacePlaybackLeaderboard({
   leaderboardData,
   currentTime,
+  selectedDriver,
+  setSelectedDriver,
 }: RacePlaybackLeaderboardProps) {
   if (!leaderboardData) {
     return <div className="skeleton h-32 w-auto"></div>;
@@ -50,7 +56,7 @@ export function RacePlaybackLeaderboard({
                   .map((driver) => (
                     <motion.tr
                       key={driver.driver_code}
-                      layout // <- this is what animates the movement
+                      layout
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
@@ -59,7 +65,37 @@ export function RacePlaybackLeaderboard({
                         stiffness: 300,
                         damping: 30,
                       }}
+                      className={`transition-colors duration-200 ${
+                        selectedDriver === driver.driver_number
+                          ? "bg-primary/15"
+                          : ""
+                      }`}
                     >
+                      <td className="px-1">
+                        <button
+                          type="button"
+                          className="btn btn-square btn-sm"
+                          onClick={() => {
+                            const driverNo = driver.driver_number;
+                            console.log(`test - ${driverNo}`);
+
+                            setSelectedDriver((prev) =>
+                              prev === driverNo ? null : driverNo
+                            );
+                          }}
+                          title={
+                            selectedDriver === driver.driver_number
+                              ? "Clear driver"
+                              : "Select driver"
+                          }
+                        >
+                          {selectedDriver === driver.driver_number ? (
+                            <XIcon className="h-5 w-5" />
+                          ) : (
+                            <SteeringWheelIcon className="h-5 w-5" />
+                          )}
+                        </button>
+                      </td>
                       <td>
                         <div
                           className="badge font-bold flex py-4 w-23 ps-6 "
@@ -626,4 +662,38 @@ function getGapTrendColorHex(
 
   if (Math.abs(delta) <= epsilon) return "#9CA3AF"; // stable
   return delta < 0 ? "#22C55E" : "#EF4444"; // closing : opening
+}
+
+function SteeringWheelIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2" />
+      <path
+        d="M7.5 13.5c1.7-1.4 3.2-2.1 4.5-2.1s2.8.7 4.5 2.1"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+      <circle cx="12" cy="12" r="2" fill="currentColor" />
+      <path
+        d="M12 14v4"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function XIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true" {...props}>
+      <path
+        d="M6 6l12 12M18 6L6 18"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
 }

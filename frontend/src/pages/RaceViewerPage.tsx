@@ -74,17 +74,20 @@ export function RaceViewerPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [speedMultiplier, setSpeedMultiplier] = useState(1);
   const [sessionStart, setSessionStart] = useState("");
+  const [selectedDriver, setSelectedDriver] = useState<number | null>(null);
 
   const [leaderboardData, setLeaderboardData] =
     useState<LeaderboardApiResponse | null>(null);
 
   const [weather, setWeather] = useState<WeatherApiResponse | null>(null);
 
-  const [raceControlData, setRaceControlData] =
-    useState<RaceControlApiResponse | null>(null);
+  const [raceControlData, setRaceControlData] = useState<
+    RaceControlApiResponse[] | null
+  >(null);
 
-  const [teamRadioData, setTeamRadioData] =
-    useState<TeamRadioApiResponse | null>(null);
+  const [teamRadioData, setTeamRadioData] = useState<
+    TeamRadioApiResponse[] | null
+  >(null);
 
   const frameRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
@@ -95,6 +98,11 @@ export function RaceViewerPage() {
   const dataRef = useRef<PlaybackData | null>(data);
   const simTimeRef = useRef<number>(0); // authoritative time
   const lastUiCommitRef = useRef<number>(0); // last timestamp we set React state
+
+  const setCurrentTimeSynced = (value: number) => {
+    simTimeRef.current = value; // keep RAF time in sync
+    setCurrentTime(value); // update UI
+  };
 
   useEffect(() => {
     isPlayingRef.current = isPlaying;
@@ -212,16 +220,17 @@ export function RaceViewerPage() {
 
     // Fetches results + starting grid data
     if (raceSessionsWithGridPos.includes(selectedSession)) {
-      console.log("showing start grid");
       setShowStartGrid(true);
     }
 
+    console.log("Fetching summary results data");
     fetch(
       `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/result/`
     )
       .then((res) => res.json())
       .then((data: { results: Result[] }) => {
         setResults(data.results);
+        console.log("Summary results JSON:", data);
       })
       .catch((err) => {
         console.error("Failed to load results", err);
@@ -280,7 +289,7 @@ export function RaceViewerPage() {
       `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/racecontrol/`
     )
       .then((res) => res.json())
-      .then((json: RaceControlApiResponse) => {
+      .then((json: RaceControlApiResponse[]) => {
         console.log("Race control JSON:", json);
         setRaceControlData(json);
       })
@@ -293,7 +302,7 @@ export function RaceViewerPage() {
       `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/teamradio/`
     )
       .then((res) => res.json())
-      .then((json: TeamRadioApiResponse) => {
+      .then((json: TeamRadioApiResponse[]) => {
         console.log("Team radio JSON:", json);
         setTeamRadioData(json);
       })
@@ -533,7 +542,7 @@ export function RaceViewerPage() {
                 data={data}
                 currentTime={currentTime}
                 sessionStart={sessionStart}
-                setCurrentTime={setCurrentTime}
+                setCurrentTime={setCurrentTimeSynced}
                 isPlaying={isPlaying}
                 setIsPlaying={setIsPlaying}
                 speedMultiplier={speedMultiplier}
@@ -558,6 +567,8 @@ export function RaceViewerPage() {
                   <RacePlaybackLeaderboard
                     leaderboardData={leaderboardData}
                     currentTime={currentTime}
+                    selectedDriver={selectedDriver}
+                    setSelectedDriver={setSelectedDriver}
                   />
                 </div>
                 <div className="md:col-span-4">

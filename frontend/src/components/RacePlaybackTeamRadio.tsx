@@ -11,7 +11,7 @@ import { AudioPlaybackBar } from "../components/AudioPlaybackBar";
 
 type RacePlaybackTeamRadioProps = {
   teamRadioData: TeamRadioApiResponse[] | null;
-  leaderboardData: LeaderboardApiResponse;
+  leaderboardData: LeaderboardApiResponse | null;
   currentTime: number;
 };
 
