@@ -5,6 +5,10 @@
   themes: light --default, dark --prefersdark, night;
 }
 
+@plugin "tailwindcss-react-aria-components";
+
+@plugin "tailwindcss-animate";
+
 html {
   background-color: var(--color-base-300);
 }

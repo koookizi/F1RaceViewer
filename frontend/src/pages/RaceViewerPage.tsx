@@ -17,6 +17,9 @@ import type {
 import { teamBgByDriver } from "../helpers/team_colour";
 import { RacePlaybackTeamRadio } from "../components/RacePlaybackTeamRadio";
 import { RacePlaybackCarData } from "../components/RacePlaybackCarData";
+import { VRBuilderBuildControls } from "../components/VRBuilderBuildControls";
+import { VRBuilderLivePreview } from "../components/VRBuilderLivePreview";
+import { VRBuilderInsightsReports } from "../components/VRBuilderInsightsReports";
 
 export interface Result {
   position: number;
@@ -63,11 +66,14 @@ export function RaceViewerPage() {
   ];
 
   // -- Tabs
-  const [activeTab, setActiveTab] = useState<"summary" | "playback" | "">("");
+  const [activeTab, setActiveTab] = useState<
+    "summary" | "playback" | "vrbuilder" | ""
+  >("");
   const [showTabs, setShowTabs] = useState(false);
 
   const [showSummarySection, setShowSummarySection] = useState(false);
   const [showRacePlayBackSection, setShowRacePlayBackSection] = useState(false);
+  const [showVRBuilderSection, setShowVRBuilderSection] = useState(false);
 
   // -- Race Playback
   const [currentTime, setCurrentTime] = useState(0);
@@ -203,17 +209,26 @@ export function RaceViewerPage() {
       case "summary":
         setShowSummarySection(true);
         setShowRacePlayBackSection(false);
+        setShowVRBuilderSection(false);
         break;
 
       case "playback":
         setShowSummarySection(false);
         setShowRacePlayBackSection(true);
         setTeamRadioAutoplayToken(1);
+        setShowVRBuilderSection(false);
+        break;
+
+      case "vrbuilder":
+        setShowSummarySection(false);
+        setShowRacePlayBackSection(false);
+        setShowVRBuilderSection(true);
         break;
 
       default:
         setShowSummarySection(false);
         setShowRacePlayBackSection(false);
+        setShowVRBuilderSection(false);
         break;
     }
   }, [activeTab, searchButton]);
@@ -326,6 +341,7 @@ export function RaceViewerPage() {
     setShowTabs(false);
     setShowSummarySection(false);
     setShowRacePlayBackSection(false);
+    setShowVRBuilderSection(false);
   }, [selectedYear, selectedCountry, selectedSession]);
 
   // Gets years
@@ -445,7 +461,7 @@ export function RaceViewerPage() {
                     <div
                       tabIndex={0}
                       role="button"
-                      className="btn flex items-center gap-2"
+                      className="btn flex items-center gap-2 bg-base-100"
                     >
                       {selectedCountry || "Select Country"}
                       <ChevronDownIcon
@@ -478,7 +494,7 @@ export function RaceViewerPage() {
                     <div
                       tabIndex={0}
                       role="button"
-                      className="btn flex items-center gap-2"
+                      className="btn flex items-center gap-2 bg-base-100"
                     >
                       {selectedSession || "Select Session"}
                       <ChevronDownIcon
@@ -506,7 +522,7 @@ export function RaceViewerPage() {
                 )}
                 {selectedSession && (
                   <button
-                    className="btn ms-5"
+                    className="btn ms-5 bg-base-300"
                     onClick={() => {
                       handleSearch();
                     }}
@@ -539,8 +555,40 @@ export function RaceViewerPage() {
           >
             Race Playback
           </button>
+
+          <button
+            role="tab"
+            className={`tab ${activeTab === "vrbuilder" ? "tab-active" : ""}`}
+            onClick={() => setActiveTab("vrbuilder")}
+          >
+            Visualisation and Report Builder
+          </button>
         </div>
       )}
+
+      {/* -- Race Visualisation and Report Builder section */}
+      <div className="">
+        {showVRBuilderSection && (
+          <>
+            <div className="mt-2">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                <div className="md:col-span-6">
+                  {/* Build controls */}
+                  <VRBuilderBuildControls />
+                </div>
+                <div className="md:col-span-6">
+                  {/* Live preview */}
+                  <VRBuilderLivePreview />
+                </div>
+                <div className="md:col-span-12">
+                  {/* Insights and Reports */}
+                  <VRBuilderInsightsReports />
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
 
       {/* -- Race Playback section */}
       <div className="">
@@ -621,8 +669,6 @@ export function RaceViewerPage() {
                     currentTime={currentTime}
                     isScrubbing={isScrubbing}
                     teamRadioAutoplayToken={teamRadioAutoplayToken}
-                    teamRadioAutoplay={teamRadioAutoplay}
-                    setTeamRadioAutoplay={setTeamRadioAutoplay}
                   />
                 </div>
               </div>
