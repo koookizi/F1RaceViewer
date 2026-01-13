@@ -13,6 +13,7 @@ import type {
   WeatherApiResponse,
   RaceControlApiResponse,
   TeamRadioApiResponse,
+  VRApiResponse,
 } from "../types";
 import { teamBgByDriver } from "../helpers/team_colour";
 import { RacePlaybackTeamRadio } from "../components/RacePlaybackTeamRadio";
@@ -21,7 +22,6 @@ import { VRBuilderBuildControls } from "../components/VRBuilderBuildControls";
 import { VRBuilderLivePreview } from "../components/VRBuilderLivePreview";
 import { VRBuilderInsightsReports } from "../components/VRBuilderInsightsReports";
 import type { MultiSelectOption } from "../components/MultiSelect";
-
 
 export interface Result {
   position: number;
@@ -105,9 +105,14 @@ export function RaceViewerPage() {
   const lastTimestampRef = useRef<number | null>(null);
 
   // -- VR Builder
-  const DRIVER_OPTIONS: MultiSelectOption[];
-  const TEAM_OPTIONS: MultiSelectOption[];
+  const stringsToOptions = (items: string[]): MultiSelectOption[] =>
+    items.map((value) => ({
+      id: value,
+      label: value,
+    }));
 
+  const [DRIVER_OPTIONS, setDRIVER_OPTIONS] = useState<MultiSelectOption[]>([]);
+  const [TEAM_OPTIONS, setTEAM_OPTIONS] = useState<MultiSelectOption[]>([]);
 
   // Animation loop (safe: no nested setState)
   const isPlayingRef = useRef(isPlaying);
@@ -249,6 +254,24 @@ export function RaceViewerPage() {
     setSearchButton(true);
     setLoadingResults(true);
     setShowRaceSelection(false);
+
+    // Fetches VR data
+    console.log("Fetching VR data");
+    fetch(
+      `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/vr/`
+    )
+      .then((res) => res.json())
+      .then((json: VRApiResponse) => {
+        console.log("VR JSON:", json);
+        const driverOpts = stringsToOptions(json.drivers);
+        const teamOpts = stringsToOptions(json.teams);
+
+        setDRIVER_OPTIONS(driverOpts);
+        setTEAM_OPTIONS(teamOpts);
+      })
+      .catch((err) => {
+        console.error("Failed to load VR data", err);
+      });
 
     // Fetches results + starting grid data
     if (raceSessionsWithGridPos.includes(selectedSession)) {
@@ -581,7 +604,10 @@ export function RaceViewerPage() {
               <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
                 <div className="md:col-span-6">
                   {/* Build controls */}
-                  <VRBuilderBuildControls />
+                  <VRBuilderBuildControls
+                    TEAM_OPTIONS={TEAM_OPTIONS}
+                    DRIVER_OPTIONS={DRIVER_OPTIONS}
+                  />
                 </div>
                 <div className="md:col-span-6">
                   {/* Live preview */}

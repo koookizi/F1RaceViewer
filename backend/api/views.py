@@ -553,6 +553,27 @@ def session_laps_view(request, year: int, country: str, session: str):
 
     return JsonResponse(finalJSON)
 
+@lru_cache(maxsize=32)
+def session_vrdetails_view(request, year: int, country: str, session_name: str):
+    session = fastf1.get_session(year, country, session_name)
+
+    session.load(telemetry=False)
+
+    drivers = []
+    teams = []
+
+    results_df = session.results
+
+    for _, row in results_df.iterrows():
+        drivers.append(row.get("Abbreviation", ""),)
+        teams.append(row.get("TeamName", ""))    
+
+    teams = list(dict.fromkeys(teams))
+
+    return JsonResponse({
+         "drivers": drivers,
+         "teams": teams,
+         })
 
 @lru_cache(maxsize=32)
 def session_weather_view(request, year: int, country: str, session: str):

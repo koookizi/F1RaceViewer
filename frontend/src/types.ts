@@ -42,6 +42,11 @@ export type WeatherApiResponse = {
   rangeWindSpeed: [number, number];
 };
 
+export type VRApiResponse = {
+  drivers: string[];
+  teams: string[];
+};
+
 export type RaceControlApiResponse = {
   SessionTime: number;
   driver_number: number | null;
