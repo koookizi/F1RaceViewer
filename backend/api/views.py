@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import HttpResponseBadRequest, JsonResponse
 from api.models import Season, Event, Session
 import fastf1
 import math
@@ -11,6 +11,8 @@ import json
 from datetime import datetime
 from urllib.request import urlopen
 from datetime import timezone
+import plotly.express as px
+from plotly.utils import PlotlyJSONEncoder
 
 
 def season_years(request):
@@ -892,7 +894,8 @@ def results_view(request, year: int, country: str, session: str):
     return JsonResponse({"results": results})
 
 
-# Helpers
+# --- Helpers
+
 def to_str_or_none(value):
     if pd.isna(value):
         return None
@@ -1030,3 +1033,89 @@ def clean_for_json(obj):
     if isinstance(obj, list):
         return [clean_for_json(v) for v in obj]
     return obj
+
+# --- Template Views
+
+def _parse_bool(s: str) -> bool:
+    return str(s).lower() in ("1", "true", "yes", "on")
+
+
+def _parse_csv_param(request, name: str) -> list[str]:
+    raw = request.GET.get(name, "")
+    return [x.strip().upper() for x in raw.split(",") if x.strip()]
+
+# Here's an example to go by
+def vr_pace_1(request, year: int, country: str, session_name: str, exclSCVSC: str, driversAbbrev: str):
+    """
+    Driver laptimes scatterplot
+    Uses: session.laps -> Driver, LapNumber, LapTime
+    Query params:
+      - drivers=VER,LEC (required)
+    Path param:
+      - exclSCVSC: "true"/"false" (exclude safety car / virtual safety car laps if possible)
+    """
+    drivers = driversAbbrev.split(",")
+    exclude_sc = _parse_bool(exclSCVSC)
+
+    # 1) Load session
+    try:
+        session = fastf1.get_session(year, country, session_name)
+        session.load(laps=True, telemetry=False, weather=False)
+    except Exception as e:
+        return HttpResponseBadRequest(f"Failed to load session: {e}")
+
+    laps = session.laps.copy()
+
+    # 2) Filter to selected drivers
+    laps = laps[laps["Driver"].isin(drivers)]
+
+    # 3) Keep only laps with a valid LapTime
+    laps = laps[laps["LapTime"].notna()]
+
+    # 4) Exclude SC/VSC laps (only if column exists in your laps data)
+    # FastF1 can vary by session/year; keep this defensive.
+    if exclude_sc and "TrackStatus" in laps.columns:
+        # TrackStatus is typically a string of marshalling flags.
+        # This is a best-effort filter; adjust if you have a more reliable SC/VSC indicator.
+        laps = laps[~laps["TrackStatus"].astype(str).str.contains("4|5", regex=True)]
+
+    # 5) Convert LapTime (Timedelta) -> seconds float (JSON-friendly)
+    # FastF1 LapTime is usually pandas Timedelta
+    if pd.api.types.is_timedelta64_dtype(laps["LapTime"]):
+        laps["LapTimeSeconds"] = laps["LapTime"].dt.total_seconds()
+    else:
+        # Fallback if it comes already numeric/string
+        laps["LapTimeSeconds"] = pd.to_numeric(laps["LapTime"], errors="coerce")
+        laps = laps[laps["LapTimeSeconds"].notna()]
+
+    # 6) Build Plotly scatter
+    fig = px.scatter(
+        laps,
+        x="LapNumber",
+        y="LapTimeSeconds",
+        color="Driver",
+        title=f"{year} {country} {session_name} — Driver laptimes",
+        labels={"LapNumber": "Lap", "LapTimeSeconds": "Lap time (s)"},
+        hover_data=[c for c in ["Compound", "Stint", "TyreLife"] if c in laps.columns],
+    )
+
+    # Optional: make “faster = higher” by reversing y-axis (some people prefer this)
+    # fig.update_yaxes(autorange="reversed")
+
+    fig.update_layout(
+        margin=dict(l=40, r=20, t=60, b=40),
+        legend_title_text="Driver",
+    )
+
+    # 7) Convert figure to JSON-safe dict and return
+    figure_dict = json.loads(json.dumps(fig, cls=PlotlyJSONEncoder))
+
+    payload = {
+        "title": "Driver laptimes (scatter)",
+        "result": {
+            "type": "plotly",
+            "figure": figure_dict,
+        },
+    }
+
+    return JsonResponse(payload)

@@ -20,6 +20,8 @@ import { RacePlaybackCarData } from "../components/RacePlaybackCarData";
 import { VRBuilderBuildControls } from "../components/VRBuilderBuildControls";
 import { VRBuilderLivePreview } from "../components/VRBuilderLivePreview";
 import { VRBuilderInsightsReports } from "../components/VRBuilderInsightsReports";
+import type { MultiSelectOption } from "../components/MultiSelect";
+
 
 export interface Result {
   position: number;
@@ -101,6 +103,11 @@ export function RaceViewerPage() {
 
   const frameRef = useRef<number | null>(null);
   const lastTimestampRef = useRef<number | null>(null);
+
+  // -- VR Builder
+  const DRIVER_OPTIONS: MultiSelectOption[];
+  const TEAM_OPTIONS: MultiSelectOption[];
+
 
   // Animation loop (safe: no nested setState)
   const isPlayingRef = useRef(isPlaying);
