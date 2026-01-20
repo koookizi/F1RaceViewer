@@ -14,7 +14,8 @@ urlpatterns = [
     path("session/<int:year>/<str:country>/<str:session_name>/leaderboard/", views.session_leaderboard_view, name="session-leaderboard"),
     path("session/<int:year>/<str:country>/<str:session_name>/racecontrol/", views.session_racecontrol_view, name="session-racecontrol"),
     path("session/<int:year>/<str:country>/<str:session_name>/teamradio/", views.session_teamradio_view, name="session-teamradio"),
-    path("session/<int:year>/<str:country>/<str:session_name>/vr/", views.session_vrdetails_view, name="session-vr")
+    path("session/vr/create/", views.vr_create_view, name="session-vr-create"),
+    path("session/<int:year>/<str:country>/<str:session_name>/vr/", views.session_vrdetails_view, name="session-vr"),
 
 
 

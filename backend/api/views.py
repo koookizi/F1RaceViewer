@@ -13,6 +13,7 @@ from urllib.request import urlopen
 from datetime import timezone
 import plotly.express as px
 from plotly.utils import PlotlyJSONEncoder
+from django.views.decorators.csrf import csrf_exempt
 
 
 def season_years(request):
@@ -1065,18 +1066,26 @@ def _parse_csv_param(request, name: str) -> list[str]:
     raw = request.GET.get(name, "")
     return [x.strip().upper() for x in raw.split(",") if x.strip()]
 
+@csrf_exempt
+def vr_create_view(request):
+    body = json.loads(request.body)
+    template_id = body["templateId"]
+    year = int(body["year"])
+    country = body["country"]
+    session_name = body["session_name"]
+    inputs = body.get("inputs", {})
+
+    if template_id == "t1":
+        return vr_pace_1(year, country, session_name, inputs)
+
+
+
+    return JsonResponse({"error": "Unknown templateId"}, status=400)
+
 # Here's an example to go by
-def vr_pace_1(request, year: int, country: str, session_name: str, exclSCVSC: str, driversAbbrev: str):
-    """
-    Driver laptimes scatterplot
-    Uses: session.laps -> Driver, LapNumber, LapTime
-    Query params:
-      - drivers=VER,LEC (required)
-    Path param:
-      - exclSCVSC: "true"/"false" (exclude safety car / virtual safety car laps if possible)
-    """
-    drivers = driversAbbrev.split(",")
-    exclude_sc = _parse_bool(exclSCVSC)
+def vr_pace_1(year, country, session_name, inputs):
+    drivers = inputs.get("drivers", [])
+    exclude_sc = _parse_bool(inputs.get("excludeSCVSC", False))
 
     # 1) Load session
     try:
