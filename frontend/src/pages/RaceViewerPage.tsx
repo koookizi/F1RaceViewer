@@ -639,6 +639,7 @@ export function RaceViewerPage() {
                                         selectedSession={selectedSession}
                                         selectedCountry={selectedCountry}
                                         setChartLoading={setChartLoading}
+                                        chartLoading={chartLoading}
                                     />
                                 </div>
                                 <div className="md:col-span-6">

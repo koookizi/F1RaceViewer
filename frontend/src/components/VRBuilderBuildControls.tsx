@@ -9,6 +9,7 @@ import {
     DEFAULT_VR_TEMPLATE_INPUTS,
 } from "./VRTemplateInputs";
 import type { ChartResponse } from "./ChartCard";
+import { useToast } from "./ToastContext";
 
 const INTENTS: Intent[] = [
     "Pace",
@@ -26,6 +27,7 @@ type VRBuilderBuildControlsProps = {
     selectedSession: string;
     setChartLoading: React.Dispatch<React.SetStateAction<boolean>>;
     setPreviewChart: React.Dispatch<React.SetStateAction<ChartResponse | null>>;
+    chartLoading: boolean;
 };
 
 export function VRBuilderBuildControls({
@@ -36,6 +38,7 @@ export function VRBuilderBuildControls({
     selectedSession,
     setPreviewChart,
     setChartLoading,
+    chartLoading,
 }: VRBuilderBuildControlsProps) {
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
         null
@@ -52,6 +55,8 @@ export function VRBuilderBuildControls({
         () => TEMPLATES.find((t) => t.id === selectedTemplateId) ?? null,
         [selectedTemplateId]
     );
+
+    const toast = useToast();
 
     const [inputs, setInputs] = useState(DEFAULT_VR_TEMPLATE_INPUTS);
 
@@ -209,7 +214,7 @@ export function VRBuilderBuildControls({
         // 1) validate
         const errors = validateInputs(selectedTemplate.id);
         if (errors.length) {
-            alert(errors.join("\n"));
+            toast(errors.join("\n"), "error");
             return;
         }
 
@@ -258,7 +263,7 @@ export function VRBuilderBuildControls({
         <div className="card card-border bg-base-100 w-full">
             <div className="card-body p-4 h-140 overflow-y-auto">
                 <div className="pb-2 text-xs opacity-60 tracking-wide flex items-center">
-                    <span>Build Controls</span>
+                    <span>Builder</span>
                 </div>
 
                 {/* Intent dropdown */}
@@ -313,7 +318,11 @@ export function VRBuilderBuildControls({
                     onChange={setInputs}
                 />
 
-                <button className="btn btn-primary mt-4" onClick={onCreate}>
+                <button
+                    className="btn btn-primary mt-4"
+                    onClick={onCreate}
+                    disabled={!selectedTemplate || chartLoading}
+                >
                     Create
                 </button>
             </div>
