@@ -1,9 +1,16 @@
 // VRBuilderBuildControls.tsx
 import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { MultiSelectOption } from "./MultiSelect";
 import { TemplateCardPanel } from "./TemplateCardPanel";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { TEMPLATES, type Intent } from "../helpers/templates";
+import {
+    VRTemplateInputs,
+    DEFAULT_VR_TEMPLATE_INPUTS,
+} from "./VRTemplateInputs";
+import type { ChartResponse } from "./ChartCard";
+import { useToast } from "./ToastContext";
 import {
     VRTemplateInputs,
     DEFAULT_VR_TEMPLATE_INPUTS,
@@ -17,8 +24,24 @@ const INTENTS: Intent[] = [
     "Telemetry",
     "Positions",
     "Season",
+const INTENTS: Intent[] = [
+    "Pace",
+    "Strategy",
+    "Telemetry",
+    "Positions",
+    "Season",
 ];
 
+type VRBuilderBuildControlsProps = {
+    DRIVER_OPTIONS: MultiSelectOption[];
+    TEAM_OPTIONS: MultiSelectOption[];
+    selectedYear: string;
+    selectedCountry: string;
+    selectedSession: string;
+    setChartLoading: React.Dispatch<React.SetStateAction<boolean>>;
+    setPreviewChart: React.Dispatch<React.SetStateAction<ChartResponse | null>>;
+    chartLoading: boolean;
+};
 type VRBuilderBuildControlsProps = {
     DRIVER_OPTIONS: MultiSelectOption[];
     TEAM_OPTIONS: MultiSelectOption[];
@@ -55,6 +78,8 @@ export function VRBuilderBuildControls({
         () => TEMPLATES.find((t) => t.id === selectedTemplateId) ?? null,
         [selectedTemplateId],
     );
+
+    const toast = useToast();
 
     const toast = useToast();
 
@@ -292,6 +317,7 @@ export function VRBuilderBuildControls({
             <div className="card-body p-4 h-140 overflow-y-auto">
                 <div className="pb-2 text-xs opacity-60 tracking-wide flex items-center">
                     <span>Builder</span>
+                    <span>Builder</span>
                 </div>
 
                 {/* Intent dropdown */}
@@ -301,7 +327,16 @@ export function VRBuilderBuildControls({
                         role="button"
                         className="btn flex items-center gap-2 w-40"
                     >
+                    <div
+                        tabIndex={0}
+                        role="button"
+                        className="btn flex items-center gap-2 w-40"
+                    >
                         {selectedIntent || "Select Intent"}
+                        <ChevronDownIcon
+                            aria-hidden="true"
+                            className="size-5 opacity-70"
+                        />
                         <ChevronDownIcon
                             aria-hidden="true"
                             className="size-5 opacity-70"
@@ -345,6 +380,14 @@ export function VRBuilderBuildControls({
                     value={inputs}
                     onChange={setInputs}
                 />
+
+                <button
+                    className="btn btn-primary mt-4"
+                    onClick={onCreate}
+                    disabled={!selectedTemplate || chartLoading}
+                >
+                    Create
+                </button>
 
                 <button
                     className="btn btn-primary mt-4"

@@ -29,9 +29,7 @@ export function VRBuilderInsightsReports({
 
     function dataUrlToBlob(dataUrl: string): Blob {
         const [header, base64] = dataUrl.split(",");
-        const mime =
-            header.match(/data:(.*?);base64/)?.[1] ??
-            "application/octet-stream";
+        const mime = header.match(/data:(.*?);base64/)?.[1] ?? "application/octet-stream";
         const binary = atob(base64);
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
@@ -91,8 +89,7 @@ export function VRBuilderInsightsReports({
     function getImageSize(dataUrl: string): Promise<{ w: number; h: number }> {
         return new Promise((resolve, reject) => {
             const img = new Image();
-            img.onload = () =>
-                resolve({ w: img.naturalWidth, h: img.naturalHeight });
+            img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
             img.onerror = reject;
             img.src = dataUrl;
         });
@@ -143,16 +140,7 @@ export function VRBuilderInsightsReports({
             const x = boxX + (boxW - drawW) / 2;
             const y = boxY + (boxH - drawH) / 2;
 
-            pdf.addImage(
-                pngDataUrl,
-                "PNG",
-                x,
-                y,
-                drawW,
-                drawH,
-                undefined,
-                "FAST",
-            );
+            pdf.addImage(pngDataUrl, "PNG", x, y, drawW, drawH, undefined, "FAST");
         }
 
         pdf.save(`report_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -177,10 +165,7 @@ export function VRBuilderInsightsReports({
         }
 
         const zipBlob = await zip.generateAsync({ type: "blob" });
-        saveAs(
-            zipBlob,
-            `charts_png_${new Date().toISOString().slice(0, 10)}.zip`,
-        );
+        saveAs(zipBlob, `charts_png_${new Date().toISOString().slice(0, 10)}.zip`);
     }
 
     return (
@@ -198,9 +183,7 @@ export function VRBuilderInsightsReports({
                 >
                     <div className="px-4 pt-4 pb-2 flex items-center justify-between">
                         <div className="flex flex-col">
-                            <span className="text-xs opacity-70">
-                                Current Report
-                            </span>
+                            <span className="text-xs opacity-70">Current Report</span>
                         </div>
                     </div>
 
@@ -208,9 +191,7 @@ export function VRBuilderInsightsReports({
                         <ReportBlocksStrip
                             reportBlocks={reportBlocks}
                             onRemove={(index) =>
-                                setReportBlocks((prev) =>
-                                    prev.filter((_, i) => i !== index),
-                                )
+                                setReportBlocks((prev) => prev.filter((_, i) => i !== index))
                             }
                         />
                     </div>

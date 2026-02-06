@@ -1,5 +1,6 @@
 // src/components/VRTemplateInputs.tsx
 import React, { useMemo, useEffect } from "react";
+import React, { useMemo, useEffect } from "react";
 import { MultiSelect } from "./MultiSelect";
 import type { MultiSelectOption } from "./MultiSelect";
 import type { Template } from "../helpers/templates";
@@ -31,9 +32,7 @@ export type VRTemplateInputsState = {
 
     // telemetry options
     telemetryAlign: "Distance" | "Time";
-    telemetryChannels: Array<
-        "Speed" | "Throttle" | "Brake" | "RPM" | "nGear" | "DRS" | "X/Y"
-    >;
+    telemetryChannels: Array<"Speed" | "Throttle" | "Brake" | "RPM" | "nGear" | "DRS" | "X/Y">;
 
     // common filters
     excludeSCLaps: boolean;
@@ -92,14 +91,8 @@ export function VRTemplateInputs({
 
     useEffect(() => {
         // Teams-only template (e.g. t6): force Teams mode
-        const teamsOnly =
-            !!requires.teams &&
-            !requires.drivers &&
-            !requires.allowDriverOrTeam;
-        const driversOnly =
-            !!requires.drivers &&
-            !requires.teams &&
-            !requires.allowDriverOrTeam;
+        const teamsOnly = !!requires.teams && !requires.drivers && !requires.allowDriverOrTeam;
+        const driversOnly = !!requires.drivers && !requires.teams && !requires.allowDriverOrTeam;
 
         if (teamsOnly && value.selectionMode !== "Teams") {
             onChange({ ...value, selectionMode: "Teams", driverIds: [] });
@@ -112,9 +105,7 @@ export function VRTemplateInputs({
         return (
             <div className={`mt-3 ${className}`}>
                 <div className="alert alert-info">
-                    <span className="text-sm">
-                        Select a template to see the required inputs.
-                    </span>
+                    <span className="text-sm">Select a template to see the required inputs.</span>
                 </div>
             </div>
         );
@@ -122,9 +113,7 @@ export function VRTemplateInputs({
 
     return (
         <div className={`mt-3 space-y-3 ${className}`}>
-            <div className="pb-1 text-xs opacity-60 tracking-wide">
-                Required inputs
-            </div>
+            <div className="pb-1 text-xs opacity-60 tracking-wide">Required inputs</div>
 
             {/* Common filter (nice default for Pace/Strategy) */}
             {requires.showExcludeSC && (
@@ -133,13 +122,9 @@ export function VRTemplateInputs({
                         type="checkbox"
                         className="toggle toggle-primary toggle-sm"
                         checked={value.excludeSCLaps}
-                        onChange={(e) =>
-                            patch({ excludeSCLaps: e.target.checked })
-                        }
+                        onChange={(e) => patch({ excludeSCLaps: e.target.checked })}
                     />
-                    <span className="label-text text-sm">
-                        Exclude SC/VSC laps
-                    </span>
+                    <span className="label-text text-sm">Exclude SC/VSC laps</span>
                 </label>
             )}
 
@@ -149,26 +134,18 @@ export function VRTemplateInputs({
                     <button
                         type="button"
                         className={`btn btn-sm join-item flex-1 ${
-                            value.selectionMode === "Drivers"
-                                ? "btn-primary"
-                                : "btn-ghost"
+                            value.selectionMode === "Drivers" ? "btn-primary" : "btn-ghost"
                         }`}
-                        onClick={() =>
-                            patch({ selectionMode: "Drivers", teamIds: [] })
-                        }
+                        onClick={() => patch({ selectionMode: "Drivers", teamIds: [] })}
                     >
                         Drivers
                     </button>
                     <button
                         type="button"
                         className={`btn btn-sm join-item flex-1 ${
-                            value.selectionMode === "Teams"
-                                ? "btn-primary"
-                                : "btn-ghost"
+                            value.selectionMode === "Teams" ? "btn-primary" : "btn-ghost"
                         }`}
-                        onClick={() =>
-                            patch({ selectionMode: "Teams", driverIds: [] })
-                        }
+                        onClick={() => patch({ selectionMode: "Teams", driverIds: [] })}
                     >
                         Teams
                     </button>
@@ -192,18 +169,16 @@ export function VRTemplateInputs({
             )}
 
             {/* Teams */}
-            {requires.teams &&
-                (!requires.allowDriverOrTeam ||
-                    value.selectionMode === "Teams") && (
-                    <MultiSelect
-                        options={teamOptions}
-                        value={value.teamIds}
-                        onChange={(ids) => patch({ teamIds: ids })}
-                        placeholder="Select team(s)"
-                        widthClassName="w-100"
-                        maxChipsRows={2}
-                    />
-                )}
+            {requires.teams && (!requires.allowDriverOrTeam || value.selectionMode === "Teams") && (
+                <MultiSelect
+                    options={teamOptions}
+                    value={value.teamIds}
+                    onChange={(ids) => patch({ teamIds: ids })}
+                    placeholder="Select team(s)"
+                    widthClassName="w-100"
+                    maxChipsRows={2}
+                />
+            )}
 
             {/* Lap Range (e.g., positions, battle analysis) */}
             {requires.lapRange && (
@@ -218,9 +193,7 @@ export function VRTemplateInputs({
                             value={value.lapFrom}
                             onChange={(e) =>
                                 patch({
-                                    lapFrom: e.target.value
-                                        ? Number(e.target.value)
-                                        : "",
+                                    lapFrom: e.target.value ? Number(e.target.value) : "",
                                 })
                             }
                             min={1}
@@ -236,9 +209,7 @@ export function VRTemplateInputs({
                             value={value.lapTo}
                             onChange={(e) =>
                                 patch({
-                                    lapTo: e.target.value
-                                        ? Number(e.target.value)
-                                        : "",
+                                    lapTo: e.target.value ? Number(e.target.value) : "",
                                 })
                             }
                             min={1}
@@ -259,9 +230,7 @@ export function VRTemplateInputs({
                         value={value.topN}
                         onChange={(e) =>
                             patch({
-                                topN: e.target.value
-                                    ? Number(e.target.value)
-                                    : "",
+                                topN: e.target.value ? Number(e.target.value) : "",
                             })
                         }
                         min={1}
@@ -282,9 +251,7 @@ export function VRTemplateInputs({
                         value={value.season}
                         onChange={(e) =>
                             patch({
-                                season: e.target.value
-                                    ? Number(e.target.value)
-                                    : "",
+                                season: e.target.value ? Number(e.target.value) : "",
                             })
                         }
                         min={1950}
@@ -305,9 +272,7 @@ export function VRTemplateInputs({
                         value={value.round}
                         onChange={(e) =>
                             patch({
-                                round: e.target.value
-                                    ? Number(e.target.value)
-                                    : "",
+                                round: e.target.value ? Number(e.target.value) : "",
                             })
                         }
                         min={1}
@@ -323,9 +288,9 @@ export function VRTemplateInputs({
 
                     <div className="alert alert-warning my-4">
                         <span className="text-sm">
-                            Pick 1-2 drivers. If two drivers are selected, the
-                            chart compares their chosen laps. If one driver is
-                            selected, compare two laps from the same driver.
+                            Pick 1-2 drivers. If two drivers are selected, the chart compares their
+                            chosen laps. If one driver is selected, compare two laps from the same
+                            driver.
                         </span>
                     </div>
 
@@ -342,9 +307,7 @@ export function VRTemplateInputs({
                     <div className="grid grid-cols-2 gap-2 w-100 mb-4">
                         <div className="form-control">
                             <label className="label py-1">
-                                <span className="label-text text-sm">
-                                    Lap A
-                                </span>
+                                <span className="label-text text-sm">Lap A</span>
                             </label>
                             <select
                                 className="select select-sm select-bordered"
@@ -356,9 +319,7 @@ export function VRTemplateInputs({
                                 }
                             >
                                 <option value="Fastest">Fastest lap</option>
-                                <option value="Manual">
-                                    Manual lap number
-                                </option>
+                                <option value="Manual">Manual lap number</option>
                             </select>
                             {value.lapModeA === "Manual" && (
                                 <input
@@ -380,9 +341,7 @@ export function VRTemplateInputs({
 
                         <div className="form-control">
                             <label className="label py-1">
-                                <span className="label-text text-sm">
-                                    Lap B
-                                </span>
+                                <span className="label-text text-sm">Lap B</span>
                             </label>
                             <select
                                 className="select select-sm select-bordered"
@@ -394,9 +353,7 @@ export function VRTemplateInputs({
                                 }
                             >
                                 <option value="Fastest">Fastest lap</option>
-                                <option value="Manual">
-                                    Manual lap number
-                                </option>
+                                <option value="Manual">Manual lap number</option>
                             </select>
                             {value.lapModeB === "Manual" && (
                                 <input
@@ -421,18 +378,14 @@ export function VRTemplateInputs({
 
                     <div className="form-control w-100 mb-4">
                         <label className="label py-1">
-                            <span className="label-text text-sm me-2">
-                                Align by
-                            </span>
+                            <span className="label-text text-sm me-2">Align by</span>
                         </label>
                         <select
                             className="select select-sm select-bordered w-30"
                             value={value.telemetryAlign}
                             onChange={(e) =>
                                 patch({
-                                    telemetryAlign: e.target.value as
-                                        | "Distance"
-                                        | "Time",
+                                    telemetryAlign: e.target.value as "Distance" | "Time",
                                 })
                             }
                         >
@@ -504,9 +457,7 @@ export function VRTemplateInputs({
                                 value={value.lapNumberA}
                                 onChange={(e) =>
                                     patch({
-                                        lapNumberA: e.target.value
-                                            ? Number(e.target.value)
-                                            : "",
+                                        lapNumberA: e.target.value ? Number(e.target.value) : "",
                                     })
                                 }
                                 min={1}
