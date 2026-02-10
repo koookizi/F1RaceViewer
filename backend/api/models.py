@@ -3,11 +3,16 @@ from django.db import models
 class Season(models.Model):
     year = models.IntegerField()
 
+class Circuit(models.Model):
+    ergast_id = models.CharField(max_length=64, unique=True)   # e.g. "silverstone"
+    name = models.CharField(max_length=100)                    # canonical display name
+    country = models.CharField(max_length=100, blank=True)
+
 class Event(models.Model):
     season = models.ForeignKey(Season, on_delete=models.CASCADE)
     round = models.IntegerField()
     country = models.CharField(max_length=100)
-    circuit = models.CharField(max_length=100)
+    circuit = models.ForeignKey(Circuit, on_delete=models.CASCADE)
 
     class Meta:
         unique_together = ("season", "round")
@@ -29,7 +34,7 @@ class Driver(models.Model):
 
 class Result(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    session_type = models.CharField(max_length=5)
+    session_type = models.CharField(max_length=20)
     driver = models.ForeignKey(Driver, on_delete=models.CASCADE)
     team = models.ForeignKey(Team, on_delete=models.CASCADE)
     grid = models.IntegerField(null=True, blank=True)

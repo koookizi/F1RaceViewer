@@ -48,14 +48,18 @@ def season_sessions(request, year, country):
 
 @lru_cache(maxsize=32)
 def session_circuit(request, year: int, country: str):
-    event = Event.objects.filter(
-        season__year=year,
-        country=country
-    ).first()
+    event = (
+        Event.objects
+        .select_related("circuit")
+        .filter(season__year=year, country=country)
+        .first()
+    )
     if not event:
         return JsonResponse({"error": "Event not found"}, status=404)
 
-    return JsonResponse({"circuit": event.circuit})
+    return JsonResponse({
+        "circuit": event.circuit.name, 
+    })
 
 @lru_cache(maxsize=32)
 def session_teamradio_view(request, year: int, country: str, session_name: str):    

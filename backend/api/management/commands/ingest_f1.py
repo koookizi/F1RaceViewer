@@ -11,10 +11,8 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import Sum
 
-from api.models import Season, Event, Session, Team, Driver, Result, TeamStanding
+from api.models import Season, Circuit, Event, Session, Team, Driver, Result, TeamStanding
 
-
-# Cache makes FastF1 much more reliable + faster
 fastf1.Cache.enable_cache("api/fastf1_cache")
 
 
@@ -118,6 +116,8 @@ class Command(BaseCommand):
     # ----------------------------
     def ingest_season_fastf1_sessions(self, season_obj: Season, year: int):
         schedule = fastf1.get_event_schedule(year)
+        ergast_round_map = self._ergast_round_to_race_row(year)
+
 
         # Some schedule rows can be "testing"/non-race; filter to actual race events
         # RoundNumber should exist for real events.
@@ -127,13 +127,28 @@ class Command(BaseCommand):
             rnd = int(row["RoundNumber"])
             event_name = row["EventName"]
             country = row.get("Country") or ""
-            circuit = row.get("Location") or ""
+            
+            # Get Ergast schedule row for this round (1 Ergast schedule call per season)
+            ergast_race_row = ergast_round_map.get(rnd)
+
+            if ergast_race_row is not None:
+                circuit_obj = self._upsert_circuit_from_ergast_row(ergast_race_row)
+            else:
+                # Fallback if Ergast schedule missing for some reason
+                fallback_name = (row.get("Location") or row.get("EventName") or "").strip()
+                fallback_id = fallback_name.lower().strip().replace(" ", "_")[:64] or f"unknown_{year}_{rnd}"
+                circuit_obj, _ = Circuit.objects.update_or_create(
+                    ergast_id=fallback_id,
+                    defaults={"name": fallback_name[:100] or fallback_id[:100], "country": country[:100]},
+                )
 
             event_obj, _ = Event.objects.update_or_create(
                 season=season_obj,
                 round=rnd,
-                defaults={"country": country, "circuit": circuit},
+                defaults={"country": country, "circuit": circuit_obj},
             )
+
+
             self.ensure_sessions(event_obj)
 
             # Qualifying
@@ -262,12 +277,12 @@ class Command(BaseCommand):
         for _, race in schedule.iterrows():
             rnd = int(race["round"])
             country = race.get("country") or ""
-            circuit = race.get("circuitName") or ""
+            circuit_obj = self._upsert_circuit_from_ergast_row(race)
 
             event_obj, _ = Event.objects.update_or_create(
                 season=season_obj,
                 round=rnd,
-                defaults={"country": country, "circuit": circuit},
+                defaults={"country": country, "circuit": circuit_obj},
             )
             self.ensure_sessions(event_obj)
 
@@ -348,6 +363,40 @@ class Command(BaseCommand):
                 driver=driver_obj,
                 defaults={"team": team_obj, "grid": None, "position": pos, "points": 0.0},
             )
+
+    def _upsert_circuit_from_ergast_row(self, race_row) -> Circuit:
+        """
+        Given one Ergast schedule row, create/update Circuit from circuitId + circuitName.
+        """
+        circuit_id = (race_row.get("circuitId") or "").strip()
+        circuit_name = (race_row.get("circuitName") or "").strip()
+        country = (race_row.get("country") or "").strip()
+
+        if not circuit_id:
+            # Fallback: derive a stable-ish id from the name
+            circuit_id = circuit_name.lower().strip().replace(" ", "_")[:64] or "unknown"
+
+        circuit_obj, _ = Circuit.objects.update_or_create(
+            ergast_id=circuit_id,
+            defaults={
+                "name": circuit_name[:100] if circuit_name else circuit_id[:100],
+                "country": country[:100],
+            },
+        )
+        return circuit_obj
+
+    def _ergast_round_to_race_row(self, year: int) -> dict[int, object]:
+        """
+        Fetch Ergast schedule ONCE and return mapping: round -> row (so we can grab circuitId/name).
+        """
+        schedule = self._ergast_call(self.ergast.get_race_schedule, season=year)
+        out = {}
+        if schedule is None or len(schedule) == 0:
+            return out
+        for _, r in schedule.iterrows():
+            out[int(r["round"])] = r
+        return out
+
 
     # ----------------------------
     # Standings (same as your current approach, with fallback)
