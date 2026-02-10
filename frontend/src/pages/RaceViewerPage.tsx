@@ -23,6 +23,7 @@ import { VRBuilderLivePreview } from "../components/VRBuilderLivePreview";
 import { VRBuilderInsightsReports } from "../components/VRBuilderInsightsReports";
 import type { MultiSelectOption } from "../components/MultiSelect";
 import { ChartCard, type ChartResponse } from "../components/ChartCard";
+import { useToast } from "../components/ToastContext";
 
 export interface Result {
     position: number;
@@ -45,6 +46,9 @@ export interface Result {
 }
 
 export function RaceViewerPage() {
+    // -- Toast
+    const toast = useToast();
+
     // -- Race selection
     const [yearOptions, setYearOptions] = useState<string[]>([]);
     const [selectedYear, setSelectedYear] = useState<string>("");
@@ -61,22 +65,14 @@ export function RaceViewerPage() {
     const [loadingResults, setLoadingResults] = useState(false);
     const [showResultsBox, setShowResultsBox] = useState(false);
     const [showStartGrid, setShowStartGrid] = useState(false);
-    const raceSessionsWithGridPos = [
-        "Race",
-        "Sprint",
-        "Sprint Shootout",
-        "Sprint Qualifying",
-    ];
+    const raceSessionsWithGridPos = ["Race", "Sprint", "Sprint Shootout", "Sprint Qualifying"];
 
     // -- Tabs
-    const [activeTab, setActiveTab] = useState<
-        "summary" | "playback" | "vrbuilder" | ""
-    >("");
+    const [activeTab, setActiveTab] = useState<"summary" | "playback" | "vrbuilder" | "">("");
     const [showTabs, setShowTabs] = useState(false);
 
     const [showSummarySection, setShowSummarySection] = useState(false);
-    const [showRacePlayBackSection, setShowRacePlayBackSection] =
-        useState(false);
+    const [showRacePlayBackSection, setShowRacePlayBackSection] = useState(false);
     const [showVRBuilderSection, setShowVRBuilderSection] = useState(false);
 
     // -- Race Playback
@@ -90,18 +86,13 @@ export function RaceViewerPage() {
     const [isScrubbing, setIsScrubbing] = useState(false);
     const [teamRadioAutoplayToken, setTeamRadioAutoplayToken] = useState(0);
 
-    const [leaderboardData, setLeaderboardData] =
-        useState<LeaderboardApiResponse | null>(null);
+    const [leaderboardData, setLeaderboardData] = useState<LeaderboardApiResponse | null>(null);
 
     const [weather, setWeather] = useState<WeatherApiResponse | null>(null);
 
-    const [raceControlData, setRaceControlData] = useState<
-        RaceControlApiResponse[] | null
-    >(null);
+    const [raceControlData, setRaceControlData] = useState<RaceControlApiResponse[] | null>(null);
 
-    const [teamRadioData, setTeamRadioData] = useState<
-        TeamRadioApiResponse[] | null
-    >(null);
+    const [teamRadioData, setTeamRadioData] = useState<TeamRadioApiResponse[] | null>(null);
 
     const frameRef = useRef<number | null>(null);
     const lastTimestampRef = useRef<number | null>(null);
@@ -113,13 +104,9 @@ export function RaceViewerPage() {
             label: value,
         }));
 
-    const [DRIVER_OPTIONS, setDRIVER_OPTIONS] = useState<MultiSelectOption[]>(
-        []
-    );
+    const [DRIVER_OPTIONS, setDRIVER_OPTIONS] = useState<MultiSelectOption[]>([]);
     const [TEAM_OPTIONS, setTEAM_OPTIONS] = useState<MultiSelectOption[]>([]);
-    const [previewChart, setPreviewChart] = useState<ChartResponse | null>(
-        null
-    );
+    const [previewChart, setPreviewChart] = useState<ChartResponse | null>(null);
     const [reportBlocks, setReportBlocks] = useState<ChartResponse[]>([]);
     const [chartLoading, setChartLoading] = useState(false);
 
@@ -177,10 +164,7 @@ export function RaceViewerPage() {
 
             // advance simulation time in a ref (not state)
             const deltaSim = deltaReal * speedMultiplier;
-            simTimeRef.current = Math.min(
-                simTimeRef.current + deltaSim,
-                raceDuration
-            );
+            simTimeRef.current = Math.min(simTimeRef.current + deltaSim, raceDuration);
 
             const reachedEnd = simTimeRef.current >= raceDuration;
 
@@ -267,7 +251,7 @@ export function RaceViewerPage() {
         // Fetches VR data
         console.log("Fetching VR data");
         fetch(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/vr/`
+            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/vr/`,
         )
             .then((res) => res.json())
             .then((json: VRApiResponse) => {
@@ -280,6 +264,7 @@ export function RaceViewerPage() {
             })
             .catch((err) => {
                 console.error("Failed to load VR data", err);
+                toast("Failed to load VR data: " + err.message, "error");
             });
 
         // Fetches results + starting grid data
@@ -289,7 +274,7 @@ export function RaceViewerPage() {
 
         console.log("Fetching summary results data");
         fetch(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/result/`
+            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/result/`,
         )
             .then((res) => res.json())
             .then((data: { results: Result[] }) => {
@@ -298,6 +283,7 @@ export function RaceViewerPage() {
             })
             .catch((err) => {
                 console.error("Failed to load results", err);
+                toast("Failed to load results: " + err.message, "error");
             })
             .finally(() => {
                 setLoadingResults(false);
@@ -307,8 +293,8 @@ export function RaceViewerPage() {
         console.log("Fetching playback data");
         fetch(
             `http://localhost:8000/api/session/${selectedYear}/${encodeURIComponent(
-                selectedCountry
-            )}/${encodeURIComponent(selectedSession)}/playback/`
+                selectedCountry,
+            )}/${encodeURIComponent(selectedSession)}/playback/`,
         )
             .then((res) => res.json())
             .then((json: PlaybackData) => {
@@ -319,12 +305,15 @@ export function RaceViewerPage() {
                 setSessionStart(json.sessionStart);
                 console.log("Playback JSON:", json);
             })
-            .catch((err) => console.error("Failed to load playback", err));
+            .catch((err) => {
+                console.error("Failed to load playback", err);
+                toast("Failed to load playback data: " + err.message, "error");
+            });
 
         // Fetches leaderboard data
         console.log("Fetching leaderboard data");
         fetch(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/leaderboard/`
+            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/leaderboard/`,
         )
             .then((res) => res.json())
             .then((json: LeaderboardApiResponse) => {
@@ -333,11 +322,12 @@ export function RaceViewerPage() {
             })
             .catch((err) => {
                 console.error("Failed to load leaderboard data", err);
+                toast("Failed to load leaderboard data: " + err.message, "error");
             });
 
         // Fetches weather data
         fetch(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/weather/`
+            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/weather/`,
         )
             .then((res) => res.json())
             .then((json: WeatherApiResponse) => {
@@ -346,11 +336,12 @@ export function RaceViewerPage() {
             })
             .catch((err) => {
                 console.error("Failed to load weather data", err);
+                toast("Failed to load weather data: " + err.message, "error");
             });
 
         // Fetches race control data
         fetch(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/racecontrol/`
+            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/racecontrol/`,
         )
             .then((res) => res.json())
             .then((json: RaceControlApiResponse[]) => {
@@ -359,11 +350,12 @@ export function RaceViewerPage() {
             })
             .catch((err) => {
                 console.error("Failed to load race control data", err);
+                toast("Failed to load race control data: " + err.message, "error");
             });
 
         // Fetches team radio data
         fetch(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/teamradio/`
+            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/teamradio/`,
         )
             .then((res) => res.json())
             .then((json: TeamRadioApiResponse[]) => {
@@ -372,6 +364,7 @@ export function RaceViewerPage() {
             })
             .catch((err) => {
                 console.error("Failed to load team radio data", err);
+                toast("Failed to load team radio data: " + err.message, "error");
             });
     };
 
@@ -418,15 +411,14 @@ export function RaceViewerPage() {
             setSelectedSession("");
             return;
         }
-        fetch(
-            `http://localhost:8000/api/seasons/${selectedYear}/${selectedCountry}/sessions/`
-        )
+        fetch(`http://localhost:8000/api/seasons/${selectedYear}/${selectedCountry}/sessions/`)
             .then((res) => res.json())
             .then((data: { sessions: string[] }) => {
                 setSessionsOptions(data.sessions);
             })
             .catch((err) => {
                 console.error("Failed to load sessions", err);
+                toast("Failed to load sessions: " + err.message, "error");
             })
             .finally(() => {
                 setSelectedSession("");
@@ -438,14 +430,15 @@ export function RaceViewerPage() {
         if (!searchButton) {
             return;
         }
-        fetch(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/circuit/`
-        )
+        fetch(`http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/circuit/`)
             .then((res) => res.json())
             .then((data) => {
                 setCircuitName(data.circuit);
             })
-            .catch((err) => console.error("Error fetching circuit:", err))
+            .catch((err) => {
+                console.error("Error fetching circuit:", err);
+                toast("Failed to load circuit data: " + err.message, "error");
+            })
             .finally(() => {
                 setSearchButton(false);
             });
@@ -457,130 +450,128 @@ export function RaceViewerPage() {
         <>
             {/* Race Selection Section */}
             {showRaceSelection && (
-                <div className="h-full grid place-items-center">
-                    {/* Race selection */}
-                    <div className="card card-border bg-base-200 w-200">
-                        <div className="card-body">
-                            <h2 className="card-title">Race Selection</h2>
-                            <div className="card-actions justify-start">
-                                {/* Year dropdown */}
-                                <div className="dropdown">
-                                    <div
-                                        tabIndex={0}
-                                        role="button"
-                                        className="btn flex items-center gap-2 bg-base-100"
-                                    >
-                                        {selectedYear || "Select Year"}
-                                        <ChevronDownIcon
-                                            aria-hidden="true"
-                                            className="size-5 opacity-70"
-                                        />
+                <div className="h-full flex items-center justify-center">
+                    <div className="flex flex-col items-center">
+                        {/* Race selection */}
+                        <h1 className="text-center text-5xl font-medium mb-2">Select a Race</h1>
+                        <p className="text-md text-slate-500 mb-8">
+                            Explore and visualise data from past Formula 1 sessions.
+                        </p>
+
+                        <div className="card card-border bg-base-200 w-200">
+                            <div className="card-body">
+                                <div className="card-actions justify-center">
+                                    {/* Year dropdown */}
+                                    <div className="dropdown">
+                                        <div
+                                            tabIndex={0}
+                                            role="button"
+                                            className="btn flex items-center gap-2 bg-base-100"
+                                        >
+                                            {selectedYear || "Select Year"}
+                                            <ChevronDownIcon
+                                                aria-hidden="true"
+                                                className="size-5 opacity-70"
+                                            />
+                                        </div>
+
+                                        <ul
+                                            tabIndex={0}
+                                            className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
+                                        >
+                                            {yearOptions.map((year) => (
+                                                <li key={year}>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setSelectedYear(year)}
+                                                    >
+                                                        {year}
+                                                    </button>
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
 
-                                    <ul
-                                        tabIndex={0}
-                                        className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
-                                    >
-                                        {yearOptions.map((year) => (
-                                            <li key={year}>
-                                                <button
-                                                    type="button"
-                                                    onClick={() =>
-                                                        setSelectedYear(year)
-                                                    }
-                                                >
-                                                    {year}
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
+                                    {/* Country dropdown */}
+                                    {selectedYear && (
+                                        <div className="dropdown">
+                                            <div
+                                                tabIndex={0}
+                                                role="button"
+                                                className="btn flex items-center gap-2 bg-base-100"
+                                            >
+                                                {selectedCountry || "Select Country"}
+                                                <ChevronDownIcon
+                                                    aria-hidden="true"
+                                                    className="size-5 opacity-70"
+                                                />
+                                            </div>
+
+                                            <ul
+                                                tabIndex={0}
+                                                className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
+                                            >
+                                                {countryOptions.map((country) => (
+                                                    <li key={country}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setSelectedCountry(country)
+                                                            }
+                                                        >
+                                                            {country}
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+
+                                    {/* Sessions dropdown */}
+                                    {selectedCountry && (
+                                        <div className="dropdown">
+                                            <div
+                                                tabIndex={0}
+                                                role="button"
+                                                className="btn flex items-center gap-2 bg-base-100"
+                                            >
+                                                {selectedSession || "Select Session"}
+                                                <ChevronDownIcon
+                                                    aria-hidden="true"
+                                                    className="size-5 opacity-70"
+                                                />
+                                            </div>
+
+                                            <ul
+                                                tabIndex={0}
+                                                className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
+                                            >
+                                                {sessionsOptions.map((session) => (
+                                                    <li key={session}>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() =>
+                                                                setSelectedSession(session)
+                                                            }
+                                                        >
+                                                            {session}
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                    {selectedSession && (
+                                        <button
+                                            className="btn ms-5 bg-base-300"
+                                            onClick={() => {
+                                                handleSearch();
+                                            }}
+                                        >
+                                            Search
+                                        </button>
+                                    )}
                                 </div>
-
-                                {/* Country dropdown */}
-                                {selectedYear && (
-                                    <div className="dropdown">
-                                        <div
-                                            tabIndex={0}
-                                            role="button"
-                                            className="btn flex items-center gap-2 bg-base-100"
-                                        >
-                                            {selectedCountry ||
-                                                "Select Country"}
-                                            <ChevronDownIcon
-                                                aria-hidden="true"
-                                                className="size-5 opacity-70"
-                                            />
-                                        </div>
-
-                                        <ul
-                                            tabIndex={0}
-                                            className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
-                                        >
-                                            {countryOptions.map((country) => (
-                                                <li key={country}>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setSelectedCountry(
-                                                                country
-                                                            )
-                                                        }
-                                                    >
-                                                        {country}
-                                                    </button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-
-                                {/* Sessions dropdown */}
-                                {selectedCountry && (
-                                    <div className="dropdown">
-                                        <div
-                                            tabIndex={0}
-                                            role="button"
-                                            className="btn flex items-center gap-2 bg-base-100"
-                                        >
-                                            {selectedSession ||
-                                                "Select Session"}
-                                            <ChevronDownIcon
-                                                aria-hidden="true"
-                                                className="size-5 opacity-70"
-                                            />
-                                        </div>
-
-                                        <ul
-                                            tabIndex={0}
-                                            className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
-                                        >
-                                            {sessionsOptions.map((session) => (
-                                                <li key={session}>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() =>
-                                                            setSelectedSession(
-                                                                session
-                                                            )
-                                                        }
-                                                    >
-                                                        {session}
-                                                    </button>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    </div>
-                                )}
-                                {selectedSession && (
-                                    <button
-                                        className="btn ms-5 bg-base-300"
-                                        onClick={() => {
-                                            handleSearch();
-                                        }}
-                                    >
-                                        Search
-                                    </button>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -593,9 +584,7 @@ export function RaceViewerPage() {
                 <div role="tablist" className="tabs tabs-box">
                     <button
                         role="tab"
-                        className={`tab ${
-                            activeTab === "summary" ? "tab-active" : ""
-                        }`}
+                        className={`tab ${activeTab === "summary" ? "tab-active" : ""}`}
                         onClick={() => setActiveTab("summary")}
                     >
                         Summary
@@ -603,9 +592,7 @@ export function RaceViewerPage() {
 
                     <button
                         role="tab"
-                        className={`tab ${
-                            activeTab === "playback" ? "tab-active" : ""
-                        }`}
+                        className={`tab ${activeTab === "playback" ? "tab-active" : ""}`}
                         onClick={() => setActiveTab("playback")}
                     >
                         Race Playback
@@ -613,9 +600,7 @@ export function RaceViewerPage() {
 
                     <button
                         role="tab"
-                        className={`tab ${
-                            activeTab === "vrbuilder" ? "tab-active" : ""
-                        }`}
+                        className={`tab ${activeTab === "vrbuilder" ? "tab-active" : ""}`}
                         onClick={() => setActiveTab("vrbuilder")}
                     >
                         Visualisation and Report Builder
@@ -737,15 +722,11 @@ export function RaceViewerPage() {
                                     <RacePlaybackTeamRadio
                                         teamRadioData={teamRadioData}
                                         teamRadioAutoplay={teamRadioAutoplay}
-                                        setTeamRadioAutoplay={
-                                            setTeamRadioAutoplay
-                                        }
+                                        setTeamRadioAutoplay={setTeamRadioAutoplay}
                                         leaderboardData={leaderboardData}
                                         currentTime={currentTime}
                                         isScrubbing={isScrubbing}
-                                        teamRadioAutoplayToken={
-                                            teamRadioAutoplayToken
-                                        }
+                                        teamRadioAutoplayToken={teamRadioAutoplayToken}
                                     />
                                 </div>
                             </div>
@@ -767,21 +748,15 @@ export function RaceViewerPage() {
                                             <div className="card card-border bg-base-100 w-auto">
                                                 <div className="card-body">
                                                     <h2 className="card-title">
-                                                        {circuitName.toUpperCase()}{" "}
-                                                        {selectedYear} GRAND
-                                                        PRIX -{" "}
-                                                        {selectedSession.toUpperCase()}
+                                                        {circuitName.toUpperCase()} {selectedYear}{" "}
+                                                        GRAND PRIX - {selectedSession.toUpperCase()}
                                                     </h2>
                                                     <p>
-                                                        Results of the selected
-                                                        session.
+                                                        Results of the selected session.
                                                         <br />
                                                         <em>
-                                                            Note: Certain
-                                                            sessions,
-                                                            particularly older
-                                                            sessions, may not
-                                                            have lap data
+                                                            Note: Certain sessions, particularly
+                                                            older sessions, may not have lap data
                                                             available.
                                                         </em>
                                                     </p>
@@ -792,108 +767,59 @@ export function RaceViewerPage() {
                                                                 <thead>
                                                                     <>
                                                                         {selectedSession.includes(
-                                                                            "Practice"
+                                                                            "Practice",
                                                                         ) && (
                                                                             <tr>
-                                                                                <th>
-                                                                                    Pos
-                                                                                </th>
-                                                                                <th>
-                                                                                    Driver
-                                                                                    No.
-                                                                                </th>
+                                                                                <th>Pos</th>
+                                                                                <th>Driver No.</th>
                                                                                 <th></th>
-                                                                                <th>
-                                                                                    Driver
-                                                                                </th>
-                                                                                <th>
-                                                                                    Team
-                                                                                </th>
-                                                                                <th>
-                                                                                    Time
-                                                                                </th>
-                                                                                <th>
-                                                                                    Laps
-                                                                                </th>
+                                                                                <th>Driver</th>
+                                                                                <th>Team</th>
+                                                                                <th>Time</th>
+                                                                                <th>Laps</th>
                                                                             </tr>
                                                                         )}
 
                                                                         {(selectedSession.includes(
-                                                                            "Qualifying"
+                                                                            "Qualifying",
                                                                         ) ||
                                                                             selectedSession.includes(
-                                                                                "Shootout"
+                                                                                "Shootout",
                                                                             )) && (
                                                                             <tr>
-                                                                                <th>
-                                                                                    Pos
-                                                                                </th>
-                                                                                <th>
-                                                                                    Driver
-                                                                                    No.
-                                                                                </th>
+                                                                                <th>Pos</th>
+                                                                                <th>Driver No.</th>
                                                                                 <th></th>
-                                                                                <th>
-                                                                                    Driver
-                                                                                </th>
-                                                                                <th>
-                                                                                    Team
-                                                                                </th>
-                                                                                <th>
-                                                                                    Q1
-                                                                                </th>
-                                                                                <th>
-                                                                                    Q2
-                                                                                </th>
-                                                                                <th>
-                                                                                    Q3
-                                                                                </th>
-                                                                                <th>
-                                                                                    Laps
-                                                                                </th>
+                                                                                <th>Driver</th>
+                                                                                <th>Team</th>
+                                                                                <th>Q1</th>
+                                                                                <th>Q2</th>
+                                                                                <th>Q3</th>
+                                                                                <th>Laps</th>
                                                                             </tr>
                                                                         )}
 
                                                                         {(selectedSession.includes(
-                                                                            "Race"
+                                                                            "Race",
                                                                         ) ||
                                                                             selectedSession.includes(
-                                                                                "Sprint"
+                                                                                "Sprint",
                                                                             )) && (
                                                                             <tr>
-                                                                                <th>
-                                                                                    Pos
-                                                                                </th>
-                                                                                <th>
-                                                                                    Driver
-                                                                                    No.
-                                                                                </th>
+                                                                                <th>Pos</th>
+                                                                                <th>Driver No.</th>
                                                                                 <th></th>
+                                                                                <th>Driver</th>
+                                                                                <th>Team</th>
+                                                                                <th>Laps</th>
                                                                                 <th>
-                                                                                    Driver
+                                                                                    Best Lap Time
                                                                                 </th>
                                                                                 <th>
-                                                                                    Team
+                                                                                    Last Lap Time
                                                                                 </th>
-                                                                                <th>
-                                                                                    Laps
-                                                                                </th>
-                                                                                <th>
-                                                                                    Best
-                                                                                    Lap
-                                                                                    Time
-                                                                                </th>
-                                                                                <th>
-                                                                                    Last
-                                                                                    Lap
-                                                                                    Time
-                                                                                </th>
-                                                                                <th>
-                                                                                    Points
-                                                                                </th>
-                                                                                <th>
-                                                                                    Status
-                                                                                </th>
+                                                                                <th>Points</th>
+                                                                                <th>Status</th>
                                                                             </tr>
                                                                         )}
                                                                     </>
@@ -903,9 +829,7 @@ export function RaceViewerPage() {
                                                                 {loadingResults ? (
                                                                     <tr>
                                                                         <td
-                                                                            colSpan={
-                                                                                7
-                                                                            }
+                                                                            colSpan={7}
                                                                             className="p-0"
                                                                         >
                                                                             <div className="skeleton h-32 w-auto"></div>
@@ -914,12 +838,10 @@ export function RaceViewerPage() {
                                                                 ) : (
                                                                     <>
                                                                         {selectedSession.includes(
-                                                                            "Practice"
+                                                                            "Practice",
                                                                         ) &&
                                                                             sortedResults.map(
-                                                                                (
-                                                                                    r
-                                                                                ) => (
+                                                                                (r) => (
                                                                                     <tr
                                                                                         key={`${r.driverNumber}-${r.position}`}
                                                                                         style={{
@@ -927,8 +849,8 @@ export function RaceViewerPage() {
                                                                                                 teamBgByDriver(
                                                                                                     leaderboardData,
                                                                                                     Number(
-                                                                                                        r.driverNumber
-                                                                                                    )
+                                                                                                        r.driverNumber,
+                                                                                                    ),
                                                                                                 ) ??
                                                                                                 "transparent",
                                                                                         }}
@@ -956,14 +878,10 @@ export function RaceViewerPage() {
                                                                                             </div>
                                                                                         </td>
                                                                                         <td>
-                                                                                            {
-                                                                                                r.name
-                                                                                            }
+                                                                                            {r.name}
                                                                                         </td>
                                                                                         <td>
-                                                                                            {
-                                                                                                r.team
-                                                                                            }
+                                                                                            {r.team}
                                                                                         </td>
                                                                                         <td>
                                                                                             {
@@ -976,19 +894,17 @@ export function RaceViewerPage() {
                                                                                             }
                                                                                         </td>
                                                                                     </tr>
-                                                                                )
+                                                                                ),
                                                                             )}
 
                                                                         {(selectedSession.includes(
-                                                                            "Qualifying"
+                                                                            "Qualifying",
                                                                         ) ||
                                                                             selectedSession.includes(
-                                                                                "Shootout"
+                                                                                "Shootout",
                                                                             )) &&
                                                                             sortedResults.map(
-                                                                                (
-                                                                                    r
-                                                                                ) => (
+                                                                                (r) => (
                                                                                     <tr
                                                                                         key={`${r.driverNumber}-${r.position}`}
                                                                                         style={{
@@ -996,8 +912,8 @@ export function RaceViewerPage() {
                                                                                                 teamBgByDriver(
                                                                                                     leaderboardData,
                                                                                                     Number(
-                                                                                                        r.driverNumber
-                                                                                                    )
+                                                                                                        r.driverNumber,
+                                                                                                    ),
                                                                                                 ) ??
                                                                                                 "transparent",
                                                                                         }}
@@ -1025,29 +941,19 @@ export function RaceViewerPage() {
                                                                                             </div>
                                                                                         </td>
                                                                                         <td>
-                                                                                            {
-                                                                                                r.name
-                                                                                            }
+                                                                                            {r.name}
                                                                                         </td>
                                                                                         <td>
-                                                                                            {
-                                                                                                r.team
-                                                                                            }
+                                                                                            {r.team}
                                                                                         </td>
                                                                                         <td>
-                                                                                            {
-                                                                                                r.q1
-                                                                                            }
+                                                                                            {r.q1}
                                                                                         </td>
                                                                                         <td>
-                                                                                            {
-                                                                                                r.q2
-                                                                                            }
+                                                                                            {r.q2}
                                                                                         </td>
                                                                                         <td>
-                                                                                            {
-                                                                                                r.q3
-                                                                                            }
+                                                                                            {r.q3}
                                                                                         </td>
                                                                                         <td>
                                                                                             {
@@ -1055,19 +961,17 @@ export function RaceViewerPage() {
                                                                                             }
                                                                                         </td>
                                                                                     </tr>
-                                                                                )
+                                                                                ),
                                                                             )}
 
                                                                         {(selectedSession.includes(
-                                                                            "Race"
+                                                                            "Race",
                                                                         ) ||
                                                                             selectedSession.includes(
-                                                                                "Sprint"
+                                                                                "Sprint",
                                                                             )) &&
                                                                             sortedResults.map(
-                                                                                (
-                                                                                    r
-                                                                                ) => (
+                                                                                (r) => (
                                                                                     <tr
                                                                                         key={`${r.driverNumber}-${r.position}`}
                                                                                         style={{
@@ -1075,8 +979,8 @@ export function RaceViewerPage() {
                                                                                                 teamBgByDriver(
                                                                                                     leaderboardData,
                                                                                                     Number(
-                                                                                                        r.driverNumber
-                                                                                                    )
+                                                                                                        r.driverNumber,
+                                                                                                    ),
                                                                                                 ) ??
                                                                                                 "transparent",
                                                                                         }}
@@ -1104,14 +1008,10 @@ export function RaceViewerPage() {
                                                                                             </div>
                                                                                         </td>
                                                                                         <td>
-                                                                                            {
-                                                                                                r.name
-                                                                                            }
+                                                                                            {r.name}
                                                                                         </td>
                                                                                         <td>
-                                                                                            {
-                                                                                                r.team
-                                                                                            }
+                                                                                            {r.team}
                                                                                         </td>
                                                                                         <td>
                                                                                             {
@@ -1139,7 +1039,7 @@ export function RaceViewerPage() {
                                                                                             }
                                                                                         </td>
                                                                                     </tr>
-                                                                                )
+                                                                                ),
                                                                             )}
                                                                     </>
                                                                 )}
@@ -1156,16 +1056,12 @@ export function RaceViewerPage() {
                                     {showStartGrid && (
                                         <div className="card card-border bg-base-100">
                                             <div className="card-body">
-                                                <h2 className="card-title">
-                                                    STARTING GRID
-                                                </h2>
+                                                <h2 className="card-title">STARTING GRID</h2>
                                                 <div className="mt-2">
                                                     {loadingResults ? (
                                                         <div className="skeleton h-32 w-auto"></div>
                                                     ) : (
-                                                        <StartingGrid
-                                                            results={results}
-                                                        />
+                                                        <StartingGrid results={results} />
                                                     )}
                                                 </div>
                                             </div>

@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponseBadRequest, JsonResponse
-from api.models import Season, Event, Session
+from api.models import Circuit, Season, Event, Session, Team
 import fastf1
 from fastf1.ergast import Ergast
 import math
@@ -16,7 +16,6 @@ import plotly.express as px
 from plotly.utils import PlotlyJSONEncoder
 from django.views.decorators.csrf import csrf_exempt
 import plotly.graph_objects as go
-
 
 def season_years(request):
     years = (
@@ -45,6 +44,22 @@ def season_sessions(request, year, country):
         .order_by('session_type')
     )
     return JsonResponse({"sessions": list(sessions)})
+
+def teams_getTeams(request):
+    teams = (
+        Team.objects
+        .order_by('name')
+        .values_list('name', flat=True)
+    )
+    return JsonResponse({"teams":list(teams)})
+
+@lru_cache(maxsize=32)
+def teams_getCurrentSeason(request):
+    session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
+    session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
+
+
+
 
 @lru_cache(maxsize=32)
 def session_circuit(request, year: int, country: str):

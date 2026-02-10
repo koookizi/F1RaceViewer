@@ -30,6 +30,7 @@
     "react-gauge-component": "^1.2.64",
     "react-plotly.js": "^2.6.0",
     "react-router-dom": "^7.10.1",
+    "react-select": "^5.10.2",
     "tailwind-merge": "^3.4.0",
     "tailwind-variants": "^3.2.2",
     "tailwindcss-animate": "^1.0.7",

@@ -16,6 +16,7 @@ urlpatterns = [
     path("session/<int:year>/<str:country>/<str:session_name>/teamradio/", views.session_teamradio_view, name="session-teamradio"),
     path("session/vr/create/", views.vr_create_view, name="session-vr-create"),
     path("session/<int:year>/<str:country>/<str:session_name>/vr/", views.session_vrdetails_view, name="session-vr"),
+    path("teams/", views.teams_getTeams, name="teams-getteams"),
 
 
 
