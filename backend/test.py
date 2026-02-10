@@ -10,21 +10,15 @@ from urllib.parse import urlencode
 import math
 import openpyxl
 
-def test(year, country, session_name):    
-    # FastF1
-    session = fastf1.get_session(year, country, session_name)
-    session.load()
+# def test(year, country, session_name):    
+#     # FastF1
+#     session = fastf1.get_session(year, country, session_name)
+#     session.load()
 
-    drivers = []
-    teams = []
 
-    results_df = session.results
-
-    for _, row in results_df.iterrows():
-        drivers.append(row.get("Abbreviation", ""),)
-        teams.append(row.get("TeamName", ""))    
-
-    teams = list(dict.fromkeys(teams))
     
 
-test(2025, "United Kingdom", "Race")
+# test(2025, "United Kingdom", "Race")
+
+schedule = fastf1.get_event_schedule(2025)
+print(schedule[['EventName', 'Country', 'EventDate']])

@@ -1,6 +1,5 @@
 // src/components/VRTemplateInputs.tsx
 import React, { useMemo, useEffect } from "react";
-import React, { useMemo, useEffect } from "react";
 import { MultiSelect } from "./MultiSelect";
 import type { MultiSelectOption } from "./MultiSelect";
 import type { Template } from "../helpers/templates";

@@ -1,47 +1,15 @@
 // VRBuilderBuildControls.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import React, { useEffect, useMemo, useState } from "react";
 import type { MultiSelectOption } from "./MultiSelect";
 import { TemplateCardPanel } from "./TemplateCardPanel";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
 import { TEMPLATES, type Intent } from "../helpers/templates";
-import {
-    VRTemplateInputs,
-    DEFAULT_VR_TEMPLATE_INPUTS,
-} from "./VRTemplateInputs";
-import type { ChartResponse } from "./ChartCard";
-import { useToast } from "./ToastContext";
-import {
-    VRTemplateInputs,
-    DEFAULT_VR_TEMPLATE_INPUTS,
-} from "./VRTemplateInputs";
+import { VRTemplateInputs, DEFAULT_VR_TEMPLATE_INPUTS } from "./VRTemplateInputs";
 import type { ChartResponse } from "./ChartCard";
 import { useToast } from "./ToastContext";
 
-const INTENTS: Intent[] = [
-    "Pace",
-    "Strategy",
-    "Telemetry",
-    "Positions",
-    "Season",
-const INTENTS: Intent[] = [
-    "Pace",
-    "Strategy",
-    "Telemetry",
-    "Positions",
-    "Season",
-];
+const INTENTS: Intent[] = ["Pace", "Strategy", "Telemetry", "Positions", "Season"];
 
-type VRBuilderBuildControlsProps = {
-    DRIVER_OPTIONS: MultiSelectOption[];
-    TEAM_OPTIONS: MultiSelectOption[];
-    selectedYear: string;
-    selectedCountry: string;
-    selectedSession: string;
-    setChartLoading: React.Dispatch<React.SetStateAction<boolean>>;
-    setPreviewChart: React.Dispatch<React.SetStateAction<ChartResponse | null>>;
-    chartLoading: boolean;
-};
 type VRBuilderBuildControlsProps = {
     DRIVER_OPTIONS: MultiSelectOption[];
     TEAM_OPTIONS: MultiSelectOption[];
@@ -63,9 +31,7 @@ export function VRBuilderBuildControls({
     setChartLoading,
     chartLoading,
 }: VRBuilderBuildControlsProps) {
-    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
-        null,
-    );
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
     const [selectedIntent, setSelectedIntent] = useState<Intent | "">("");
 
@@ -81,8 +47,6 @@ export function VRBuilderBuildControls({
 
     const toast = useToast();
 
-    const toast = useToast();
-
     const [inputs, setInputs] = useState(DEFAULT_VR_TEMPLATE_INPUTS);
 
     useEffect(() => {
@@ -94,33 +58,27 @@ export function VRBuilderBuildControls({
 
         // Requires >= 1 driver(s)
         if (["t1", "t2", "t3", "t4", "t5", "t18"].includes(templateId)) {
-            if (inputs.driverIds.length < 1)
-                errors.push("Select at least 1 driver.");
+            if (inputs.driverIds.length < 1) errors.push("Select at least 1 driver.");
         }
 
         // Requires >=1 team(s)
         if (templateId === "t6") {
-            if (inputs.teamIds.length < 1)
-                errors.push("Select at least 1 team.");
+            if (inputs.teamIds.length < 1) errors.push("Select at least 1 team.");
         }
 
         // Requires atleast 1 driver OR atleast 1 team
         if (["t7", "t8", "t9", "t10", "t11"].includes(templateId)) {
             if (inputs.selectionMode == "Drivers") {
-                if (inputs.driverIds.length < 1)
-                    errors.push("Select at least 1 driver.");
+                if (inputs.driverIds.length < 1) errors.push("Select at least 1 driver.");
             } else if (inputs.selectionMode == "Teams") {
-                if (inputs.teamIds.length < 1)
-                    errors.push("Select at least 1 team.");
+                if (inputs.teamIds.length < 1) errors.push("Select at least 1 team.");
             }
         }
 
         // Rquires 1 or 2 drivers, lap modes/numbers, telemetry channels
         if (templateId === "t12" || templateId === "t13") {
-            if (inputs.driverIds.length < 1)
-                errors.push("Select at least 1 driver.");
-            if (inputs.driverIds.length > 2)
-                errors.push("Select at most 2 drivers.");
+            if (inputs.driverIds.length < 1) errors.push("Select at least 1 driver.");
+            if (inputs.driverIds.length > 2) errors.push("Select at most 2 drivers.");
             if (inputs.lapModeA === "Manual" && inputs.lapNumberA === "")
                 errors.push("Lap A number is required (Manual).");
             if (inputs.lapModeB === "Manual" && inputs.lapNumberB === "")
@@ -193,10 +151,8 @@ export function VRBuilderBuildControls({
 
         // Requires 1 or 2 drivers, lap modes/numbers, telemetry channels
         if (templateId === "t12" || templateId === "t13") {
-            const lapA =
-                inputs.lapModeA === "Fastest" ? "fastest" : inputs.lapNumberA;
-            const lapB =
-                inputs.lapModeB === "Fastest" ? "fastest" : inputs.lapNumberB;
+            const lapA = inputs.lapModeA === "Fastest" ? "fastest" : inputs.lapNumberA;
+            const lapB = inputs.lapModeB === "Fastest" ? "fastest" : inputs.lapNumberB;
 
             return {
                 ...base,
@@ -210,8 +166,7 @@ export function VRBuilderBuildControls({
 
         // Requires 1 driver, lap mode/number
         if (["t14", "t15", "t16"].includes(templateId)) {
-            const lap =
-                inputs.lapModeA === "Fastest" ? "fastest" : inputs.lapNumberA;
+            const lap = inputs.lapModeA === "Fastest" ? "fastest" : inputs.lapNumberA;
 
             // if backend expects ONE driver, you may want drivers[0]
             return {
@@ -322,25 +277,9 @@ export function VRBuilderBuildControls({
 
                 {/* Intent dropdown */}
                 <div className="dropdown">
-                    <div
-                        tabIndex={0}
-                        role="button"
-                        className="btn flex items-center gap-2 w-40"
-                    >
-                    <div
-                        tabIndex={0}
-                        role="button"
-                        className="btn flex items-center gap-2 w-40"
-                    >
+                    <div tabIndex={0} role="button" className="btn flex items-center gap-2 w-40">
                         {selectedIntent || "Select Intent"}
-                        <ChevronDownIcon
-                            aria-hidden="true"
-                            className="size-5 opacity-70"
-                        />
-                        <ChevronDownIcon
-                            aria-hidden="true"
-                            className="size-5 opacity-70"
-                        />
+                        <ChevronDownIcon aria-hidden="true" className="size-5 opacity-70" />
                     </div>
 
                     <ul
@@ -353,7 +292,6 @@ export function VRBuilderBuildControls({
                                     type="button"
                                     onClick={() => {
                                         setSelectedIntent(intent);
-                                        // reset template selection when intent changes
                                         setSelectedTemplateId(null);
                                     }}
                                 >
@@ -380,14 +318,6 @@ export function VRBuilderBuildControls({
                     value={inputs}
                     onChange={setInputs}
                 />
-
-                <button
-                    className="btn btn-primary mt-4"
-                    onClick={onCreate}
-                    disabled={!selectedTemplate || chartLoading}
-                >
-                    Create
-                </button>
 
                 <button
                     className="btn btn-primary mt-4"
