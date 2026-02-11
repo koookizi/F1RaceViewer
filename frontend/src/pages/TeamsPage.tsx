@@ -1,6 +1,6 @@
 import StatCard from "@/components/StatCard";
 import { useToast } from "@/components/ToastContext";
-import type { TeamCurrentSeasonData, TeamSummaryData } from "@/types";
+import type { currentSeasonData, TeamSummaryData } from "@/types";
 import { color } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
 import DriverCard from "@/components/DriverCard";
@@ -35,7 +35,7 @@ export function TeamsPage() {
     // -- Summary section
     const [showCurrentSeasonBox, setShowCurrentSeasonBox] = useState(false);
     const [showHero, setShowHero] = useState(false);
-    const [currentSeasonData, setCurrentSeasonData] = useState<TeamCurrentSeasonData | null>(null);
+    const [currentSeasonData, setCurrentSeasonData] = useState<currentSeasonData | null>(null);
     const [teamSummary, setTeamSummary] = useState<TeamSummaryData | null>(null);
 
     const [showTeamSummary, setShowTeamSummary] = useState(false);
@@ -88,9 +88,11 @@ export function TeamsPage() {
 
         // Fetches current season data
         console.log("Fetching current season data");
-        fetch(`http://localhost:8000/api/teams/${encodeURIComponent(selectedTeam)}/currentseason/`)
+        fetch(
+            `http://localhost:8000/api/general/${encodeURIComponent(selectedTeam)}/team/currentseason/`,
+        )
             .then((res) => res.json())
-            .then((json: TeamCurrentSeasonData) => {
+            .then((json: currentSeasonData) => {
                 setCurrentSeasonData(json);
                 console.log("Current season JSON:", json);
             })

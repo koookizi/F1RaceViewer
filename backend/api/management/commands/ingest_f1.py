@@ -11,7 +11,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.db.models import Sum
 
-from api.models import Season, Circuit, Event, Session, Team, Driver, Result, TeamStanding
+from api.models import Season, Circuit, Event, Session, Team, Driver, Result, TeamStanding, DriverStanding
 
 fastf1.Cache.enable_cache("api/fastf1_cache")
 
@@ -63,6 +63,7 @@ class Command(BaseCommand):
 
         # standings at end (official if clean, else computed fallback)
         self.ingest_constructor_standings(self.ergast, season_obj, year)
+        self.ingest_driver_standings(self.ergast, season_obj, year)
 
     # ----------------------------
     # Shared helpers
@@ -401,6 +402,61 @@ class Command(BaseCommand):
     # ----------------------------
     # Standings (same as your current approach, with fallback)
     # ----------------------------
+    def ingest_driver_standings(self, ergast: Ergast, season_obj: Season, year: int):
+        DriverStanding.objects.filter(season=season_obj).delete()
+
+        standings_df = None
+        try:
+            resp = self._ergast_call(ergast.get_driver_standings, season=year)
+            standings_df = self._df0(resp)
+        except Exception:
+            standings_df = None
+
+        # 1) Prefer official Ergast driver standings if present and clean
+        if standings_df is not None and len(standings_df) > 0:
+            if "position" in standings_df.columns and not standings_df["position"].isna().any():
+                for _, s in standings_df.iterrows():
+                    driver_obj, _ = Driver.objects.update_or_create(
+                        ergast_id=s["driverId"],
+                        defaults={
+                            "given_name": s.get("givenName") or "",
+                            "family_name": s.get("familyName") or "",
+                            "nationality": s.get("driverNationality") or "",
+                        },
+                    )
+
+                    DriverStanding.objects.create(
+                        season=season_obj,
+                        driver=driver_obj,
+                        position=int(s["position"]),
+                        points=float(s["points"]) if s.get("points") is not None and not pd.isna(s.get("points")) else 0.0,
+                    )
+
+                self.stdout.write(f"  Driver standings: used Ergast standings for {year}")
+                return
+
+        # 2) Fallback: compute from race points in Result
+        computed = (
+            Result.objects.filter(event__season=season_obj, session_type="R")
+            .values("driver_id")
+            .annotate(total_points=Sum("points"))
+            .order_by("-total_points")
+        )
+
+        if not computed:
+            self.stdout.write(f"  Driver standings: no race results to compute for {year}")
+            return
+
+        for pos, row in enumerate(computed, start=1):
+            DriverStanding.objects.create(
+                season=season_obj,
+                driver_id=row["driver_id"],
+                position=pos,
+                points=float(row["total_points"] or 0.0),
+            )
+
+        self.stdout.write(f"  Driver standings: computed from race points for {year}")
+
     def ingest_constructor_standings(self, ergast: Ergast, season_obj: Season, year: int):
         TeamStanding.objects.filter(season=season_obj).delete()
 

@@ -18,8 +18,10 @@ urlpatterns = [
     path("session/<int:year>/<str:country>/<str:session_name>/vr/", views.session_vrdetails_view, name="session-vr"),
     path("teams/", views.teams_getTeams, name="teams-getteams"),
     path("teams/<str:team_ergast_id>/summary/", views.teams_getTeamSummary, name="teams-getteamsummary"),
-    path("teams/<str:team>/currentseason/", views.teams_getCurrentSeason, name="teams-getcurrentseason"),
+    path("general/<str:data>/<str:teamOrDriver>/currentseason/", views.getCurrentSeason, name="getcurrentseason"),
     path("drivers/", views.drivers_getDrivers, name="drivers-getdrivers"),
+    path("drivers/<str:driver_ergast_id>/summary/", views.driver_getDriverSummary, name="drivers-getdriversummary"),
+
 
 
 

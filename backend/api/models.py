@@ -46,3 +46,12 @@ class TeamStanding(models.Model):
     team = models.ForeignKey(Team, on_delete=models.CASCADE)
     position = models.IntegerField()
     points = models.FloatField(default=0)
+
+class DriverStanding(models.Model):
+    season = models.ForeignKey(Season, on_delete=models.CASCADE)
+    driver = models.ForeignKey(Driver, on_delete=models.CASCADE)
+    position = models.IntegerField()
+    points = models.FloatField(default=0)
+
+    class Meta:
+        unique_together = ("season", "driver")

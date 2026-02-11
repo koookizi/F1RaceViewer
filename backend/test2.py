@@ -10,7 +10,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
 import django
 django.setup()
 
-from api.models import Team, Result, TeamStanding
+from api.models import Driver, Team, Result, TeamStanding, DriverStanding
 
 
 from urllib.request import urlopen
@@ -24,13 +24,73 @@ import math
 import openpyxl
 from datetime import datetime, timedelta
 from datetime import timezone
+from django.shortcuts import get_object_or_404
 
 from django.db.models import Sum, Min
 from django.db.models.functions import Coalesce
 
 from api.models import Team, Result, TeamStanding
 
+def driver_getDriverSummary(request, driver_ergast_id: str):
+    driver = get_object_or_404(Driver, ergast_id=driver_ergast_id)
 
+    # IMPORTANT: adapt these if you store "Race"/"Qualifying" instead of "R"/"Q"
+    RACE = "R"
+    QUALI = "Q"
+
+    race_qs = Result.objects.filter(driver=driver, session_type=RACE)
+    quali_qs = Result.objects.filter(driver=driver, session_type=QUALI)
+
+    # Grand Prix entered = distinct events where driver has a race result
+    gp_entered = race_qs.values("event_id").distinct().count()
+
+    # Career points (race points)
+    career_points = race_qs.aggregate(p=Coalesce(Sum("points"), 0.0))["p"]
+
+    # Highest race finish + count (ignore null positions)
+    highest_race_finish = race_qs.exclude(position__isnull=True).aggregate(
+        m=Min("position")
+    )["m"]
+    highest_race_finish_count = 0
+    if highest_race_finish is not None:
+        highest_race_finish_count = race_qs.filter(position=highest_race_finish).count()
+
+    # Podiums (race finishes <= 3; ignore null positions)
+    podiums = race_qs.exclude(position__isnull=True).filter(position__lte=3).count()
+
+    # Highest grid position + count (ignore null grid)
+    highest_grid_position = race_qs.exclude(grid__isnull=True).aggregate(
+        m=Min("grid")
+    )["m"]
+    highest_grid_position_count = 0
+    if highest_grid_position is not None:
+        highest_grid_position_count = race_qs.filter(grid=highest_grid_position).count()
+
+    # Pole positions (qualifying grid == 1)
+    pole_positions = quali_qs.filter(grid=1).count()
+
+    # World Championships (seasons where driver finished P1 in DriverStanding)
+    world_championships = DriverStanding.objects.filter(
+        driver=driver, position=1
+    ).count()
+
+    # DNFs
+    # If you don't store a status field, the best DB-only proxy is "no classified position"
+    dnfs = race_qs.filter(position__isnull=True).count()
+
+    return JsonResponse({
+        "driver": f"{driver.given_name} {driver.family_name}",
+        "grand_prix_entered": gp_entered,
+        "career_points": float(career_points),
+        "highest_race_finish": highest_race_finish,                    # e.g. 1
+        "highest_race_finish_count": highest_race_finish_count,        # e.g. 105
+        "podiums": podiums,
+        "highest_grid_position": highest_grid_position,                # e.g. 1
+        "highest_grid_position_count": highest_grid_position_count,    # e.g. 104
+        "pole_positions": pole_positions,
+        "world_championships": world_championships,
+        "dnfs": dnfs,
+    })
 
 def teams_getTeamSummary(request, team_ergast_id: str):
     team = Team.objects.get(ergast_id=team_ergast_id)
@@ -90,9 +150,9 @@ def teams_getTeamSummary(request, team_ergast_id: str):
         "world_championships": world_championships,
     })
 
-#teams_getTeamSummary(None, "mercedes")
+teams_getTeamSummary(None, "mercedes")
 
-def teams_getCurrentSeason(request, team: str):    
+def getCurrentSeason(request, data, teamOrDriver=None,):    
     year_now = datetime.now(timezone.utc).year
 
     sessions = []
@@ -110,6 +170,9 @@ def teams_getCurrentSeason(request, team: str):
     # to use only the last active season until new season starts
     now = datetime.now(timezone.utc)
     session_df["date_start"] = pd.to_datetime(session_df["date_start"], utc=True)
+    session_df = session_df.loc[
+    (session_df["session_type"].isin(["Qualifying", "Race"]))
+].copy()
     started_sessions = session_df[session_df["date_start"] <= now]
     latest_year = started_sessions["year"].max()
     df = session_df.loc[session_df["year"] == latest_year].copy()    
@@ -134,23 +197,41 @@ def teams_getCurrentSeason(request, team: str):
         next_row = df.sort_values("date_start", ascending=True).iloc[-1]
 
     session_key = int(next_row["session_key"])
+    print(session_key)
     
     # -- from the session key, get teams championship
-    last_championship_teams_req = urlopen(f"https://api.openf1.org/v1/championship_teams?session_key={session_key}")
-    last_championship_teams_df = pd.DataFrame(json.loads(last_championship_teams_req.read().decode('utf-8')))
-    print(last_championship_teams_df)
 
-    if team not in last_championship_teams_df["team_name"].tolist():
-        return JsonResponse({"error": "Team not found in current season"}, status=404)
+    if teamOrDriver == "team":
+        last_championship_req = urlopen(f"https://api.openf1.org/v1/championship_teams?session_key={session_key}")
+        last_championship_df = pd.DataFrame(json.loads(last_championship_req.read().decode('utf-8')))
 
-    drivers_req = urlopen(f"https://api.openf1.org/v1/drivers?team_name={team}&session_key={session_key}")
-    drivers_df = pd.DataFrame(json.loads(drivers_req.read().decode('utf-8')))
+        if data not in last_championship_df["team_name"].tolist():
+            return JsonResponse({"error": "Team not found in current season"}, status=404)
 
-    driver_numbers = drivers_df["driver_number"].tolist()
+        drivers_req = urlopen(f"https://api.openf1.org/v1/drivers?team_name={data}&session_key={session_key}")
+        drivers_df = pd.DataFrame(json.loads(drivers_req.read().decode('utf-8')))
 
-    drivers_df = drivers_df.drop(columns=["broadcast_name","meeting_key","session_key"])
-    drivers_json = drivers_df.to_dict(orient="records")
+        driver_numbers = drivers_df["driver_number"].tolist()
 
+        drivers_df = drivers_df.drop(columns=["broadcast_name","meeting_key","session_key"])
+        drivers_json = drivers_df.to_dict(orient="records")
+    elif teamOrDriver == "driver":
+
+        last_championship_req = urlopen(f"https://api.openf1.org/v1/championship_drivers?session_key={session_key}")
+        last_championship_df = pd.DataFrame(json.loads(last_championship_req.read().decode('utf-8')))
+
+
+        drivers_req = urlopen(f"https://api.openf1.org/v1/drivers?first_name={data.split(' ')[0]}&last_name={data.split(' ')[1]}&session_key={session_key}")
+        drivers_df = pd.DataFrame(json.loads(drivers_req.read().decode('utf-8')))
+        print(drivers_df)
+
+        driver_numbers = drivers_df["driver_number"].tolist()
+        print(driver_numbers)
+
+        drivers_df = drivers_df.drop(columns=["broadcast_name","meeting_key","session_key"])
+        drivers_json = drivers_df.to_dict(orient="records")
+
+        last_championship_df = last_championship_df[last_championship_df["driver_number"] == driver_numbers[0]]
 
     # getting both race and sprint 
     driver_numbers_query = "&".join(f"driver_number={n}" for n in driver_numbers)
@@ -169,8 +250,8 @@ def teams_getCurrentSeason(request, team: str):
     # grid_results_df = pd.DataFrame(json.loads(grid_results_req.read().decode('utf-8')))
 
     # season variables
-    season_position = int(last_championship_teams_df["position_current"].iloc[0]) if not last_championship_teams_df.empty else 0
-    season_points   = float(last_championship_teams_df["points_current"].iloc[0])  if not last_championship_teams_df.empty else 0.0
+    season_position = int(last_championship_df["position_current"].iloc[0]) if not last_championship_df.empty else 0
+    season_points   = float(last_championship_df["points_current"].iloc[0])  if not last_championship_df.empty else 0.0
 
     # GP variables
     gp_races   = int(len(race_session_keys))
@@ -217,4 +298,5 @@ def teams_getCurrentSeason(request, team: str):
     print(json.dumps(finalJSON, indent=4))
     #return JsonResponse(finalJSON, safe=False)
 
-teams_getCurrentSeason(None, "Mercedes")
+#getCurrentSeason(None, "Lewis Hamilton", "driver")
+getCurrentSeason(None, "Mercedes", "team")

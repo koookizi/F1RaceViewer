@@ -85,20 +85,39 @@ export type TeamSummaryData = {
     world_championships: number;
 };
 
+export type DriverSummaryData = {
+    driver: string;
+    grand_prix_entered: number;
+    career_points: number;
+
+    highest_race_finish: number | null; // best_finish can be null if no positions
+    highest_race_finish_count: number;
+
+    podiums: number;
+
+    highest_grid_position: number | null; // best_grid can be null if no grid values
+    highest_grid_position_count: number;
+
+    pole_positions: number;
+    world_championships: number;
+
+    dnfs: number;
+};
+
 // Team Data Types
 
-export type TeamCurrentSeasonData = {
+export type currentSeasonData = {
     season_position: number;
     season_points: number;
 
-    gp: TeamSessionStats;
-    sprint: TeamSessionStats;
+    gp: sessionStats;
+    sprint: sessionStats;
 
-    drivers: TeamDriverData[];
+    drivers: driverData[];
     year: number;
 };
 
-export type TeamDriverData = {
+export type driverData = {
     driver_number: number;
     full_name: string;
     name_acronym: string;
@@ -110,7 +129,7 @@ export type TeamDriverData = {
     country_code: string | null;
 };
 
-export type TeamSessionStats = {
+export type sessionStats = {
     races: number;
     points: number;
     wins: number;

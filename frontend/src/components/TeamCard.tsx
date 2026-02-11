@@ -2,9 +2,10 @@ import type { driverData } from "../types.ts";
 
 type DriverCardProps = {
     driver: driverData;
+    team: string;
 };
 
-export default function DriverCard({ driver }: DriverCardProps) {
+export default function DriverCard({ driver, team }: DriverCardProps) {
     const teamColor = driver.team_colour || "000000";
 
     return (
@@ -28,23 +29,9 @@ export default function DriverCard({ driver }: DriverCardProps) {
             }}
         >
             <div className="card-body p-3 flex flex-row items-center gap-4">
-                {/* Driver headshot */}
-                <img
-                    src={driver.headshot_url}
-                    alt={driver.full_name}
-                    className="
-            w-14 h-14
-            rounded-full object-cover
-            border border-white/40
-            bg-white/10
-          "
-                />
-
-                {/* Driver details */}
+                {/* Team details */}
                 <div className="flex flex-col justify-center leading-tight">
-                    <div className="text-white font-semibold text-lg">
-                        {driver.first_name} {driver.last_name}
-                    </div>
+                    <div className="text-white font-semibold text-lg">{team}</div>
                     <div className="text-white/80 text-sm">
                         #{driver.driver_number} · {driver.name_acronym}
                     </div>

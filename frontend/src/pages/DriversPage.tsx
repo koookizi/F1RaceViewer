@@ -1,14 +1,13 @@
 import StatCard from "@/components/StatCard";
 import { useToast } from "@/components/ToastContext";
-import type { TeamCurrentSeasonData, TeamSummaryData } from "@/types";
-import { color } from "framer-motion";
+import type { currentSeasonData, DriverSummaryData } from "@/types";
 import { useEffect, useState, useMemo } from "react";
 import DriverCard from "@/components/DriverCard";
 import { VRBuilderBuildControls } from "@/components/VRBuilderBuildControls";
 import { VRBuilderLivePreview } from "@/components/VRBuilderLivePreview";
 import { VRBuilderInsightsReports } from "@/components/VRBuilderInsightsReports";
 import type { ChartResponse } from "@/components/ChartCard";
-import type { MultiSelectOption } from "@/components/MultiSelect";
+import TeamCard from "@/components/TeamCard";
 
 type DriverRow = {
     ergast_id: string;
@@ -44,8 +43,8 @@ export function DriversPage() {
     // -- Summary section
     const [showCurrentSeasonBox, setShowCurrentSeasonBox] = useState(false);
     const [showHero, setShowHero] = useState(false);
-    const [currentSeasonData, setCurrentSeasonData] = useState<TeamCurrentSeasonData | null>(null);
-    const [teamSummary, setTeamSummary] = useState<TeamSummaryData | null>(null);
+    const [currentSeasonData, setCurrentSeasonData] = useState<currentSeasonData | null>(null);
+    const [driverSummary, setDriverSummary] = useState<DriverSummaryData | null>(null);
 
     const [showTeamSummary, setShowTeamSummary] = useState(false);
 
@@ -100,6 +99,34 @@ export function DriversPage() {
         setShowCurrentSeasonBox(true);
         setShowTeamSummary(true);
         setShowHero(true);
+
+        // Fetches current season data
+        console.log("Fetching current season data");
+        fetch(
+            `http://localhost:8000/api/general/${encodeURIComponent(selectedDriver)}/driver/currentseason/`,
+        )
+            .then((res) => res.json())
+            .then((json: currentSeasonData) => {
+                setCurrentSeasonData(json);
+                console.log("Current season JSON:", json);
+            })
+            .catch((err) => {
+                console.error("Failed to load current season data", err);
+                toast("Failed to load current season data: " + err.message, "error");
+            });
+
+        // Fetches summary data
+        console.log("Fetching summary data");
+        fetch(`http://localhost:8000/api/drivers/${selectedDriverErgastID}/summary/`)
+            .then((res) => res.json())
+            .then((json: DriverSummaryData) => {
+                setDriverSummary(json);
+                console.log("Summary JSON:", json);
+            })
+            .catch((err) => {
+                console.error("Failed to load summary data", err);
+                toast("Failed to load summary data: " + err.message, "error");
+            });
     };
 
     return (
@@ -264,63 +291,69 @@ export function DriversPage() {
                                     </>
                                 )}
                             </div>
+
                             <div className="col-span-3">
-                                {/* Team Summary */}
-                                {showTeamSummary && (
+                                {/* Driver Summary */}
+                                {showSummarySection && (
                                     <div className="card card-border bg-base-100">
                                         <div className="card-body">
-                                            <h2 className="card-title">TEAM SUMMARY</h2>
+                                            <h2 className="card-title">DRIVER SUMMARY</h2>
                                             <div className="grid grid-cols-7 gap-4">
                                                 <div className="...">
                                                     <StatCard
                                                         value={
-                                                            teamSummary?.grand_prix_entered ?? "N/A"
+                                                            driverSummary?.grand_prix_entered ??
+                                                            "N/A"
                                                         }
                                                         title="Grand Prix Entered"
                                                     />
                                                 </div>
                                                 <div className="...">
                                                     <StatCard
-                                                        value={teamSummary?.team_points ?? "N/A"}
-                                                        title="Team Points"
+                                                        value={
+                                                            driverSummary?.career_points ?? "N/A"
+                                                        }
+                                                        title="Career Points"
                                                     />
                                                 </div>
                                                 <div className="...">
                                                     <StatCard
                                                         value={
-                                                            (teamSummary?.highest_race_finish ??
+                                                            (driverSummary?.highest_race_finish ??
                                                                 "N/A") +
-                                                            ` (x${teamSummary?.highest_race_finish_count ?? "N/A"})`
+                                                            ` (x${driverSummary?.highest_race_finish_count ?? "N/A"})`
                                                         }
                                                         title="Highest Race Finish"
                                                     />
                                                 </div>
                                                 <div className="...">
                                                     <StatCard
-                                                        value={teamSummary?.podiums ?? "N/A"}
+                                                        value={driverSummary?.podiums ?? "N/A"}
                                                         title="Podiums"
                                                     />
                                                 </div>
                                                 <div className="...">
                                                     <StatCard
                                                         value={
-                                                            (teamSummary?.highest_grid_position ??
+                                                            (driverSummary?.highest_grid_position ??
                                                                 "N/A") +
-                                                            ` (x${teamSummary?.highest_grid_position_count ?? "N/A"})`
+                                                            ` (x${driverSummary?.highest_grid_position_count ?? "N/A"})`
                                                         }
                                                         title="Highest Grid Position"
                                                     />
                                                 </div>
                                                 <div className="...">
                                                     <StatCard
-                                                        value={teamSummary?.pole_positions ?? "N/A"}
+                                                        value={
+                                                            driverSummary?.pole_positions ?? "N/A"
+                                                        }
                                                         title="Pole Positions"
                                                     />
                                                 </div>
                                                 <div className="...">
                                                     <StatCard
                                                         value={
-                                                            teamSummary?.world_championships ??
+                                                            driverSummary?.world_championships ??
                                                             "N/A"
                                                         }
                                                         title="World Championships"
@@ -331,6 +364,7 @@ export function DriversPage() {
                                     </div>
                                 )}
                             </div>
+
                             <div className="col-span-3">
                                 {/* Current Season */}
                                 {showCurrentSeasonBox && (
@@ -481,12 +515,13 @@ export function DriversPage() {
                                                     </div>
                                                 </div>
                                                 <hr className="my-4"></hr>
-                                                <div className="grid grid-cols-2 gap-4">
+                                                <div className="grid grid-cols-1 gap-4">
                                                     {currentSeasonData?.drivers.map((driver) => (
                                                         <div className="...">
-                                                            <DriverCard
+                                                            <TeamCard
                                                                 key={driver.driver_number}
                                                                 driver={driver}
+                                                                team={driver.team_name}
                                                             />
                                                         </div>
                                                     ))}
