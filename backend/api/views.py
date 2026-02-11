@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponseBadRequest, JsonResponse
-from api.models import Circuit, Result, Season, Event, Session, Team, TeamStanding
+from api.models import Circuit, Driver, Result, Season, Event, Session, Team, TeamStanding
 import fastf1
 from fastf1.ergast import Ergast
 import math
@@ -50,9 +50,9 @@ def season_sessions(request, year, country):
 
 def drivers_getDrivers(request):
     drivers = (
-        Result.objects
-        .order_by("driver_name")
-        .values("driver_name", "driver_number", "team__name")
+        Driver.objects
+        .order_by("ergast_id")
+        .values("ergast_id", "given_name", "family_name")
         .distinct()
     )
 

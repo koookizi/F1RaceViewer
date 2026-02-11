@@ -8,7 +8,7 @@ export type Intent =
     | "Team Context & Affinity"
     | "Team Performance Characteristics";
 
-export type Page = "Race" | "Team";
+export type Page = "Race" | "Team" | "Driver";
 
 export type Template = {
     id: string;

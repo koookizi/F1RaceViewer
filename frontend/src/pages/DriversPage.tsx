@@ -10,21 +10,30 @@ import { VRBuilderInsightsReports } from "@/components/VRBuilderInsightsReports"
 import type { ChartResponse } from "@/components/ChartCard";
 import type { MultiSelectOption } from "@/components/MultiSelect";
 
-type TeamOption = { name: string; ergast_id: string };
+type DriverRow = {
+    ergast_id: string;
+    given_name: string;
+    family_name: string;
+};
+
+type DriverOption = {
+    id: string; // ergast_id
+    name: string; // "Given Family"
+};
 
 export function DriversPage() {
     // -- Toast
     const toast = useToast();
 
-    const [showTeamSelection, setShowTeamSelection] = useState(true);
-    const [teamOptions, setTeamOptions] = useState<TeamOption[]>([]);
-    const [selectedTeam, setSelectedTeam] = useState<string | null>(null);
-    const [selectedTeamErgastID, setSelectedTeamErgastID] = useState<string | null>(null);
+    const [showDriverSelection, setShowDriverSelection] = useState(true);
+    const [driverOptions, setDriverOptions] = useState<DriverOption[]>([]);
+    const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
+    const [selectedDriverErgastID, setSelectedDriverErgastID] = useState<string | null>(null);
     const [search, setSearch] = useState("");
 
-    const filteredTeams = useMemo(() => {
-        return teamOptions.filter((team) => team.name.toLowerCase().includes(search.toLowerCase()));
-    }, [teamOptions, search]);
+    const filteredDrivers = useMemo(() => {
+        return driverOptions.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
+    }, [driverOptions, search]);
 
     // -- Tabs
     const [activeTab, setActiveTab] = useState<"summary" | "vrbuilder" | "">("");
@@ -46,9 +55,15 @@ export function DriversPage() {
     const [chartLoading, setChartLoading] = useState(false);
 
     useEffect(() => {
-        fetch("http://localhost:8000/api/teams/")
+        fetch("http://localhost:8000/api/drivers/")
             .then((res) => res.json())
-            .then((data) => setTeamOptions(data.teams))
+            .then((data: { drivers: DriverRow[] }) => {
+                const options: DriverOption[] = data.drivers.map((d) => ({
+                    id: d.ergast_id,
+                    name: `${d.given_name} ${d.family_name}`,
+                }));
+                setDriverOptions(options);
+            })
             .catch(console.error);
     }, []);
 
@@ -72,12 +87,12 @@ export function DriversPage() {
     }, [activeTab]);
 
     const handleSearch = () => {
-        if (!selectedTeam?.toLowerCase().includes(search.toLowerCase())) {
-            alert("Selected team not found.");
+        if (!selectedDriver?.toLowerCase().includes(search.toLowerCase())) {
+            alert("Selected driver not found.");
             return;
         }
 
-        setShowTeamSelection(false);
+        setShowDriverSelection(false);
         setShowTabs(true);
         setActiveTab("summary");
 
@@ -85,41 +100,15 @@ export function DriversPage() {
         setShowCurrentSeasonBox(true);
         setShowTeamSummary(true);
         setShowHero(true);
-
-        // Fetches current season data
-        console.log("Fetching current season data");
-        fetch(`http://localhost:8000/api/teams/${encodeURIComponent(selectedTeam)}/currentseason/`)
-            .then((res) => res.json())
-            .then((json: TeamCurrentSeasonData) => {
-                setCurrentSeasonData(json);
-                console.log("Current season JSON:", json);
-            })
-            .catch((err) => {
-                console.error("Failed to load current season data", err);
-                toast("Failed to load current season data: " + err.message, "error");
-            });
-
-        // Fetches summary data
-        console.log("Fetching summary data");
-        fetch(`http://localhost:8000/api/teams/${selectedTeamErgastID}/summary/`)
-            .then((res) => res.json())
-            .then((json: TeamSummaryData) => {
-                setTeamSummary(json);
-                console.log("Summary JSON:", json);
-            })
-            .catch((err) => {
-                console.error("Failed to load summary data", err);
-                toast("Failed to load summary data: " + err.message, "error");
-            });
     };
 
     return (
         <>
-            {/* Team Selection Section */}
-            {showTeamSelection && (
+            {/* Driver Selection Section */}
+            {showDriverSelection && (
                 <div className="h-full flex items-center justify-center">
                     <div className="flex flex-col items-center">
-                        {/* Team selection */}
+                        {/* Driver selection */}
                         <h1 className="text-center text-5xl font-medium mb-2">Find a Driver</h1>
                         <p className="text-md text-slate-500 mb-8">
                             Get information about a driver in Formula 1.
@@ -145,21 +134,21 @@ export function DriversPage() {
                                             tabIndex={0}
                                             className="dropdown-content menu bg-base-100 rounded-box z-10 w-100 shadow max-h-96 overflow-y-auto"
                                         >
-                                            {filteredTeams.length > 0 ? (
-                                                filteredTeams.map((team) => (
-                                                    <li key={team.ergast_id}>
+                                            {filteredDrivers.length > 0 ? (
+                                                filteredDrivers.map((driver) => (
+                                                    <li key={driver.id}>
                                                         <button
                                                             type="button"
                                                             onClick={() => {
-                                                                setSelectedTeam(team.name);
-                                                                setSelectedTeamErgastID(
-                                                                    team.ergast_id,
+                                                                setSelectedDriver(driver.name);
+                                                                setSelectedDriverErgastID(
+                                                                    driver.id,
                                                                 );
-                                                                setSearch(team.name); // show selection
-                                                                console.log(team.ergast_id);
+                                                                setSearch(driver.name); // show selection
+                                                                console.log(driver.id);
                                                             }}
                                                         >
-                                                            {team.name}
+                                                            {driver.name}
                                                         </button>
                                                     </li>
                                                 ))
@@ -170,7 +159,7 @@ export function DriversPage() {
                                             )}
                                         </ul>
                                     </div>
-                                    {selectedTeam && (
+                                    {selectedDriver && (
                                         <button
                                             className="btn ms-5 bg-base-300"
                                             onClick={() => {
@@ -218,8 +207,7 @@ export function DriversPage() {
                                 <div className="md:col-span-6">
                                     {/* Build controls */}
                                     <VRBuilderBuildControls
-                                        page={"Team"}
-                                        selectedTeam={selectedTeam ?? undefined}
+                                        page={"Driver"}
                                         setPreviewChart={setPreviewChart}
                                         setChartLoading={setChartLoading}
                                         chartLoading={chartLoading}
@@ -266,10 +254,10 @@ export function DriversPage() {
                                         >
                                             <div className="card-body text-center flex flex-col justify-center items-center">
                                                 <h2 className="card-title text-5xl text-white">
-                                                    {selectedTeam?.toUpperCase()}
+                                                    {selectedDriver?.toUpperCase()}
                                                 </h2>
                                                 <div className="text-md text-white/80">
-                                                    Formula 1 Team
+                                                    Formula 1 Driver
                                                 </div>
                                             </div>
                                         </div>
