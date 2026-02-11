@@ -617,6 +617,7 @@ export function RaceViewerPage() {
                                 <div className="md:col-span-6">
                                     {/* Build controls */}
                                     <VRBuilderBuildControls
+                                        page={"Race"}
                                         TEAM_OPTIONS={TEAM_OPTIONS}
                                         DRIVER_OPTIONS={DRIVER_OPTIONS}
                                         setPreviewChart={setPreviewChart}

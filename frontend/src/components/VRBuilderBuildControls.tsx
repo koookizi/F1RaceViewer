@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import type { MultiSelectOption } from "./MultiSelect";
 import { TemplateCardPanel } from "./TemplateCardPanel";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
-import { TEMPLATES, type Intent } from "../helpers/templates";
+import { TEMPLATES, type Intent, type Page } from "../helpers/templates";
 import { VRTemplateInputs, DEFAULT_VR_TEMPLATE_INPUTS } from "./VRTemplateInputs";
 import type { ChartResponse } from "./ChartCard";
 import { useToast } from "./ToastContext";
@@ -11,39 +11,55 @@ import { useToast } from "./ToastContext";
 const INTENTS: Intent[] = ["Pace", "Strategy", "Telemetry", "Positions", "Season"];
 
 type VRBuilderBuildControlsProps = {
-    DRIVER_OPTIONS: MultiSelectOption[];
-    TEAM_OPTIONS: MultiSelectOption[];
-    selectedYear: string;
-    selectedCountry: string;
-    selectedSession: string;
+    DRIVER_OPTIONS?: MultiSelectOption[];
+    TEAM_OPTIONS?: MultiSelectOption[];
+    selectedYear?: string;
+    selectedCountry?: string;
+    selectedSession?: string;
+    selectedTeam?: string;
     setChartLoading: React.Dispatch<React.SetStateAction<boolean>>;
     setPreviewChart: React.Dispatch<React.SetStateAction<ChartResponse | null>>;
     chartLoading: boolean;
+    page: Page;
 };
 
 export function VRBuilderBuildControls({
-    DRIVER_OPTIONS,
-    TEAM_OPTIONS,
-    selectedYear,
-    selectedCountry,
-    selectedSession,
+    page,
+    DRIVER_OPTIONS = [],
+    TEAM_OPTIONS = [],
+    selectedYear = "",
+    selectedCountry = "",
+    selectedSession = "",
+    selectedTeam = "",
     setPreviewChart,
     setChartLoading,
     chartLoading,
 }: VRBuilderBuildControlsProps) {
+    useEffect(() => {
+        setSelectedIntent("");
+        setSelectedTemplateId(null);
+    }, [page]);
+
     const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
 
     const [selectedIntent, setSelectedIntent] = useState<Intent | "">("");
 
+    const templatesForPage = useMemo(() => {
+        return TEMPLATES.filter((t) => t.page === page);
+    }, [page]);
+
+    const intentsForPage = useMemo(() => {
+        return Array.from(new Set(templatesForPage.map((t) => t.intent)));
+    }, [templatesForPage]);
+
     const templatesForIntent = useMemo(() => {
         if (!selectedIntent) return [];
-        return TEMPLATES.filter((t) => t.intent === selectedIntent);
-    }, [selectedIntent]);
+        return templatesForPage.filter((t) => t.intent === selectedIntent);
+    }, [templatesForPage, selectedIntent]);
 
-    const selectedTemplate = useMemo(
-        () => TEMPLATES.find((t) => t.id === selectedTemplateId) ?? null,
-        [selectedTemplateId],
-    );
+    const selectedTemplate = useMemo(() => {
+        return templatesForPage.find((t) => t.id === selectedTemplateId) ?? null;
+    }, [templatesForPage, selectedTemplateId]);
 
     const toast = useToast();
 
@@ -138,6 +154,9 @@ export function VRBuilderBuildControls({
             return {
                 ...base,
                 drivers,
+                year: selectedYear,
+                country: selectedCountry,
+                session_name: selectedSession,
             };
         }
 
@@ -146,6 +165,9 @@ export function VRBuilderBuildControls({
             return {
                 ...base,
                 teams,
+                year: selectedYear,
+                country: selectedCountry,
+                session_name: selectedSession,
             };
         }
 
@@ -161,6 +183,9 @@ export function VRBuilderBuildControls({
                 lapB, // "fastest" | number | ""
                 align: inputs.telemetryAlign,
                 channels: inputs.telemetryChannels,
+                year: selectedYear,
+                country: selectedCountry,
+                session_name: selectedSession,
             };
         }
 
@@ -175,6 +200,9 @@ export function VRBuilderBuildControls({
                 lap, // "fastest" | number | ""
                 align: inputs.telemetryAlign,
                 channels: inputs.telemetryChannels,
+                year: selectedYear,
+                country: selectedCountry,
+                session_name: selectedSession,
             };
         }
 
@@ -185,6 +213,9 @@ export function VRBuilderBuildControls({
                 drivers, // or driver: drivers[0]
                 lapFrom: inputs.lapFrom, // number | ""
                 lapTo: inputs.lapTo, // number | ""
+                year: selectedYear,
+                country: selectedCountry,
+                session_name: selectedSession,
             };
         }
 
@@ -193,6 +224,9 @@ export function VRBuilderBuildControls({
             return {
                 ...base,
                 topN: inputs.topN, // number | ""
+                year: selectedYear,
+                country: selectedCountry,
+                session_name: selectedSession,
             };
         }
 
@@ -201,6 +235,28 @@ export function VRBuilderBuildControls({
             return {
                 ...base,
                 season: inputs.season, // number | ""
+                year: selectedYear,
+                country: selectedCountry,
+                session_name: selectedSession,
+            };
+        }
+
+        // Requires season (team)
+        if (["t24", "t25", "t26", "t30", "t31"].includes(templateId)) {
+            return {
+                ...base,
+                season: inputs.season, // number | ""
+                team: selectedTeam,
+            };
+        }
+
+        // Requires season range (team)
+        if (["t27", "t28", "t29"].includes(templateId)) {
+            return {
+                ...base,
+                seasonFrom: inputs.seasonFrom,
+                seasonTo: inputs.seasonTo,
+                team: selectedTeam,
             };
         }
 
@@ -210,6 +266,9 @@ export function VRBuilderBuildControls({
                 ...base,
                 season: inputs.season, // number | ""
                 round: inputs.round, // number | ""
+                year: selectedYear,
+                country: selectedCountry,
+                session_name: selectedSession,
             };
         }
 
@@ -228,9 +287,6 @@ export function VRBuilderBuildControls({
 
         const body = {
             templateId: selectedTemplate.id,
-            year: selectedYear,
-            country: selectedCountry,
-            session_name: selectedSession, // match your Django param naming
             inputs: buildPayload(selectedTemplate.id),
         };
 
@@ -277,7 +333,7 @@ export function VRBuilderBuildControls({
 
                 {/* Intent dropdown */}
                 <div className="dropdown">
-                    <div tabIndex={0} role="button" className="btn flex items-center gap-2 w-40">
+                    <div tabIndex={0} role="button" className="btn flex items-center gap-2 w-70">
                         {selectedIntent || "Select Intent"}
                         <ChevronDownIcon aria-hidden="true" className="size-5 opacity-70" />
                     </div>
@@ -286,7 +342,7 @@ export function VRBuilderBuildControls({
                         tabIndex={0}
                         className="dropdown-content menu bg-base-100 rounded-box z-10 w-56 shadow max-h-96 overflow-y-auto"
                     >
-                        {INTENTS.map((intent) => (
+                        {intentsForPage.map((intent) => (
                             <li key={intent}>
                                 <button
                                     type="button"

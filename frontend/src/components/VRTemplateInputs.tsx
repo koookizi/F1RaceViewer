@@ -35,6 +35,10 @@ export type VRTemplateInputsState = {
 
     // common filters
     excludeSCLaps: boolean;
+
+    // team page season
+    seasonFrom: number | "";
+    seasonTo: number | "";
 };
 
 export const DEFAULT_VR_TEMPLATE_INPUTS: VRTemplateInputsState = {
@@ -51,20 +55,24 @@ export const DEFAULT_VR_TEMPLATE_INPUTS: VRTemplateInputsState = {
     lapTo: "",
 
     topN: 10,
-    season: new Date().getFullYear(),
+    season: new Date().getFullYear(), // also being used with 'Team' page
     round: 1,
 
     telemetryAlign: "Distance",
     telemetryChannels: ["Speed", "Throttle", "Brake"],
 
     excludeSCLaps: true,
+
+    // Team
+    seasonFrom: new Date().getFullYear(),
+    seasonTo: new Date().getFullYear(),
 };
 
 type Props = {
     selectedTemplate: Template | null;
 
-    driverOptions: MultiSelectOption[];
-    teamOptions: MultiSelectOption[];
+    driverOptions?: MultiSelectOption[];
+    teamOptions?: MultiSelectOption[];
 
     value: VRTemplateInputsState;
     onChange: (next: VRTemplateInputsState) => void;
@@ -74,8 +82,8 @@ type Props = {
 
 export function VRTemplateInputs({
     selectedTemplate,
-    driverOptions,
-    teamOptions,
+    driverOptions = [],
+    teamOptions = [],
     value,
     onChange,
     className = "",
@@ -212,6 +220,46 @@ export function VRTemplateInputs({
                                 })
                             }
                             min={1}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {/* Season range */}
+            {requires.seasonRange && (
+                <div className="grid grid-cols-2 gap-2 w-100">
+                    <div className="form-control">
+                        <label className="label py-1">
+                            <span className="label-text text-sm">Season from</span>
+                        </label>
+                        <input
+                            type="number"
+                            className="input input-sm input-bordered"
+                            value={value.seasonFrom}
+                            onChange={(e) =>
+                                patch({
+                                    seasonFrom: e.target.value ? Number(e.target.value) : "",
+                                })
+                            }
+                            min={1950}
+                            max={2100}
+                        />
+                    </div>
+                    <div className="form-control">
+                        <label className="label py-1">
+                            <span className="label-text text-sm">Season to</span>
+                        </label>
+                        <input
+                            type="number"
+                            className="input input-sm input-bordered"
+                            value={value.seasonTo}
+                            onChange={(e) =>
+                                patch({
+                                    seasonTo: e.target.value ? Number(e.target.value) : "",
+                                })
+                            }
+                            min={1950}
+                            max={2100}
                         />
                     </div>
                 </div>
@@ -486,10 +534,26 @@ function getRequirements(templateId: string | null) {
         round: false,
         telemetryCompare: false,
         telemetrySingleLap: false,
+        seasonRange: false,
     };
 
     if (!templateId) return base;
+    // -- Team page templates --
+    if (["t24", "t25", "t26", "t30", "t31"].includes(templateId)) {
+        return {
+            ...base,
+            season: true,
+        };
+    }
 
+    if (["t27", "t28", "t29"].includes(templateId)) {
+        return {
+            ...base,
+            seasonRange: true,
+        };
+    }
+
+    // -- Race page templates --
     // Pace
     if (["t1", "t2", "t3", "t4", "t5"].includes(templateId)) {
         return {

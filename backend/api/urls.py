@@ -19,6 +19,8 @@ urlpatterns = [
     path("teams/", views.teams_getTeams, name="teams-getteams"),
     path("teams/<str:team_ergast_id>/summary/", views.teams_getTeamSummary, name="teams-getteamsummary"),
     path("teams/<str:team>/currentseason/", views.teams_getCurrentSeason, name="teams-getcurrentseason"),
+    path("drivers/", views.drivers_getDrivers, name="drivers-getdrivers"),
+
 
 
 

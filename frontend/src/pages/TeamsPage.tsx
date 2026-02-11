@@ -4,6 +4,11 @@ import type { TeamCurrentSeasonData, TeamSummaryData } from "@/types";
 import { color } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
 import DriverCard from "@/components/DriverCard";
+import { VRBuilderBuildControls } from "@/components/VRBuilderBuildControls";
+import { VRBuilderLivePreview } from "@/components/VRBuilderLivePreview";
+import { VRBuilderInsightsReports } from "@/components/VRBuilderInsightsReports";
+import type { ChartResponse } from "@/components/ChartCard";
+import type { MultiSelectOption } from "@/components/MultiSelect";
 
 type TeamOption = { name: string; ergast_id: string };
 
@@ -34,6 +39,11 @@ export function TeamsPage() {
     const [teamSummary, setTeamSummary] = useState<TeamSummaryData | null>(null);
 
     const [showTeamSummary, setShowTeamSummary] = useState(false);
+
+    // -- VR Builder
+    const [previewChart, setPreviewChart] = useState<ChartResponse | null>(null);
+    const [reportBlocks, setReportBlocks] = useState<ChartResponse[]>([]);
+    const [chartLoading, setChartLoading] = useState(false);
 
     useEffect(() => {
         fetch("http://localhost:8000/api/teams/")
@@ -91,9 +101,7 @@ export function TeamsPage() {
 
         // Fetches summary data
         console.log("Fetching summary data");
-        fetch(
-            `http://localhost:8000/api/teams/${encodeURIComponent(selectedTeamErgastID)}/summary/`,
-        )
+        fetch(`http://localhost:8000/api/teams/${selectedTeamErgastID}/summary/`)
             .then((res) => res.json())
             .then((json: TeamSummaryData) => {
                 setTeamSummary(json);
@@ -200,6 +208,43 @@ export function TeamsPage() {
                     </button>
                 </div>
             )}
+
+            {/* -- Race Visualisation and Report Builder section */}
+            <div className="">
+                {showVRBuilderSection && (
+                    <>
+                        <div className="mt-2">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                                <div className="md:col-span-6">
+                                    {/* Build controls */}
+                                    <VRBuilderBuildControls
+                                        page={"Team"}
+                                        selectedTeam={selectedTeam ?? undefined}
+                                        setPreviewChart={setPreviewChart}
+                                        setChartLoading={setChartLoading}
+                                        chartLoading={chartLoading}
+                                    />
+                                </div>
+                                <div className="md:col-span-6">
+                                    {/* Live preview */}
+                                    <VRBuilderLivePreview
+                                        setReportBlocks={setReportBlocks}
+                                        chartLoading={chartLoading}
+                                        previewChart={previewChart}
+                                    />
+                                </div>
+                                <div className="md:col-span-12">
+                                    {/* Insights and Reports */}
+                                    <VRBuilderInsightsReports
+                                        reportBlocks={reportBlocks}
+                                        setReportBlocks={setReportBlocks}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
+            </div>
 
             {/* -- Summary section */}
             {showSummarySection && (

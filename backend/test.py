@@ -20,5 +20,6 @@ import openpyxl
 
 # test(2025, "United Kingdom", "Race")
 
-schedule = fastf1.get_event_schedule(2025)
-print(schedule[['EventName', 'Country', 'EventDate']])
+s = fastf1.get_session(2023, 1, "R")
+s.load()
+print(s.results["TeamName"].unique())
