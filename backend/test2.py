@@ -1,3 +1,18 @@
+import os
+import sys
+
+# Ensure project root (the folder that contains manage.py) is on PYTHONPATH
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # .../backend
+sys.path.insert(0, BASE_DIR)
+
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backend.settings")
+
+import django
+django.setup()
+
+from api.models import Team, Result, TeamStanding
+
+
 from urllib.request import urlopen
 from django.http import JsonResponse
 import fastf1 
@@ -10,12 +25,83 @@ import openpyxl
 from datetime import datetime, timedelta
 from datetime import timezone
 
-#def teams_getTeamSummary(request, team: str):
+from django.db.models import Sum, Min
+from django.db.models.functions import Coalesce
 
+from api.models import Team, Result, TeamStanding
+
+
+
+def teams_getTeamSummary(request, team_ergast_id: str):
+    team = Team.objects.get(ergast_id=team_ergast_id)
+
+    # IMPORTANT: adapt these if you store "Race"/"Qualifying" instead of "R"/"Q"
+    RACE = "R"
+    QUALI = "Q"
+
+    race_qs = Result.objects.filter(team=team, session_type=RACE)
+    quali_qs = Result.objects.filter(team=team, session_type=QUALI)
+
+    # Grand Prix entered = distinct events where team has a race result
+    gp_entered = race_qs.values("event_id").distinct().count()
+
+    # Team points (race points)
+    team_points = race_qs.aggregate(
+        p=Coalesce(Sum("points"), 0.0)
+    )["p"]
+
+    # Highest race finish + count (ignore null positions)
+    best_finish = race_qs.exclude(position__isnull=True).aggregate(
+        m=Min("position")
+    )["m"]
+    best_finish_count = 0
+    if best_finish is not None:
+        best_finish_count = race_qs.filter(position=best_finish).count()
+
+    # Podiums (counts podium FINISHES)
+    podiums = race_qs.filter(position__lte=3).count()
+
+    # Highest grid position + count (ignore null grid)
+    best_grid = race_qs.exclude(grid__isnull=True).aggregate(
+        m=Min("grid")
+    )["m"]
+    best_grid_count = 0
+    if best_grid is not None:
+        best_grid_count = race_qs.filter(grid=best_grid).count()
+
+    # Poles (grid == 1)
+    pole_positions = race_qs.filter(grid=1).count()
+
+    # Constructors' championships
+    world_championships = TeamStanding.objects.filter(
+        team=team, position=1
+    ).count()
+
+    return JsonResponse({
+        "team": team.name,
+        "grand_prix_entered": gp_entered,
+        "team_points": float(team_points),
+        "highest_race_finish": best_finish,              # e.g. 1
+        "highest_race_finish_count": best_finish_count,  # e.g. 21
+        "podiums": podiums,
+        "highest_grid_position": best_grid,              # e.g. 1
+        "highest_grid_position_count": best_grid_count,  # e.g. 20
+        "pole_positions": pole_positions,
+        "world_championships": world_championships,
+    })
+
+#teams_getTeamSummary(None, "mercedes")
 
 def teams_getCurrentSeason(request, team: str):    
-    session_data_req = urlopen(f"https://api.openf1.org/v1/sessions")
-    session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
+    year_now = datetime.now(timezone.utc).year
+
+    sessions = []
+    for y in (year_now - 1, year_now):
+        req = urlopen(f"https://api.openf1.org/v1/sessions?year={y}")
+        sessions.extend(json.loads(req.read().decode("utf-8")))
+
+    session_df = pd.DataFrame(sessions)
+
 
     # -- this whole section gets the session_key for the next upcoming session, or if there are no upcoming sessions, the most recent past session. This is just for testing purposes, to avoid hardcoding a session_key that might not be valid in the future when the database is updated with new sessions.
     session_df["date_start"] = pd.to_datetime(session_df["date_start"], utc=True)
@@ -52,61 +138,55 @@ def teams_getCurrentSeason(request, team: str):
     # -- from the session key, get teams championship
     last_championship_teams_req = urlopen(f"https://api.openf1.org/v1/championship_teams?session_key={session_key}")
     last_championship_teams_df = pd.DataFrame(json.loads(last_championship_teams_req.read().decode('utf-8')))
-
-    last_championship_teams_req = urlopen(f"https://api.openf1.org/v1/championship_teams?session_key={session_key}")
-    last_championship_teams_df = pd.DataFrame(json.loads(last_championship_teams_req.read().decode('utf-8')))
     print(last_championship_teams_df)
 
     if team not in last_championship_teams_df["team_name"].tolist():
         return JsonResponse({"error": "Team not found in current season"}, status=404)
-
-
-
-    championship_teams_req = urlopen(f"https://api.openf1.org/v1/championship_teams?team_name={team}")
-    championship_teams_df = pd.DataFrame(json.loads(championship_teams_req.read().decode('utf-8')))
 
     drivers_req = urlopen(f"https://api.openf1.org/v1/drivers?team_name={team}&session_key={session_key}")
     drivers_df = pd.DataFrame(json.loads(drivers_req.read().decode('utf-8')))
 
     driver_numbers = drivers_df["driver_number"].tolist()
 
-    # getting sprint races
-    sprint_query = "&".join(f"session_key={k}" for k in sprint_session_keys)
-    driver_numbers_query = "&".join(f"driver_number={n}" for n in driver_numbers)
-    sprint_results_req = urlopen(f"https://api.openf1.org/v1/session_result?{sprint_query}&{driver_numbers_query}")
-    sprint_results_df = pd.DataFrame(json.loads(sprint_results_req.read().decode('utf-8')))
-    print(sprint_results_df)
+    drivers_df = drivers_df.drop(columns=["broadcast_name","meeting_key","session_key"])
+    drivers_json = drivers_df.to_dict(orient="records")
 
-    # getting GP races
-    race_query = "&".join(f"session_key={k}" for k in race_session_keys)    
-    grand_prix_results_req = urlopen(f"https://api.openf1.org/v1/session_result?{race_query}&{driver_numbers_query}")
-    grand_prix_results_df = pd.DataFrame(json.loads(grand_prix_results_req.read().decode('utf-8')))
-    print(grand_prix_results_df)
+
+    # getting both race and sprint 
+    driver_numbers_query = "&".join(f"driver_number={n}" for n in driver_numbers)
+    all_result_keys = sprint_session_keys + race_session_keys
+    all_results_query = "&".join(f"session_key={k}" for k in all_result_keys)
+    all_results_req = urlopen(
+        f"https://api.openf1.org/v1/session_result?{all_results_query}&{driver_numbers_query}"
+    )
+    all_results_df = pd.DataFrame(json.loads(all_results_req.read().decode("utf-8")))
+    sprint_results_df = all_results_df[all_results_df["session_key"].isin(sprint_session_keys)]
+    grand_prix_results_df = all_results_df[all_results_df["session_key"].isin(race_session_keys)]
 
     # getting GP starting grid positions
-    grid_query = "&".join(f"session_key={k}" for k in qualifying_session_keys)
-    grid_results_req = urlopen(f"https://api.openf1.org/v1/starting_grid?{grid_query}&{driver_numbers_query}")
-    grid_results_df = pd.DataFrame(json.loads(grid_results_req.read().decode('utf-8')))
+    # grid_query = "&".join(f"session_key={k}" for k in qualifying_session_keys)
+    # grid_results_req = urlopen(f"https://api.openf1.org/v1/starting_grid?{grid_query}&{driver_numbers_query}")
+    # grid_results_df = pd.DataFrame(json.loads(grid_results_req.read().decode('utf-8')))
 
     # season variables
     season_position = int(last_championship_teams_df["position_current"].iloc[0]) if not last_championship_teams_df.empty else 0
     season_points   = float(last_championship_teams_df["points_current"].iloc[0])  if not last_championship_teams_df.empty else 0.0
 
     # GP variables
-    gp_races   = int(championship_teams_df[championship_teams_df["session_key"].isin(race_session_keys)].shape[0])
+    gp_races   = int(len(race_session_keys))
     gp_points  = float(grand_prix_results_df["points"].sum())
     gp_wins    = int(grand_prix_results_df[grand_prix_results_df["position"] == 1].shape[0])
     gp_podiums = int(grand_prix_results_df[grand_prix_results_df["position"] <= 3].shape[0])
-    gp_poles   = int(grid_results_df[grid_results_df["position"] == 1].shape[0])
+    gp_poles   = 0 #int(grid_results_df[grid_results_df["position"] == 1].shape[0])
     gp_top10s  = int(grand_prix_results_df[grand_prix_results_df["position"] <= 10].shape[0])
     gp_DNFs    = int(grand_prix_results_df[grand_prix_results_df["dnf"] == True].shape[0])
 
     # sprint variables
-    sprint_races   = int(championship_teams_df[championship_teams_df["session_key"].isin(sprint_session_keys)].shape[0])
+    sprint_races   = int(len(sprint_session_keys))
     sprint_points  = float(sprint_results_df["points"].sum())
     sprint_wins    = int(sprint_results_df[sprint_results_df["position"] == 1].shape[0])
     sprint_podiums = int(sprint_results_df[sprint_results_df["position"] <= 3].shape[0])
-    sprint_poles   = int(grid_results_df[grid_results_df["position"] == 1].shape[0])
+    sprint_poles   = 0 #int(grid_results_df[grid_results_df["position"] == 1].shape[0])
     sprint_top10s  = int(sprint_results_df[sprint_results_df["position"] <= 10].shape[0])
 
 
@@ -129,10 +209,12 @@ def teams_getCurrentSeason(request, team: str):
             "podiums": sprint_podiums,
             "poles": sprint_poles,
             "top10s": sprint_top10s
-        }
+        },
+        "drivers": drivers_json,
+        "year": int(latest_year)
     }
 
     print(json.dumps(finalJSON, indent=4))
     #return JsonResponse(finalJSON, safe=False)
 
-teams_getCurrentSeason(None, "McLaren")
+teams_getCurrentSeason(None, "Mercedes")

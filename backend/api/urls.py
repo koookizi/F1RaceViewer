@@ -17,6 +17,9 @@ urlpatterns = [
     path("session/vr/create/", views.vr_create_view, name="session-vr-create"),
     path("session/<int:year>/<str:country>/<str:session_name>/vr/", views.session_vrdetails_view, name="session-vr"),
     path("teams/", views.teams_getTeams, name="teams-getteams"),
+    path("teams/<str:team_ergast_id>/summary/", views.teams_getTeamSummary, name="teams-getteamsummary"),
+    path("teams/<str:team>/currentseason/", views.teams_getCurrentSeason, name="teams-getcurrentseason"),
+
 
 
 

@@ -66,6 +66,60 @@ export type TeamRadioApiResponse = {
     time: string;
 };
 
+// Team Summary Types
+
+export type TeamSummaryData = {
+    team: string;
+    grand_prix_entered: number;
+    team_points: number;
+
+    highest_race_finish: number | null; // best_finish can be null if no positions
+    highest_race_finish_count: number;
+
+    podiums: number;
+
+    highest_grid_position: number | null; // best_grid can be null if no grid values
+    highest_grid_position_count: number;
+
+    pole_positions: number;
+    world_championships: number;
+};
+
+// Team Data Types
+
+export type TeamCurrentSeasonData = {
+    season_position: number;
+    season_points: number;
+
+    gp: TeamSessionStats;
+    sprint: TeamSessionStats;
+
+    drivers: TeamDriverData[];
+    year: number;
+};
+
+export type TeamDriverData = {
+    driver_number: number;
+    full_name: string;
+    name_acronym: string;
+    team_name: string;
+    team_colour: string;
+    first_name: string;
+    last_name: string;
+    headshot_url: string;
+    country_code: string | null;
+};
+
+export type TeamSessionStats = {
+    races: number;
+    points: number;
+    wins: number;
+    podiums: number;
+    poles: number;
+    top10s: number;
+    dnfs?: number; // sprint has no dnfs
+};
+
 // Leaderboard Data Types
 
 export interface LeaderboardPositionsData {
@@ -97,14 +151,7 @@ export interface LeaderboardLapsData {
     st_speed: number;
 }
 
-export type Compound =
-    | "SOFT"
-    | "MEDIUM"
-    | "HARD"
-    | "INTERMEDIATE"
-    | "WET"
-    | "UNKNOWN"
-    | null;
+export type Compound = "SOFT" | "MEDIUM" | "HARD" | "INTERMEDIATE" | "WET" | "UNKNOWN" | null;
 
 export interface LeaderboardStintData {
     stint_number: number;
