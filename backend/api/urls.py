@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views
+from api import views
 
 urlpatterns = [
     path('seasons_years/', views.season_years, name='season-years'),

@@ -1,4 +1,5 @@
 import { Outlet, NavLink } from "react-router-dom";
+import logo from "../assets/logo.png";
 
 export function Sidebar() {
     return (
@@ -28,7 +29,11 @@ export function Sidebar() {
                             <path d="M14 10l2 2l-2 2"></path>
                         </svg>
                     </label>
-                    <div className="px-4 font-bold">F1 Race Viewer</div>
+                    <img
+                        src={logo}
+                        alt="F1 Race Viewer"
+                        className="h-8 w-auto px-4 object-contain"
+                    />
                 </nav>
                 {/* Page content here */}
                 <main className="flex-1 max-w-full max-h-full p-5 bg-base-300">

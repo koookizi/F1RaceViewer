@@ -163,7 +163,7 @@ export function DriversPage() {
                                         <div tabIndex={0} className="btn bg-base-100 p-0 w-100">
                                             <input
                                                 type="text"
-                                                placeholder="Search team..."
+                                                placeholder="Search driver..."
                                                 value={search}
                                                 onChange={(e) => setSearch(e.target.value)}
                                                 className="input input-ghost w-full"

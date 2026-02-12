@@ -106,7 +106,7 @@ export const TEMPLATES: Template[] = [
         tags: ["Driver", "Race Start", "Recovery", "Race Craft", "Positions"],
     },
 
-    // --# Race Page #--
+    // --# Team Page #--
     {
         id: "t24",
         intent: "Team Season Performance",
