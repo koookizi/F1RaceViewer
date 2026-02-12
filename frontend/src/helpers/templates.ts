@@ -6,7 +6,10 @@ export type Intent =
     | "Season"
     | "Team Season Performance"
     | "Team Context & Affinity"
-    | "Team Performance Characteristics";
+    | "Team Performance Characteristics"
+    | "Driver Season Performance"
+    | "Driver vs Teammate"
+    | "Driver Characteristics";
 
 export type Page = "Race" | "Team" | "Driver";
 
@@ -20,6 +23,89 @@ export type Template = {
 };
 
 export const TEMPLATES: Template[] = [
+    // --# Driver Page #--
+    {
+        id: "t32",
+        intent: "Driver Season Performance",
+        page: "Driver",
+        title: "Driver points per race (season trend)",
+        description:
+            "Shows points scored by the selected driver at each round of a season to highlight momentum shifts, standout weekends, and overall consistency.",
+        tags: ["Driver", "Season", "Points", "Trend", "Consistency"],
+    },
+    {
+        id: "t33",
+        intent: "Driver Season Performance",
+        page: "Driver",
+        title: "Finish position distribution (consistency boxplot)",
+        description:
+            "Displays the distribution of finishing positions across a season to evaluate the driver's consistency and result variability.",
+        tags: ["Driver", "Finishing Positions", "Consistency", "Distribution", "Season"],
+    },
+    {
+        id: "t34",
+        intent: "Driver Season Performance",
+        page: "Driver",
+        title: "Positions gained histogram (race execution)",
+        description:
+            "Shows how many places the driver typically gains or loses during races by plotting the distribution of grid-to-finish position changes.",
+        tags: ["Driver", "Race Craft", "Overtaking", "Positions Gained", "Execution"],
+    },
+    {
+        id: "t35",
+        intent: "Driver vs Teammate",
+        page: "Driver",
+        title: "Points vs teammate (season comparison)",
+        description:
+            "Compares total season points between the selected driver and their teammate to summarise championship contribution within the same car.",
+        tags: ["Driver", "Teammate", "Points", "Comparison", "Season"],
+    },
+    {
+        id: "t36",
+        intent: "Driver vs Teammate",
+        page: "Driver",
+        title: "Qualifying head-to-head vs teammate",
+        description:
+            "Counts how often the driver out-qualifies their teammate across the season to measure one-lap performance within equal machinery.",
+        tags: ["Driver", "Qualifying", "Teammate", "Head-to-Head", "One-Lap Pace"],
+    },
+    {
+        id: "t37",
+        intent: "Driver vs Teammate",
+        page: "Driver",
+        title: "Race pace delta vs teammate (boxplot)",
+        description:
+            "Shows the distribution of lap-time deltas between the driver and their teammate across the season to isolate relative race pace beyond strategy and luck.",
+        tags: ["Driver", "Pace", "Teammate", "Delta", "Lap Time"],
+    },
+    {
+        id: "t38",
+        intent: "Driver Characteristics",
+        page: "Driver",
+        title: "Tyre degradation profile (season aggregate)",
+        description:
+            "Plots lap-time evolution within stints (by compound) aggregated across the season to evaluate the driver's tyre management and degradation tendencies.",
+        tags: ["Driver", "Tyres", "Degradation", "Stints", "Season"],
+    },
+    {
+        id: "t39",
+        intent: "Driver Characteristics",
+        page: "Driver",
+        title: "Lap-time consistency distribution (season)",
+        description:
+            "Visualises the season-wide distribution of the driver's lap times (clean laps) to highlight consistency, volatility, and outlier behaviour.",
+        tags: ["Driver", "Consistency", "Lap Times", "Distribution", "Outliers"],
+    },
+    {
+        id: "t40",
+        intent: "Driver Characteristics",
+        page: "Driver",
+        title: "Race start and recovery (positions gained analysis)",
+        description:
+            "Summarises how often the driver gains or loses places over races across the season, capturing start effectiveness and in-race recovery ability.",
+        tags: ["Driver", "Race Start", "Recovery", "Race Craft", "Positions"],
+    },
+
     // --# Race Page #--
     {
         id: "t24",

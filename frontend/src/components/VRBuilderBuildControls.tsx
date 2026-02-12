@@ -8,8 +8,6 @@ import { VRTemplateInputs, DEFAULT_VR_TEMPLATE_INPUTS } from "./VRTemplateInputs
 import type { ChartResponse } from "./ChartCard";
 import { useToast } from "./ToastContext";
 
-const INTENTS: Intent[] = ["Pace", "Strategy", "Telemetry", "Positions", "Season"];
-
 type VRBuilderBuildControlsProps = {
     DRIVER_OPTIONS?: MultiSelectOption[];
     TEAM_OPTIONS?: MultiSelectOption[];
@@ -17,6 +15,7 @@ type VRBuilderBuildControlsProps = {
     selectedCountry?: string;
     selectedSession?: string;
     selectedTeam?: string;
+    selectedDriverCode?: string;
     setChartLoading: React.Dispatch<React.SetStateAction<boolean>>;
     setPreviewChart: React.Dispatch<React.SetStateAction<ChartResponse | null>>;
     chartLoading: boolean;
@@ -31,6 +30,7 @@ export function VRBuilderBuildControls({
     selectedCountry = "",
     selectedSession = "",
     selectedTeam = "",
+    selectedDriverCode = "",
     setPreviewChart,
     setChartLoading,
     chartLoading,
@@ -128,7 +128,26 @@ export function VRBuilderBuildControls({
         }
 
         // Requires season
-        if (["t21", "t22"].includes(templateId)) {
+        if (
+            [
+                "t21",
+                "t22",
+                "t24",
+                "t25",
+                "t26",
+                "t30",
+                "t31",
+                "t32",
+                "t33",
+                "t34",
+                "t35",
+                "t36",
+                "t37",
+                "t38",
+                "t39",
+                "t40",
+            ].includes(templateId)
+        ) {
             if (inputs.season == 0) errors.push("Enter a season.");
         }
 
@@ -136,6 +155,12 @@ export function VRBuilderBuildControls({
         if (["t23"].includes(templateId)) {
             if (inputs.season == 0) errors.push("Enter a season.");
             if (inputs.round == 0) errors.push("Enter a round.");
+        }
+
+        // Requires season range
+        if (["t27", "t28", "t29"].includes(templateId)) {
+            if (inputs.seasonFrom == 0) errors.push("Enter a season from.");
+            if (inputs.seasonTo == 0) errors.push("Enter a season to.");
         }
 
         return errors;
@@ -250,6 +275,15 @@ export function VRBuilderBuildControls({
             };
         }
 
+        // Requires season (driver)
+        if (["t32", "t33", "t34", "t35", "t36", "t37", "t38", "t39", "t40"].includes(templateId)) {
+            return {
+                ...base,
+                season: inputs.season, // number | ""
+                driver: selectedDriverCode,
+            };
+        }
+
         // Requires season range (team)
         if (["t27", "t28", "t29"].includes(templateId)) {
             return {
@@ -327,7 +361,6 @@ export function VRBuilderBuildControls({
         <div className="card card-border bg-base-100 w-full">
             <div className="card-body p-4 h-140 overflow-y-auto">
                 <div className="pb-2 text-xs opacity-60 tracking-wide flex items-center">
-                    <span>Builder</span>
                     <span>Builder</span>
                 </div>
 

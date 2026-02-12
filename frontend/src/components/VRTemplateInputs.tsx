@@ -538,13 +538,6 @@ function getRequirements(templateId: string | null) {
     };
 
     if (!templateId) return base;
-    // -- Team page templates --
-    if (["t24", "t25", "t26", "t30", "t31"].includes(templateId)) {
-        return {
-            ...base,
-            season: true,
-        };
-    }
 
     if (["t27", "t28", "t29"].includes(templateId)) {
         return {
@@ -553,8 +546,6 @@ function getRequirements(templateId: string | null) {
         };
     }
 
-    // -- Race page templates --
-    // Pace
     if (["t1", "t2", "t3", "t4", "t5"].includes(templateId)) {
         return {
             ...base,
@@ -572,7 +563,6 @@ function getRequirements(templateId: string | null) {
         };
     }
 
-    // Strategy (driver OR team)
     if (["t7", "t8", "t9", "t10", "t11"].includes(templateId)) {
         return {
             ...base,
@@ -583,7 +573,6 @@ function getRequirements(templateId: string | null) {
         };
     }
 
-    // Telemetry
     if (templateId === "t12" || templateId === "t13") {
         return {
             ...base,
@@ -604,7 +593,6 @@ function getRequirements(templateId: string | null) {
         };
     }
 
-    // Positions
     if (templateId === "t18") {
         return {
             ...base,
@@ -625,8 +613,26 @@ function getRequirements(templateId: string | null) {
         };
     }
 
-    // Season
-    if (templateId === "t21" || templateId === "t22") {
+    if (
+        [
+            "t21",
+            "t22",
+            "t24",
+            "t25",
+            "t26",
+            "t30",
+            "t31",
+            "t32",
+            "t33",
+            "t34",
+            "t35",
+            "t36",
+            "t37",
+            "t38",
+            "t39",
+            "t40",
+        ].includes(templateId)
+    ) {
         return {
             ...base,
             season: true,

@@ -10,6 +10,9 @@ from urllib.parse import urlencode
 import math
 import openpyxl
 
+import fastf1
+from fastf1.ergast import Ergast
+
 # def test(year, country, session_name):    
 #     # FastF1
 #     session = fastf1.get_session(year, country, session_name)
@@ -20,6 +23,10 @@ import openpyxl
 
 # test(2025, "United Kingdom", "Race")
 
-s = fastf1.get_session(2023, 1, "R")
-s.load()
-print(s.results["TeamName"].unique())
+ergast_driver_id = "hamilton"  # Ergast driverId
+ergast = Ergast()
+
+df = ergast.get_driver_info(driver=ergast_driver_id)  # pandas DataFrame
+abbr = df.loc[0, "driverCode"]  # e.g. "HAM"
+
+print(abbr)

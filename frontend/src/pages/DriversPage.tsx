@@ -28,6 +28,7 @@ export function DriversPage() {
     const [driverOptions, setDriverOptions] = useState<DriverOption[]>([]);
     const [selectedDriver, setSelectedDriver] = useState<string | null>(null);
     const [selectedDriverErgastID, setSelectedDriverErgastID] = useState<string | null>(null);
+    const [selectedDriverCode, setSelectedDriverCode] = useState<string | null>(null);
     const [search, setSearch] = useState("");
 
     const filteredDrivers = useMemo(() => {
@@ -99,6 +100,19 @@ export function DriversPage() {
         setShowCurrentSeasonBox(true);
         setShowTeamSummary(true);
         setShowHero(true);
+
+        // Fetches driver code
+        console.log("Fetching driver code");
+        fetch(`http://localhost:8000/api/drivers/${selectedDriverErgastID}/code/`)
+            .then((res) => res.json())
+            .then((json) => {
+                setSelectedDriverCode(json.driverCode);
+                console.log("Selected driver's code:", json.driverCode);
+            })
+            .catch((err) => {
+                console.error("Failed to load selected driver's code", err);
+                toast("Failed to load selected driver's code: " + err.message, "error");
+            });
 
         // Fetches current season data
         console.log("Fetching current season data");
@@ -238,6 +252,7 @@ export function DriversPage() {
                                         setPreviewChart={setPreviewChart}
                                         setChartLoading={setChartLoading}
                                         chartLoading={chartLoading}
+                                        selectedDriverCode={selectedDriverCode ?? undefined}
                                     />
                                 </div>
                                 <div className="md:col-span-6">

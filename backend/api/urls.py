@@ -21,6 +21,9 @@ urlpatterns = [
     path("general/<str:data>/<str:teamOrDriver>/currentseason/", views.getCurrentSeason, name="getcurrentseason"),
     path("drivers/", views.drivers_getDrivers, name="drivers-getdrivers"),
     path("drivers/<str:driver_ergast_id>/summary/", views.driver_getDriverSummary, name="drivers-getdriversummary"),
+    path("drivers/<str:driver_ergast_id>/code/", views.driver_getDriverCode, name="drivers-getdrivercode"),
+
+
 
 
 
