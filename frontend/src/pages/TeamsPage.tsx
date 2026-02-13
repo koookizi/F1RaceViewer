@@ -9,6 +9,7 @@ import { VRBuilderLivePreview } from "@/components/VRBuilderLivePreview";
 import { VRBuilderInsightsReports } from "@/components/VRBuilderInsightsReports";
 import type { ChartResponse } from "@/components/ChartCard";
 import type { MultiSelectOption } from "@/components/MultiSelect";
+import { fetchJson } from "../helpers/api";
 
 type TeamOption = { name: string; ergast_id: string };
 
@@ -25,6 +26,9 @@ export function TeamsPage() {
     const filteredTeams = useMemo(() => {
         return teamOptions.filter((team) => team.name.toLowerCase().includes(search.toLowerCase()));
     }, [teamOptions, search]);
+
+    // -- Header
+    const [showHeader, setShowHeader] = useState(false);
 
     // -- Tabs
     const [activeTab, setActiveTab] = useState<"summary" | "vrbuilder" | "">("");
@@ -46,10 +50,12 @@ export function TeamsPage() {
     const [chartLoading, setChartLoading] = useState(false);
 
     useEffect(() => {
-        fetch("http://localhost:8000/api/teams/")
-            .then((res) => res.json())
+        fetchJson<{ teams: TeamOption[] }>("http://localhost:8000/api/teams/")
             .then((data) => setTeamOptions(data.teams))
-            .catch(console.error);
+            .catch((err) => {
+                console.error("Failed to load teams", err);
+                toast(err.message || "Failed to load teams.", "error");
+            });
     }, []);
 
     // Handles tabs
@@ -85,13 +91,13 @@ export function TeamsPage() {
         setShowCurrentSeasonBox(true);
         setShowTeamSummary(true);
         setShowHero(true);
+        setShowHeader(true);
 
         // Fetches current season data
         console.log("Fetching current season data");
-        fetch(
+        fetchJson<currentSeasonData>(
             `http://localhost:8000/api/general/${encodeURIComponent(selectedTeam)}/team/currentseason/`,
         )
-            .then((res) => res.json())
             .then((json: currentSeasonData) => {
                 setCurrentSeasonData(json);
                 console.log("Current season JSON:", json);
@@ -103,8 +109,9 @@ export function TeamsPage() {
 
         // Fetches summary data
         console.log("Fetching summary data");
-        fetch(`http://localhost:8000/api/teams/${selectedTeamErgastID}/summary/`)
-            .then((res) => res.json())
+        fetchJson<TeamSummaryData>(
+            `http://localhost:8000/api/teams/${selectedTeamErgastID}/summary/`,
+        )
             .then((json: TeamSummaryData) => {
                 setTeamSummary(json);
                 console.log("Summary JSON:", json);
@@ -190,6 +197,37 @@ export function TeamsPage() {
             )}
 
             {/* -- Main  section -- */}
+            {/* Header */}
+            {showHeader && (
+                <div className="flex items-center justify-between w-full mb-2">
+                    <button
+                        className="btn bg-base-100 flex items-center gap-2"
+                        onClick={() => {
+                            window.location.href = "/teams";
+                        }}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                            stroke="currentColor"
+                            className="w-5 h-5"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M15.75 19.5L8.25 12l7.5-7.5"
+                            />
+                        </svg>
+
+                        <span>Find another Team</span>
+                    </button>
+
+                    <div className="text-lg font-semibold">Teams</div>
+                </div>
+            )}
+
             {/* Tabs */}
             {showTabs && (
                 <div role="tablist" className="tabs tabs-box">

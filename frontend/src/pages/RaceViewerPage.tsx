@@ -24,6 +24,7 @@ import { VRBuilderInsightsReports } from "../components/VRBuilderInsightsReports
 import type { MultiSelectOption } from "../components/MultiSelect";
 import { ChartCard, type ChartResponse } from "../components/ChartCard";
 import { useToast } from "../components/ToastContext";
+import { fetchJson } from "../helpers/api";
 
 export interface Result {
     position: number;
@@ -60,6 +61,7 @@ export function RaceViewerPage() {
     const [showRaceSelection, setShowRaceSelection] = useState(true);
 
     // -- Summary
+    const [showHero, setShowHero] = useState(false);
     const [circuitName, setCircuitName] = useState("");
     const [results, setResults] = useState<Result[]>([]);
     const [loadingResults, setLoadingResults] = useState(false);
@@ -74,6 +76,9 @@ export function RaceViewerPage() {
     const [showSummarySection, setShowSummarySection] = useState(false);
     const [showRacePlayBackSection, setShowRacePlayBackSection] = useState(false);
     const [showVRBuilderSection, setShowVRBuilderSection] = useState(false);
+
+    // -- Header
+    const [showHeader, setShowHeader] = useState(false);
 
     // -- Race Playback
     const [currentTime, setCurrentTime] = useState(0);
@@ -247,6 +252,7 @@ export function RaceViewerPage() {
         setSearchButton(true);
         setLoadingResults(true);
         setShowRaceSelection(false);
+        setShowHeader(true);
 
         // Fetches VR data
         console.log("Fetching VR data");
@@ -291,12 +297,11 @@ export function RaceViewerPage() {
 
         // Fetches playback data
         console.log("Fetching playback data");
-        fetch(
+        fetchJson<PlaybackData>(
             `http://localhost:8000/api/session/${selectedYear}/${encodeURIComponent(
                 selectedCountry,
             )}/${encodeURIComponent(selectedSession)}/playback/`,
         )
-            .then((res) => res.json())
             .then((json: PlaybackData) => {
                 setData(json);
                 setCurrentTime(json.playbackControlOffset);
@@ -307,7 +312,7 @@ export function RaceViewerPage() {
             })
             .catch((err) => {
                 console.error("Failed to load playback", err);
-                toast("Failed to load playback data: " + err.message, "error");
+                toast(err.message || "Failed to load playback data.", "error");
             });
 
         // Fetches leaderboard data
@@ -434,6 +439,7 @@ export function RaceViewerPage() {
             .then((res) => res.json())
             .then((data) => {
                 setCircuitName(data.circuit);
+                setShowHero(true);
             })
             .catch((err) => {
                 console.error("Error fetching circuit:", err);
@@ -579,6 +585,37 @@ export function RaceViewerPage() {
             )}
 
             {/* -- Main session section -- */}
+            {/* Header */}
+            {showHeader && (
+                <div className="flex items-center justify-between w-full mb-2">
+                    <button
+                        className="btn bg-base-100 flex items-center gap-2"
+                        onClick={() => {
+                            window.location.href = "/race-viewer";
+                        }}
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                            stroke="currentColor"
+                            className="w-5 h-5"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M15.75 19.5L8.25 12l7.5-7.5"
+                            />
+                        </svg>
+
+                        <span>Find another Race</span>
+                    </button>
+
+                    <div className="text-lg font-semibold">Race Viewer</div>
+                </div>
+            )}
+
             {/* Tabs */}
             {showTabs && (
                 <div role="tablist" className="tabs tabs-box">
@@ -743,15 +780,32 @@ export function RaceViewerPage() {
                         <div className="mt-2">
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="col-span-3">
+                                    {/* Hero */}
+                                    {showHero ? (
+                                        <>
+                                            <div className="card card-border w-auto h-80 bg-black">
+                                                <div className="card-body text-center flex flex-col justify-center items-center">
+                                                    <h2 className="card-title text-5xl text-white">
+                                                        {circuitName.toUpperCase()} {selectedYear}{" "}
+                                                        GRAND PRIX - {selectedSession.toUpperCase()}
+                                                    </h2>
+                                                    <div className="text-md text-white/80">
+                                                        Formula 1 Session
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="skeleton h-32 w-auto"></div>
+                                    )}
+                                </div>
+                                <div className="col-span-3">
                                     {/* Results */}
                                     {showResultsBox && (
                                         <>
                                             <div className="card card-border bg-base-100 w-auto">
                                                 <div className="card-body">
-                                                    <h2 className="card-title">
-                                                        {circuitName.toUpperCase()} {selectedYear}{" "}
-                                                        GRAND PRIX - {selectedSession.toUpperCase()}
-                                                    </h2>
+                                                    <h2 className="card-title">RESULTS</h2>
                                                     <p>
                                                         Results of the selected session.
                                                         <br />
