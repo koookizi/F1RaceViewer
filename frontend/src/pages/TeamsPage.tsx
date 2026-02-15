@@ -1,6 +1,6 @@
 import StatCard from "@/components/StatCard";
 import { useToast } from "@/components/ToastContext";
-import type { currentSeasonData, TeamSummaryData } from "@/types";
+import type { currentSeasonData, TeamSummaryData, blockState } from "@/types";
 import { color } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
 import DriverCard from "@/components/DriverCard";
@@ -10,6 +10,7 @@ import { VRBuilderInsightsReports } from "@/components/VRBuilderInsightsReports"
 import type { ChartResponse } from "@/components/ChartCard";
 import type { MultiSelectOption } from "@/components/MultiSelect";
 import { fetchJson } from "../helpers/api";
+import { BlockedCard } from "@/components/BlockedCard";
 
 type TeamOption = { name: string; ergast_id: string };
 
@@ -43,6 +44,11 @@ export function TeamsPage() {
     const [teamSummary, setTeamSummary] = useState<TeamSummaryData | null>(null);
 
     const [showTeamSummary, setShowTeamSummary] = useState(false);
+
+    const [blockCurrentSeason, setBlockCurrentSeason] = useState<blockState>({
+        blocked: false,
+        reason: "",
+    });
 
     // -- VR Builder
     const [previewChart, setPreviewChart] = useState<ChartResponse | null>(null);
@@ -87,9 +93,6 @@ export function TeamsPage() {
         setShowTabs(true);
         setActiveTab("summary");
 
-        // test
-        setShowCurrentSeasonBox(true);
-        setShowTeamSummary(true);
         setShowHero(true);
         setShowHeader(true);
 
@@ -105,6 +108,13 @@ export function TeamsPage() {
             .catch((err) => {
                 console.error("Failed to load current season data", err);
                 toast("Failed to load current season data: " + err.message, "error");
+                setBlockCurrentSeason({
+                    blocked: true,
+                    reason: err.message,
+                });
+            })
+            .finally(() => {
+                setShowCurrentSeasonBox(true);
             });
 
         // Fetches summary data
@@ -119,6 +129,9 @@ export function TeamsPage() {
             .catch((err) => {
                 console.error("Failed to load summary data", err);
                 toast("Failed to load summary data: " + err.message, "error");
+            })
+            .finally(() => {
+                setShowTeamSummary(true);
             });
     };
 
@@ -293,7 +306,7 @@ export function TeamsPage() {
                         <div className="grid grid-cols-3 gap-2">
                             <div className="col-span-3">
                                 {/* Hero */}
-                                {showHero && (
+                                {showHero ? (
                                     <>
                                         <div
                                             className="card card-border w-auto h-80"
@@ -314,11 +327,13 @@ export function TeamsPage() {
                                             </div>
                                         </div>
                                     </>
+                                ) : (
+                                    <div className="skeleton h-32 w-auto"></div>
                                 )}
                             </div>
                             <div className="col-span-3">
                                 {/* Team Summary */}
-                                {showTeamSummary && (
+                                {showTeamSummary ? (
                                     <div className="card card-border bg-base-100">
                                         <div className="card-body">
                                             <h2 className="card-title">TEAM SUMMARY</h2>
@@ -381,171 +396,188 @@ export function TeamsPage() {
                                             </div>
                                         </div>
                                     </div>
+                                ) : (
+                                    <div className="skeleton h-32 w-auto"></div>
                                 )}
                             </div>
                             <div className="col-span-3">
                                 {/* Current Season */}
-                                {showCurrentSeasonBox && (
+                                {showCurrentSeasonBox ? (
                                     <>
-                                        <div className="card card-border bg-base-100 w-auto">
-                                            <div className="card-body">
-                                                <h2 className="card-title mb-3">
-                                                    CURRENT SEASON -{" "}
-                                                    {currentSeasonData?.year ?? "N/A"}{" "}
-                                                </h2>
-                                                <div className="grid grid-cols-7 gap-4">
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.season_position ??
-                                                                "N/A"
-                                                            }
-                                                            title="Season Position"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.season_points ??
-                                                                "N/A"
-                                                            }
-                                                            title="Season Points"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <hr className="my-4"></hr>
-                                                <div className="grid grid-cols-7 gap-4">
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.gp.races ?? "N/A"
-                                                            }
-                                                            title="Grand Prix Races"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.gp.points ??
-                                                                "N/A"
-                                                            }
-                                                            title="Grand Prix Points"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.gp.wins ?? "N/A"
-                                                            }
-                                                            title="Grand Prix Wins"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.gp.podiums ??
-                                                                "N/A"
-                                                            }
-                                                            title="Grand Prix Podiums"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.gp.poles ?? "N/A"
-                                                            }
-                                                            title="Grand Prix Poles"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.gp.top10s ??
-                                                                "N/A"
-                                                            }
-                                                            title="Grand Prix Top 10s"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.gp.dnfs ?? "N/A"
-                                                            }
-                                                            title="Grand Prix DNFs"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <hr className="my-4"></hr>
-                                                <div className="grid grid-cols-7 gap-4">
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.sprint.races ??
-                                                                "N/A"
-                                                            }
-                                                            title="Sprint Races"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.sprint.points ??
-                                                                "N/A"
-                                                            }
-                                                            title="Sprint Points"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.sprint.wins ??
-                                                                "N/A"
-                                                            }
-                                                            title="Sprint Wins"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.sprint.podiums ??
-                                                                "N/A"
-                                                            }
-                                                            title="Sprint Podiums"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.sprint.poles ??
-                                                                "N/A"
-                                                            }
-                                                            title="Sprint Poles"
-                                                        />
-                                                    </div>
-                                                    <div className="...">
-                                                        <StatCard
-                                                            value={
-                                                                currentSeasonData?.sprint.top10s ??
-                                                                "N/A"
-                                                            }
-                                                            title="Sprint Top 10s"
-                                                        />
-                                                    </div>
-                                                </div>
-                                                <hr className="my-4"></hr>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    {currentSeasonData?.drivers.map((driver) => (
+                                        {blockCurrentSeason.blocked ? (
+                                            <BlockedCard
+                                                title="Current Season Stats Disabled"
+                                                reason={blockCurrentSeason.reason}
+                                            />
+                                        ) : (
+                                            <div className="card card-border bg-base-100 w-auto">
+                                                <div className="card-body">
+                                                    <h2 className="card-title mb-3">
+                                                        CURRENT SEASON -{" "}
+                                                        {currentSeasonData?.year ?? "N/A"}{" "}
+                                                    </h2>
+                                                    <div className="grid grid-cols-7 gap-4">
                                                         <div className="...">
-                                                            <DriverCard
-                                                                key={driver.driver_number}
-                                                                driver={driver}
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.season_position ??
+                                                                    "N/A"
+                                                                }
+                                                                title="Season Position"
                                                             />
                                                         </div>
-                                                    ))}
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.season_points ??
+                                                                    "N/A"
+                                                                }
+                                                                title="Season Points"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <hr className="my-4"></hr>
+                                                    <div className="grid grid-cols-7 gap-4">
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.gp.races ??
+                                                                    "N/A"
+                                                                }
+                                                                title="Grand Prix Races"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.gp.points ??
+                                                                    "N/A"
+                                                                }
+                                                                title="Grand Prix Points"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.gp.wins ??
+                                                                    "N/A"
+                                                                }
+                                                                title="Grand Prix Wins"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.gp.podiums ??
+                                                                    "N/A"
+                                                                }
+                                                                title="Grand Prix Podiums"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.gp.poles ??
+                                                                    "N/A"
+                                                                }
+                                                                title="Grand Prix Poles"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.gp.top10s ??
+                                                                    "N/A"
+                                                                }
+                                                                title="Grand Prix Top 10s"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.gp.dnfs ??
+                                                                    "N/A"
+                                                                }
+                                                                title="Grand Prix DNFs"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <hr className="my-4"></hr>
+                                                    <div className="grid grid-cols-7 gap-4">
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.sprint
+                                                                        .races ?? "N/A"
+                                                                }
+                                                                title="Sprint Races"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.sprint
+                                                                        .points ?? "N/A"
+                                                                }
+                                                                title="Sprint Points"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.sprint
+                                                                        .wins ?? "N/A"
+                                                                }
+                                                                title="Sprint Wins"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.sprint
+                                                                        .podiums ?? "N/A"
+                                                                }
+                                                                title="Sprint Podiums"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.sprint
+                                                                        .poles ?? "N/A"
+                                                                }
+                                                                title="Sprint Poles"
+                                                            />
+                                                        </div>
+                                                        <div className="...">
+                                                            <StatCard
+                                                                value={
+                                                                    currentSeasonData?.sprint
+                                                                        .top10s ?? "N/A"
+                                                                }
+                                                                title="Sprint Top 10s"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <hr className="my-4"></hr>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        {currentSeasonData?.drivers.map(
+                                                            (driver) => (
+                                                                <div className="...">
+                                                                    <DriverCard
+                                                                        key={driver.driver_number}
+                                                                        driver={driver}
+                                                                    />
+                                                                </div>
+                                                            ),
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        )}
                                     </>
+                                ) : (
+                                    <div className="skeleton h-32 w-auto"></div>
                                 )}
                             </div>
                         </div>

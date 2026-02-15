@@ -1,5 +1,10 @@
 export type TrackPoint = [number, number];
 
+export type blockState = {
+    blocked: boolean;
+    reason: string;
+};
+
 export type DriverSample = {
     t: number; // seconds since race start
     lap: number;

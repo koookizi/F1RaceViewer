@@ -14,6 +14,7 @@ import type {
     RaceControlApiResponse,
     TeamRadioApiResponse,
     VRApiResponse,
+    blockState,
 } from "../types";
 import { teamBgByDriver } from "../helpers/team_colour";
 import { RacePlaybackTeamRadio } from "../components/RacePlaybackTeamRadio";
@@ -25,6 +26,7 @@ import type { MultiSelectOption } from "../components/MultiSelect";
 import { ChartCard, type ChartResponse } from "../components/ChartCard";
 import { useToast } from "../components/ToastContext";
 import { fetchJson } from "../helpers/api";
+import { BlockedCard } from "@/components/BlockedCard";
 
 export interface Result {
     position: number;
@@ -64,7 +66,6 @@ export function RaceViewerPage() {
     const [showHero, setShowHero] = useState(false);
     const [circuitName, setCircuitName] = useState("");
     const [results, setResults] = useState<Result[]>([]);
-    const [loadingResults, setLoadingResults] = useState(false);
     const [showResultsBox, setShowResultsBox] = useState(false);
     const [showStartGrid, setShowStartGrid] = useState(false);
     const raceSessionsWithGridPos = ["Race", "Sprint", "Sprint Shootout", "Sprint Qualifying"];
@@ -101,6 +102,39 @@ export function RaceViewerPage() {
 
     const frameRef = useRef<number | null>(null);
     const lastTimestampRef = useRef<number | null>(null);
+
+    const [blockRacePlayback, setBlockRacePlayback] = useState<blockState>({
+        blocked: false,
+        reason: "",
+    });
+    const [blockPlaybackControls, setBlockPlaybackControls] = useState<blockState>({
+        blocked: false,
+        reason: "",
+    });
+    const [blockRacePlaybackHeader, setBlockRacePlaybackHeader] = useState<blockState>({
+        blocked: false,
+        reason: "",
+    });
+    const [blockRacePlaybackLeaderboard, setBlockRacePlaybackLeaderboard] = useState<blockState>({
+        blocked: false,
+        reason: "",
+    });
+    const [blockRacePlaybackCircuit, setBlockRacePlaybackCircuit] = useState<blockState>({
+        blocked: false,
+        reason: "",
+    });
+    const [blockRacePlaybackCarData, setBlockRacePlaybackCarData] = useState<blockState>({
+        blocked: false,
+        reason: "",
+    });
+    const [blockRacePlaybackRaceControl, setBlockRacePlaybackRaceControl] = useState<blockState>({
+        blocked: false,
+        reason: "",
+    });
+    const [blockRacePlaybackTeamRadio, setBlockRacePlaybackTeamRadio] = useState<blockState>({
+        blocked: false,
+        reason: "",
+    });
 
     // -- VR Builder
     const stringsToOptions = (items: string[]): MultiSelectOption[] =>
@@ -205,14 +239,6 @@ export function RaceViewerPage() {
         console.log("Selected driver:", selectedDriver);
     }, [selectedDriver]);
 
-    // Handles Summary section
-    useEffect(() => {
-        if (showSummarySection) {
-            setShowResultsBox(true);
-            setShowStartGrid(raceSessionsWithGridPos.includes(selectedSession));
-        }
-    }, [showSummarySection]);
-
     // Handles tabs
     useEffect(() => {
         switch (activeTab) {
@@ -250,16 +276,22 @@ export function RaceViewerPage() {
         setShowTabs(true);
         setActiveTab("summary");
         setSearchButton(true);
-        setLoadingResults(true);
         setShowRaceSelection(false);
         setShowHeader(true);
 
+        // Handles Race Playback Block
+        if (Number(selectedYear) < 2023) {
+            setBlockRacePlayback({
+                blocked: true,
+                reason: "Race Playback only available for races 2023 onwards.",
+            });
+        }
+
         // Fetches VR data
         console.log("Fetching VR data");
-        fetch(
+        fetchJson<VRApiResponse>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/vr/`,
         )
-            .then((res) => res.json())
             .then((json: VRApiResponse) => {
                 console.log("VR JSON:", json);
                 const driverOpts = stringsToOptions(json.drivers);
@@ -274,15 +306,11 @@ export function RaceViewerPage() {
             });
 
         // Fetches results + starting grid data
-        if (raceSessionsWithGridPos.includes(selectedSession)) {
-            setShowStartGrid(true);
-        }
 
         console.log("Fetching summary results data");
-        fetch(
+        fetchJson<{ results: Result[] }>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/result/`,
         )
-            .then((res) => res.json())
             .then((data: { results: Result[] }) => {
                 setResults(data.results);
                 console.log("Summary results JSON:", data);
@@ -292,7 +320,10 @@ export function RaceViewerPage() {
                 toast("Failed to load results: " + err.message, "error");
             })
             .finally(() => {
-                setLoadingResults(false);
+                setShowResultsBox(true);
+                if (raceSessionsWithGridPos.includes(selectedSession)) {
+                    setShowStartGrid(true);
+                }
             });
 
         // Fetches playback data
@@ -312,15 +343,30 @@ export function RaceViewerPage() {
             })
             .catch((err) => {
                 console.error("Failed to load playback", err);
-                toast(err.message || "Failed to load playback data.", "error");
+                toast("Failed to load playback: " + err.message, "error");
+                setBlockRacePlayback({
+                    blocked: true,
+                    reason: err.message,
+                });
+                setBlockRacePlaybackHeader({
+                    blocked: true,
+                    reason: err.message,
+                });
+                setBlockRacePlaybackCircuit({
+                    blocked: true,
+                    reason: err.message,
+                });
+                setBlockPlaybackControls({
+                    blocked: true,
+                    reason: err.message,
+                });
             });
 
         // Fetches leaderboard data
         console.log("Fetching leaderboard data");
-        fetch(
+        fetchJson<LeaderboardApiResponse>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/leaderboard/`,
         )
-            .then((res) => res.json())
             .then((json: LeaderboardApiResponse) => {
                 console.log("Leaderboard JSON:", json);
                 setLeaderboardData(json);
@@ -328,13 +374,24 @@ export function RaceViewerPage() {
             .catch((err) => {
                 console.error("Failed to load leaderboard data", err);
                 toast("Failed to load leaderboard data: " + err.message, "error");
+                setBlockRacePlaybackLeaderboard({
+                    blocked: true,
+                    reason: err.message,
+                });
+                setBlockRacePlaybackCarData({
+                    blocked: true,
+                    reason: err.message,
+                });
+                setBlockRacePlaybackCircuit({
+                    blocked: true,
+                    reason: err.message,
+                });
             });
 
         // Fetches weather data
-        fetch(
+        fetchJson<WeatherApiResponse>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/weather/`,
         )
-            .then((res) => res.json())
             .then((json: WeatherApiResponse) => {
                 console.log("Weather JSON:", json);
                 setWeather(json);
@@ -342,13 +399,16 @@ export function RaceViewerPage() {
             .catch((err) => {
                 console.error("Failed to load weather data", err);
                 toast("Failed to load weather data: " + err.message, "error");
+                setBlockRacePlaybackHeader({
+                    blocked: true,
+                    reason: err.message,
+                });
             });
 
         // Fetches race control data
-        fetch(
+        fetchJson<RaceControlApiResponse[]>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/racecontrol/`,
         )
-            .then((res) => res.json())
             .then((json: RaceControlApiResponse[]) => {
                 console.log("Race control JSON:", json);
                 setRaceControlData(json);
@@ -356,13 +416,16 @@ export function RaceViewerPage() {
             .catch((err) => {
                 console.error("Failed to load race control data", err);
                 toast("Failed to load race control data: " + err.message, "error");
+                setBlockRacePlaybackRaceControl({
+                    blocked: true,
+                    reason: err.message,
+                });
             });
 
         // Fetches team radio data
-        fetch(
+        fetchJson<TeamRadioApiResponse[]>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/teamradio/`,
         )
-            .then((res) => res.json())
             .then((json: TeamRadioApiResponse[]) => {
                 console.log("Team radio JSON:", json);
                 setTeamRadioData(json);
@@ -370,6 +433,10 @@ export function RaceViewerPage() {
             .catch((err) => {
                 console.error("Failed to load team radio data", err);
                 toast("Failed to load team radio data: " + err.message, "error");
+                setBlockRacePlaybackTeamRadio({
+                    blocked: true,
+                    reason: err.message,
+                });
             });
     };
 
@@ -383,10 +450,14 @@ export function RaceViewerPage() {
 
     // Gets years
     useEffect(() => {
-        fetch("http://localhost:8000/api/seasons_years/")
-            .then((res) => res.json())
-            .then((data) => setYearOptions(data.years.map(String)))
-            .catch(console.error);
+        fetchJson<{ years: string[] }>("http://localhost:8000/api/seasons_years/")
+            .then((data) => {
+                setYearOptions(data.years.map(String));
+            })
+            .catch((err) => {
+                console.error("Failed to load years", err);
+                toast("Failed to load years: " + err.message, "error");
+            });
     }, []);
 
     // Gets countries
@@ -396,13 +467,15 @@ export function RaceViewerPage() {
             setSelectedCountry("");
             return;
         }
-        fetch(`http://localhost:8000/api/seasons/${selectedYear}/countries/`)
-            .then((res) => res.json())
+        fetchJson<{ countries: string[] }>(
+            `http://localhost:8000/api/seasons/${selectedYear}/countries/`,
+        )
             .then((data: { countries: string[] }) => {
                 setCountryOptions(data.countries);
             })
             .catch((err) => {
                 console.error("Failed to load countries", err);
+                toast("Failed to load countries: " + err.message, "error");
             })
             .finally(() => {
                 setSelectedCountry("");
@@ -416,8 +489,9 @@ export function RaceViewerPage() {
             setSelectedSession("");
             return;
         }
-        fetch(`http://localhost:8000/api/seasons/${selectedYear}/${selectedCountry}/sessions/`)
-            .then((res) => res.json())
+        fetchJson<{ sessions: string[] }>(
+            `http://localhost:8000/api/seasons/${selectedYear}/${selectedCountry}/sessions/`,
+        )
             .then((data: { sessions: string[] }) => {
                 setSessionsOptions(data.sessions);
             })
@@ -435,8 +509,9 @@ export function RaceViewerPage() {
         if (!searchButton) {
             return;
         }
-        fetch(`http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/circuit/`)
-            .then((res) => res.json())
+        fetchJson<{ circuit: string }>(
+            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/circuit/`,
+        )
             .then((data) => {
                 setCircuitName(data.circuit);
                 setShowHero(true);
@@ -687,88 +762,141 @@ export function RaceViewerPage() {
             </div>
 
             {/* -- Race Playback section */}
-            <div className="">
+            <div>
                 {showRacePlayBackSection && (
                     <>
-                        <div className="mt-2 pb-24">
-                            {/* Race playback circuit */}
-                            <PlaybackControls
-                                data={data}
-                                currentTime={currentTime}
-                                sessionStart={sessionStart}
-                                setCurrentTime={setCurrentTimeSynced}
-                                isPlaying={isPlaying}
-                                setIsPlaying={setIsPlaying}
-                                speedMultiplier={speedMultiplier}
-                                setSpeedMultiplier={setSpeedMultiplier}
-                                setIsScrubbing={setIsScrubbing}
-                                triggerTeamRadioAutoplay={() =>
-                                    setTeamRadioAutoplayToken((t) => t + 1)
-                                }
-                            />
-
-                            <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
-                                <div className="md:col-span-12">
-                                    {/* Race playback weather info */}
-                                    <RacePlaybackHeader
-                                        weatherData={weather}
-                                        playbackData={data}
+                        {blockRacePlayback.blocked ? (
+                            <div className="flex items-center justify-center py-24">
+                                <BlockedCard
+                                    title="Race Playback Disabled"
+                                    reason={blockRacePlayback.reason}
+                                />
+                            </div>
+                        ) : (
+                            <div className="mt-2 pb-24">
+                                {/* Race playback controls */}
+                                {blockPlaybackControls ? (
+                                    <BlockedCard
+                                        title="Race Playback Controls Disabled"
+                                        reason={blockPlaybackControls.reason}
+                                    />
+                                ) : (
+                                    <PlaybackControls
+                                        data={data}
                                         currentTime={currentTime}
                                         sessionStart={sessionStart}
-                                        circuitName={circuitName}
-                                        selectedSession={selectedSession}
-                                        selectedYear={selectedYear}
+                                        setCurrentTime={setCurrentTimeSynced}
+                                        isPlaying={isPlaying}
+                                        setIsPlaying={setIsPlaying}
+                                        speedMultiplier={speedMultiplier}
+                                        setSpeedMultiplier={setSpeedMultiplier}
+                                        setIsScrubbing={setIsScrubbing}
+                                        triggerTeamRadioAutoplay={() =>
+                                            setTeamRadioAutoplayToken((t) => t + 1)
+                                        }
                                     />
-                                </div>
-                                <div className="md:col-span-8">
-                                    {/* Race playback leaderboard */}
-                                    <RacePlaybackLeaderboard
-                                        leaderboardData={leaderboardData}
-                                        currentTime={currentTime}
-                                        selectedDriver={selectedDriver}
-                                        setSelectedDriver={setSelectedDriver}
-                                    />
-                                </div>
-                                <div className="grid col-span-4 grid-cols-1 gap-2 self-start h-fit">
-                                    <div className="col-span-1">
-                                        {/* Race playback circuit */}
-                                        <RacePlaybackCircuit
-                                            data={data}
-                                            currentTime={currentTime}
-                                            leaderboardData={leaderboardData}
-                                            selectedDriver={selectedDriver}
-                                        />
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                                    <div className="md:col-span-12">
+                                        {blockRacePlaybackHeader ? (
+                                            <BlockedCard
+                                                title="Race Playback Header Disabled"
+                                                reason={blockRacePlaybackHeader.reason}
+                                            />
+                                        ) : (
+                                            <RacePlaybackHeader
+                                                weatherData={weather}
+                                                playbackData={data}
+                                                currentTime={currentTime}
+                                                sessionStart={sessionStart}
+                                                circuitName={circuitName}
+                                                selectedSession={selectedSession}
+                                                selectedYear={selectedYear}
+                                            />
+                                        )}
                                     </div>
-                                    <div className="col-span-1">
-                                        {/* Driver data */}
-                                        <RacePlaybackCarData
-                                            leaderboardData={leaderboardData}
-                                            currentTime={currentTime}
-                                            selectedDriver={selectedDriver}
-                                        />
+
+                                    <div className="md:col-span-8">
+                                        {blockRacePlaybackLeaderboard ? (
+                                            <BlockedCard
+                                                title="Race Playback Leaderboard Disabled"
+                                                reason={blockRacePlaybackLeaderboard.reason}
+                                            />
+                                        ) : (
+                                            <RacePlaybackLeaderboard
+                                                leaderboardData={leaderboardData}
+                                                currentTime={currentTime}
+                                                selectedDriver={selectedDriver}
+                                                setSelectedDriver={setSelectedDriver}
+                                            />
+                                        )}
                                     </div>
-                                </div>
-                                <div className="md:col-span-6">
-                                    {/* Race control */}
-                                    <RacePlaybackRaceControl
-                                        raceControlData={raceControlData}
-                                        currentTime={currentTime}
-                                    />
-                                </div>
-                                <div className="md:col-span-6">
-                                    {/* Race control */}
-                                    <RacePlaybackTeamRadio
-                                        teamRadioData={teamRadioData}
-                                        teamRadioAutoplay={teamRadioAutoplay}
-                                        setTeamRadioAutoplay={setTeamRadioAutoplay}
-                                        leaderboardData={leaderboardData}
-                                        currentTime={currentTime}
-                                        isScrubbing={isScrubbing}
-                                        teamRadioAutoplayToken={teamRadioAutoplayToken}
-                                    />
+
+                                    <div className="grid col-span-4 grid-cols-1 gap-2 self-start h-fit">
+                                        {blockRacePlaybackCircuit ? (
+                                            <BlockedCard
+                                                title="Race Playback Circuit Disabled"
+                                                reason={blockRacePlaybackCircuit.reason}
+                                            />
+                                        ) : (
+                                            <RacePlaybackCircuit
+                                                data={data}
+                                                currentTime={currentTime}
+                                                leaderboardData={leaderboardData}
+                                                selectedDriver={selectedDriver}
+                                            />
+                                        )}
+
+                                        {blockRacePlaybackCarData ? (
+                                            <BlockedCard
+                                                title="Race Playback Car Data Disabled"
+                                                reason={blockRacePlaybackCarData.reason}
+                                            />
+                                        ) : (
+                                            <RacePlaybackCarData
+                                                leaderboardData={leaderboardData}
+                                                currentTime={currentTime}
+                                                selectedDriver={selectedDriver}
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div className="md:col-span-6">
+                                        {blockRacePlaybackRaceControl ? (
+                                            <BlockedCard
+                                                title="Race Playback Race Control Disabled"
+                                                reason={blockRacePlaybackRaceControl.reason}
+                                            />
+                                        ) : (
+                                            <RacePlaybackRaceControl
+                                                raceControlData={raceControlData}
+                                                currentTime={currentTime}
+                                            />
+                                        )}
+                                    </div>
+
+                                    <div className="md:col-span-6">
+                                        {blockRacePlaybackTeamRadio ? (
+                                            <BlockedCard
+                                                title="Race Playback Team Radio Disabled"
+                                                reason={blockRacePlaybackTeamRadio.reason}
+                                            />
+                                        ) : (
+                                            <RacePlaybackTeamRadio
+                                                teamRadioData={teamRadioData}
+                                                teamRadioAutoplay={teamRadioAutoplay}
+                                                setTeamRadioAutoplay={setTeamRadioAutoplay}
+                                                leaderboardData={leaderboardData}
+                                                currentTime={currentTime}
+                                                isScrubbing={isScrubbing}
+                                                teamRadioAutoplayToken={teamRadioAutoplayToken}
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
+                        )}
                     </>
                 )}
             </div>
@@ -801,7 +929,7 @@ export function RaceViewerPage() {
                                 </div>
                                 <div className="col-span-3">
                                     {/* Results */}
-                                    {showResultsBox && (
+                                    {showResultsBox ? (
                                         <>
                                             <div className="card card-border bg-base-100 w-auto">
                                                 <div className="card-body">
@@ -818,309 +946,220 @@ export function RaceViewerPage() {
 
                                                     <div className="overflow-x-auto">
                                                         <table className="table [&_td]:py-2">
-                                                            {!loadingResults && (
-                                                                <thead>
-                                                                    <>
-                                                                        {selectedSession.includes(
-                                                                            "Practice",
-                                                                        ) && (
-                                                                            <tr>
-                                                                                <th>Pos</th>
-                                                                                <th>Driver No.</th>
-                                                                                <th></th>
-                                                                                <th>Driver</th>
-                                                                                <th>Team</th>
-                                                                                <th>Time</th>
-                                                                                <th>Laps</th>
-                                                                            </tr>
-                                                                        )}
+                                                            <thead>
+                                                                <>
+                                                                    {selectedSession.includes(
+                                                                        "Practice",
+                                                                    ) && (
+                                                                        <tr>
+                                                                            <th>Pos</th>
+                                                                            <th>Driver No.</th>
+                                                                            <th></th>
+                                                                            <th>Driver</th>
+                                                                            <th>Team</th>
+                                                                            <th>Time</th>
+                                                                            <th>Laps</th>
+                                                                        </tr>
+                                                                    )}
 
-                                                                        {(selectedSession.includes(
-                                                                            "Qualifying",
-                                                                        ) ||
-                                                                            selectedSession.includes(
-                                                                                "Shootout",
-                                                                            )) && (
-                                                                            <tr>
-                                                                                <th>Pos</th>
-                                                                                <th>Driver No.</th>
-                                                                                <th></th>
-                                                                                <th>Driver</th>
-                                                                                <th>Team</th>
-                                                                                <th>Q1</th>
-                                                                                <th>Q2</th>
-                                                                                <th>Q3</th>
-                                                                                <th>Laps</th>
-                                                                            </tr>
-                                                                        )}
+                                                                    {(selectedSession.includes(
+                                                                        "Qualifying",
+                                                                    ) ||
+                                                                        selectedSession.includes(
+                                                                            "Shootout",
+                                                                        )) && (
+                                                                        <tr>
+                                                                            <th>Pos</th>
+                                                                            <th>Driver No.</th>
+                                                                            <th></th>
+                                                                            <th>Driver</th>
+                                                                            <th>Team</th>
+                                                                            <th>Q1</th>
+                                                                            <th>Q2</th>
+                                                                            <th>Q3</th>
+                                                                            <th>Laps</th>
+                                                                        </tr>
+                                                                    )}
 
-                                                                        {(selectedSession.includes(
-                                                                            "Race",
-                                                                        ) ||
-                                                                            selectedSession.includes(
-                                                                                "Sprint",
-                                                                            )) && (
-                                                                            <tr>
-                                                                                <th>Pos</th>
-                                                                                <th>Driver No.</th>
-                                                                                <th></th>
-                                                                                <th>Driver</th>
-                                                                                <th>Team</th>
-                                                                                <th>Laps</th>
-                                                                                <th>
-                                                                                    Best Lap Time
-                                                                                </th>
-                                                                                <th>
-                                                                                    Last Lap Time
-                                                                                </th>
-                                                                                <th>Points</th>
-                                                                                <th>Status</th>
-                                                                            </tr>
-                                                                        )}
-                                                                    </>
-                                                                </thead>
-                                                            )}
+                                                                    {(selectedSession.includes(
+                                                                        "Race",
+                                                                    ) ||
+                                                                        selectedSession.includes(
+                                                                            "Sprint",
+                                                                        )) && (
+                                                                        <tr>
+                                                                            <th>Pos</th>
+                                                                            <th>Driver No.</th>
+                                                                            <th></th>
+                                                                            <th>Driver</th>
+                                                                            <th>Team</th>
+                                                                            <th>Laps</th>
+                                                                            <th>Best Lap Time</th>
+                                                                            <th>Last Lap Time</th>
+                                                                            <th>Points</th>
+                                                                            <th>Status</th>
+                                                                        </tr>
+                                                                    )}
+                                                                </>
+                                                            </thead>
                                                             <tbody>
-                                                                {loadingResults ? (
-                                                                    <tr>
-                                                                        <td
-                                                                            colSpan={7}
-                                                                            className="p-0"
+                                                                {selectedSession.includes(
+                                                                    "Practice",
+                                                                ) &&
+                                                                    sortedResults.map((r) => (
+                                                                        <tr
+                                                                            key={`${r.driverNumber}-${r.position}`}
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    teamBgByDriver(
+                                                                                        leaderboardData,
+                                                                                        Number(
+                                                                                            r.driverNumber,
+                                                                                        ),
+                                                                                    ) ??
+                                                                                    "transparent",
+                                                                            }}
                                                                         >
-                                                                            <div className="skeleton h-32 w-auto"></div>
-                                                                        </td>
-                                                                    </tr>
-                                                                ) : (
-                                                                    <>
-                                                                        {selectedSession.includes(
-                                                                            "Practice",
-                                                                        ) &&
-                                                                            sortedResults.map(
-                                                                                (r) => (
-                                                                                    <tr
-                                                                                        key={`${r.driverNumber}-${r.position}`}
-                                                                                        style={{
-                                                                                            backgroundColor:
-                                                                                                teamBgByDriver(
-                                                                                                    leaderboardData,
-                                                                                                    Number(
-                                                                                                        r.driverNumber,
-                                                                                                    ),
-                                                                                                ) ??
-                                                                                                "transparent",
-                                                                                        }}
-                                                                                    >
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.position
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.driverNumber
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            <div className="flex items-center gap-3">
-                                                                                                <DriverAvatar
-                                                                                                    name={
-                                                                                                        r.name
-                                                                                                    }
-                                                                                                    headshotUrl={
-                                                                                                        r.headshot_url
-                                                                                                    }
-                                                                                                />
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {r.name}
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {r.team}
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.bestLapTime
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.numberOfLaps
-                                                                                            }
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                ),
-                                                                            )}
+                                                                            <td>{r.position}</td>
+                                                                            <td>
+                                                                                {r.driverNumber}
+                                                                            </td>
+                                                                            <td>
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <DriverAvatar
+                                                                                        name={
+                                                                                            r.name
+                                                                                        }
+                                                                                        headshotUrl={
+                                                                                            r.headshot_url
+                                                                                        }
+                                                                                    />
+                                                                                </div>
+                                                                            </td>
+                                                                            <td>{r.name}</td>
+                                                                            <td>{r.team}</td>
+                                                                            <td>{r.bestLapTime}</td>
+                                                                            <td>
+                                                                                {r.numberOfLaps}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))}
 
-                                                                        {(selectedSession.includes(
-                                                                            "Qualifying",
-                                                                        ) ||
-                                                                            selectedSession.includes(
-                                                                                "Shootout",
-                                                                            )) &&
-                                                                            sortedResults.map(
-                                                                                (r) => (
-                                                                                    <tr
-                                                                                        key={`${r.driverNumber}-${r.position}`}
-                                                                                        style={{
-                                                                                            backgroundColor:
-                                                                                                teamBgByDriver(
-                                                                                                    leaderboardData,
-                                                                                                    Number(
-                                                                                                        r.driverNumber,
-                                                                                                    ),
-                                                                                                ) ??
-                                                                                                "transparent",
-                                                                                        }}
-                                                                                    >
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.position
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.driverNumber
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            <div className="flex items-center gap-3">
-                                                                                                <DriverAvatar
-                                                                                                    name={
-                                                                                                        r.name
-                                                                                                    }
-                                                                                                    headshotUrl={
-                                                                                                        r.headshot_url
-                                                                                                    }
-                                                                                                />
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {r.name}
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {r.team}
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {r.q1}
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {r.q2}
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {r.q3}
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.bestLapTime
-                                                                                            }
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                ),
-                                                                            )}
+                                                                {(selectedSession.includes(
+                                                                    "Qualifying",
+                                                                ) ||
+                                                                    selectedSession.includes(
+                                                                        "Shootout",
+                                                                    )) &&
+                                                                    sortedResults.map((r) => (
+                                                                        <tr
+                                                                            key={`${r.driverNumber}-${r.position}`}
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    teamBgByDriver(
+                                                                                        leaderboardData,
+                                                                                        Number(
+                                                                                            r.driverNumber,
+                                                                                        ),
+                                                                                    ) ??
+                                                                                    "transparent",
+                                                                            }}
+                                                                        >
+                                                                            <td>{r.position}</td>
+                                                                            <td>
+                                                                                {r.driverNumber}
+                                                                            </td>
+                                                                            <td>
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <DriverAvatar
+                                                                                        name={
+                                                                                            r.name
+                                                                                        }
+                                                                                        headshotUrl={
+                                                                                            r.headshot_url
+                                                                                        }
+                                                                                    />
+                                                                                </div>
+                                                                            </td>
+                                                                            <td>{r.name}</td>
+                                                                            <td>{r.team}</td>
+                                                                            <td>{r.q1}</td>
+                                                                            <td>{r.q2}</td>
+                                                                            <td>{r.q3}</td>
+                                                                            <td>{r.bestLapTime}</td>
+                                                                        </tr>
+                                                                    ))}
 
-                                                                        {(selectedSession.includes(
-                                                                            "Race",
-                                                                        ) ||
-                                                                            selectedSession.includes(
-                                                                                "Sprint",
-                                                                            )) &&
-                                                                            sortedResults.map(
-                                                                                (r) => (
-                                                                                    <tr
-                                                                                        key={`${r.driverNumber}-${r.position}`}
-                                                                                        style={{
-                                                                                            backgroundColor:
-                                                                                                teamBgByDriver(
-                                                                                                    leaderboardData,
-                                                                                                    Number(
-                                                                                                        r.driverNumber,
-                                                                                                    ),
-                                                                                                ) ??
-                                                                                                "transparent",
-                                                                                        }}
-                                                                                    >
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.position
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.driverNumber
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            <div className="flex items-center gap-3">
-                                                                                                <DriverAvatar
-                                                                                                    name={
-                                                                                                        r.name
-                                                                                                    }
-                                                                                                    headshotUrl={
-                                                                                                        r.headshot_url
-                                                                                                    }
-                                                                                                />
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {r.name}
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {r.team}
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.numberOfLaps
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.bestLapTime
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.lastLapTime
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.points
-                                                                                            }
-                                                                                        </td>
-                                                                                        <td>
-                                                                                            {
-                                                                                                r.status
-                                                                                            }
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                ),
-                                                                            )}
-                                                                    </>
-                                                                )}
+                                                                {(selectedSession.includes(
+                                                                    "Race",
+                                                                ) ||
+                                                                    selectedSession.includes(
+                                                                        "Sprint",
+                                                                    )) &&
+                                                                    sortedResults.map((r) => (
+                                                                        <tr
+                                                                            key={`${r.driverNumber}-${r.position}`}
+                                                                            style={{
+                                                                                backgroundColor:
+                                                                                    teamBgByDriver(
+                                                                                        leaderboardData,
+                                                                                        Number(
+                                                                                            r.driverNumber,
+                                                                                        ),
+                                                                                    ) ??
+                                                                                    "transparent",
+                                                                            }}
+                                                                        >
+                                                                            <td>{r.position}</td>
+                                                                            <td>
+                                                                                {r.driverNumber}
+                                                                            </td>
+                                                                            <td>
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <DriverAvatar
+                                                                                        name={
+                                                                                            r.name
+                                                                                        }
+                                                                                        headshotUrl={
+                                                                                            r.headshot_url
+                                                                                        }
+                                                                                    />
+                                                                                </div>
+                                                                            </td>
+                                                                            <td>{r.name}</td>
+                                                                            <td>{r.team}</td>
+                                                                            <td>
+                                                                                {r.numberOfLaps}
+                                                                            </td>
+                                                                            <td>{r.bestLapTime}</td>
+                                                                            <td>{r.lastLapTime}</td>
+                                                                            <td>{r.points}</td>
+                                                                            <td>{r.status}</td>
+                                                                        </tr>
+                                                                    ))}
                                                             </tbody>
                                                         </table>
                                                     </div>
                                                 </div>
                                             </div>
                                         </>
+                                    ) : (
+                                        <div className="skeleton h-32 w-auto"></div>
                                     )}
                                 </div>
                                 <div className="col-span-3">
                                     {/* Starting grid */}
-                                    {showStartGrid && (
+                                    {showStartGrid ? (
                                         <div className="card card-border bg-base-100">
                                             <div className="card-body">
                                                 <h2 className="card-title">STARTING GRID</h2>
                                                 <div className="mt-2">
-                                                    {loadingResults ? (
-                                                        <div className="skeleton h-32 w-auto"></div>
-                                                    ) : (
-                                                        <StartingGrid results={results} />
-                                                    )}
+                                                    <StartingGrid results={results} />
                                                 </div>
                                             </div>
                                         </div>
+                                    ) : (
+                                        <div className="skeleton h-32 w-auto"></div>
                                     )}
                                 </div>
                             </div>

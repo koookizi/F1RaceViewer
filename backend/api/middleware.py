@@ -32,7 +32,7 @@ class JsonExceptionMiddleware(MiddlewareMixin):
 
             if status == 401:
                 return JsonResponse(
-                    {"error": "unauthorized", "message": "API - Unauthorized (401)."},
+                    {"error": "unauthorized", "message": "API - Unauthorized (401). Possibly an ongoing session right now. Try again after."},
                     status=401,
                 )
 
