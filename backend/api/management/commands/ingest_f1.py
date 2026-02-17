@@ -25,7 +25,7 @@ class Command(BaseCommand):
         parser.add_argument("--seasons", nargs="*", type=int, help="Optional list of specific seasons to ingest")
 
         # Optional safety switches (helpful if you still hit rate limits)
-        parser.add_argument("--sleep", type=float, default=0.0, help="Sleep between HTTP calls (seconds)")
+        parser.add_argument("--sleep", type=float, default=1.0, help="Sleep between HTTP calls (seconds)")
         parser.add_argument("--retries", type=int, default=4, help="Retries for Ergast calls on failure")
         parser.add_argument("--backoff", type=float, default=2.0, help="Backoff multiplier for retries")
 
@@ -69,7 +69,14 @@ class Command(BaseCommand):
     # Shared helpers
     # ----------------------------
     def ensure_sessions(self, event_obj: Event):
-        for st in ["Practice 1", "Practice 2", "Practice 3", "Qualifying", "Race"]:
+        for st in ["Practice 1",
+    "Practice 2",
+    "Practice 3",
+    "Qualifying",
+    "Sprint",
+    "Sprint Shootout",
+    "Sprint Qualifying",
+    "Race"]:
             Session.objects.get_or_create(event=event_obj, session_type=st)
 
     def _maybe_sleep(self):

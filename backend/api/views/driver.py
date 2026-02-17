@@ -1,9 +1,8 @@
 from django.shortcuts import get_object_or_404, render
 from django.http import JsonResponse
-from api.models import Driver, DriverStanding, Result
+from api.models import Driver
 from fastf1.ergast import Ergast
-from django.db.models import Sum, Min
-from django.db.models.functions import Coalesce
+import pandas as pd
 
 __all__ = [
     "drivers_getDrivers",
@@ -29,62 +28,106 @@ def driver_getDriverCode(request, driver_ergast_id: str):
     
 
 def driver_getDriverSummary(request, driver_ergast_id: str):
-    driver = get_object_or_404(Driver, ergast_id=driver_ergast_id)
+    ergast = Ergast(result_type="pandas", auto_cast=True)
 
-    # IMPORTANT: adapt these if you store "Race"/"Qualifying" instead of "R"/"Q"
-    RACE = "R"
-    QUALI = "Q"
+    # main necessary ergast requests
+    race_results_ergast = ergast.get_race_results(driver=driver_ergast_id, limit=100)
+    temp_df = []
+    while True:
+        temp_df.extend(race_results_ergast.content)
+        try:
+            race_results_ergast = race_results_ergast.get_next_result_page()
+        except ValueError:
+            break
+    race_results_ergast_dfs = pd.concat(temp_df, ignore_index=True)
 
-    race_qs = Result.objects.filter(driver=driver, session_type=RACE)
-    quali_qs = Result.objects.filter(driver=driver, session_type=QUALI)
+    seasons_ergast = ergast.get_seasons(driver=driver_ergast_id, limit=1000)
+    seasons_ergast = list(seasons_ergast["season"])
 
-    # Grand Prix entered = distinct events where driver has a race result
-    gp_entered = race_qs.values("event_id").distinct().count()
+    pole_positions_ergast = ergast.get_race_results(driver=driver_ergast_id, grid_position=1, limit=1)
 
-    # Career points (race points)
-    career_points = race_qs.aggregate(p=Coalesce(Sum("points"), 0.0))["p"]
+    DNFs_ergast = ergast.get_finishing_status(driver=driver_ergast_id, limit=1000)
 
-    # Highest race finish + count (ignore null positions)
-    highest_race_finish = race_qs.exclude(position__isnull=True).aggregate(
-        m=Min("position")
-    )["m"]
-    highest_race_finish_count = 0
-    if highest_race_finish is not None:
-        highest_race_finish_count = race_qs.filter(position=highest_race_finish).count()
+    driver_given_name = ""
+    driver_family_name = ""
 
-    # Podiums (race finishes <= 3; ignore null positions)
-    podiums = race_qs.exclude(position__isnull=True).filter(position__lte=3).count()
+    # grand prix entered
+    gp_entered = race_results_ergast.total_results
 
-    # Highest grid position + count (ignore null grid)
-    highest_grid_position = race_qs.exclude(grid__isnull=True).aggregate(
-        m=Min("grid")
-    )["m"]
-    highest_grid_position_count = 0
-    if highest_grid_position is not None:
-        highest_grid_position_count = race_qs.filter(grid=highest_grid_position).count()
+    # career points, world championships
+    career_points = 0.0
+    championships = 0
 
-    # Pole positions
-    pole_positions = race_qs.filter(grid=1).count()
+    for year in seasons_ergast:
+        standing = ergast.get_driver_standings(
+            season=year,
+            driver=driver_ergast_id,
+            limit=1
+        )
+        if standing.content: 
+            points_col = standing.content[0].loc[0, "points"]
 
-    # World Championships (seasons where driver finished P1 in DriverStanding)
-    world_championships = DriverStanding.objects.filter(
-        driver=driver, position=1
-    ).count()
+            career_points += points_col # career points
+
+            try:
+                position_col = standing.content[0].loc[0, "position"]
+            except KeyError:
+                position_col = standing.content[0].loc[0, "positionText"]
+                if position_col == "-":
+                    position_col = 0
+                else:
+                    position_col = int(position_col)
+            if position_col == 1:
+                championships += 1 # world championships
+
+            if driver_given_name == "":
+                driver_given_name = standing.content[0].loc[0, "givenName"]
+            if driver_family_name == "":
+                driver_family_name = standing.content[0].loc[0, "familyName"]
+
+
+    # highest race finish
+    hrf_valid = race_results_ergast_dfs.loc[race_results_ergast_dfs["position"].notna() & (race_results_ergast_dfs["position"] > 0), "position"]
+    hrf_best_position = int(hrf_valid.min())
+    hrf_count = (race_results_ergast_dfs["position"] == hrf_best_position).sum()
+
+    # podiums
+    podiums = 0
+    for c in range(1,4):
+        podiums += (race_results_ergast_dfs["position"] == c).sum()
+
+    # highest grid position
+    hgp_valid = race_results_ergast_dfs.loc[race_results_ergast_dfs["grid"].notna() & (race_results_ergast_dfs["grid"] > 0), "grid"]
+    hgp_best_position = int(hgp_valid.min())
+    hgp_count = (race_results_ergast_dfs["grid"] == hgp_best_position).sum()
+
+    # pole positions
+    pole_positions = pole_positions_ergast.total_results
 
     # DNFs
-    # If you don't store a status field, the best DB-only proxy is "no classified position"
-    dnfs = race_qs.filter(position__isnull=True).count()
+    dnf_df = pd.DataFrame(DNFs_ergast)
+
+    finished_mask = (
+        (dnf_df["status"] == "Finished") |
+        (dnf_df["status"].str.startswith("+")) |
+        (dnf_df["status"] == "Lapped")
+    )
+
+    # because disqualified is not equal to DNF
+    dsq_mask = dnf_df["status"] == "Disqualified"
+
+    dnfs = dnf_df.loc[~finished_mask & ~dsq_mask, "count"].sum()
 
     return JsonResponse({
-        "driver": f"{driver.given_name} {driver.family_name}",
-        "grand_prix_entered": gp_entered,
+        "driver": f"{driver_given_name} {driver_family_name}",
+        "grand_prix_entered": int(gp_entered),
         "career_points": float(career_points),
-        "highest_race_finish": highest_race_finish,                    # e.g. 1
-        "highest_race_finish_count": highest_race_finish_count,        # e.g. 105
-        "podiums": podiums,
-        "highest_grid_position": highest_grid_position,                # e.g. 1
-        "highest_grid_position_count": highest_grid_position_count,    # e.g. 104
-        "pole_positions": pole_positions,
-        "world_championships": world_championships,
-        "dnfs": dnfs,
+        "highest_race_finish": int(hrf_best_position),                    # e.g. 1
+        "highest_race_finish_count": int(hrf_count),        # e.g. 105
+        "podiums": int(podiums),
+        "highest_grid_position": int(hgp_best_position),                # e.g. 1
+        "highest_grid_position_count": int(hgp_count),    # e.g. 104
+        "pole_positions": int(pole_positions),
+        "world_championships": int(championships),
+        "dnfs": int(dnfs),
     })

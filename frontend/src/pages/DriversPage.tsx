@@ -52,6 +52,8 @@ export function DriversPage() {
     const [currentSeasonData, setCurrentSeasonData] = useState<currentSeasonData | null>(null);
     const [driverSummary, setDriverSummary] = useState<DriverSummaryData | null>(null);
 
+    const [showDriverSummary, setShowDriverSummary] = useState(false);
+
     const [blockCurrentSeason, setBlockCurrentSeason] = useState<blockState>({
         blocked: false,
         reason: "",
@@ -156,7 +158,7 @@ export function DriversPage() {
                 toast("Failed to load summary data: " + err.message, "error");
             })
             .finally(() => {
-                setShowSummarySection(true);
+                setShowDriverSummary(true);
             });
     };
 
@@ -359,7 +361,7 @@ export function DriversPage() {
 
                             <div className="col-span-3">
                                 {/* Driver Summary */}
-                                {showSummarySection ? (
+                                {showDriverSummary ? (
                                     <div className="card card-border bg-base-100">
                                         <div className="card-body">
                                             <h2 className="card-title">DRIVER SUMMARY</h2>

@@ -19,7 +19,7 @@ class Event(models.Model):
 
 class Session(models.Model):
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    session_type = models.CharField(max_length=5)
+    session_type = models.CharField(max_length=100) # e.g "Practice 1","Practice 2","Practice 3","Qualifying","Sprint","Sprint Shootout","Sprint Qualifying","Race"
 
 class Team(models.Model):
     ergast_id = models.CharField(max_length=64, unique=True)
@@ -31,27 +31,3 @@ class Driver(models.Model):
     given_name = models.CharField(max_length=100)
     family_name = models.CharField(max_length=100)
     nationality = models.CharField(max_length=100, blank=True)
-
-class Result(models.Model):
-    event = models.ForeignKey(Event, on_delete=models.CASCADE)
-    session_type = models.CharField(max_length=20)
-    driver = models.ForeignKey(Driver, on_delete=models.CASCADE)
-    team = models.ForeignKey(Team, on_delete=models.CASCADE)
-    grid = models.IntegerField(null=True, blank=True)
-    position = models.IntegerField(null=True, blank=True)
-    points = models.FloatField(default=0)
-
-class TeamStanding(models.Model):
-    season = models.ForeignKey(Season, on_delete=models.CASCADE)
-    team = models.ForeignKey(Team, on_delete=models.CASCADE)
-    position = models.IntegerField()
-    points = models.FloatField(default=0)
-
-class DriverStanding(models.Model):
-    season = models.ForeignKey(Season, on_delete=models.CASCADE)
-    driver = models.ForeignKey(Driver, on_delete=models.CASCADE)
-    position = models.IntegerField()
-    points = models.FloatField(default=0)
-
-    class Meta:
-        unique_together = ("season", "driver")
