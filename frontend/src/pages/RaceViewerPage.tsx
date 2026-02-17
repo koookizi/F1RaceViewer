@@ -535,11 +535,11 @@ export function RaceViewerPage() {
                     <div className="flex flex-col items-center">
                         {/* Race selection */}
                         <h1 className="text-center text-5xl font-medium mb-2">Select a Race</h1>
-                        <p className="text-md text-slate-500 mb-8">
+                        <p className="text-md text-slate-500 mb-8 text-center">
                             Explore and visualise data from past Formula 1 sessions.
                         </p>
 
-                        <div className="card card-border bg-base-200 w-200">
+                        <div className="card card-border bg-base-200 w-80 md:w-150">
                             <div className="card-body">
                                 <div className="card-actions justify-center">
                                     {/* Year dropdown */}

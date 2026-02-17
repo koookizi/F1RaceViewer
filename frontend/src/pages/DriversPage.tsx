@@ -170,11 +170,11 @@ export function DriversPage() {
                     <div className="flex flex-col items-center">
                         {/* Driver selection */}
                         <h1 className="text-center text-5xl font-medium mb-2">Find a Driver</h1>
-                        <p className="text-md text-slate-500 mb-8">
+                        <p className="text-md text-slate-500 mb-8 text-center">
                             Get information about a driver in Formula 1.
                         </p>
 
-                        <div className="card card-border bg-base-200 w-200">
+                        <div className="card card-border bg-base-200 w-80 md:w-150">
                             <div className="card-body">
                                 <div className="card-actions justify-center">
                                     <div className="dropdown">

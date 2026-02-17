@@ -143,16 +143,19 @@ export function TeamsPage() {
                     <div className="flex flex-col items-center">
                         {/* Team selection */}
                         <h1 className="text-center text-5xl font-medium mb-2">Find a Team</h1>
-                        <p className="text-md text-slate-500 mb-8">
+                        <p className="text-md text-slate-500 mb-8 text-center">
                             Get information about teams in Formula 1.
                         </p>
 
-                        <div className="card card-border bg-base-200 w-200">
+                        <div className="card card-border bg-base-200 w-80 md:w-150">
                             <div className="card-body">
                                 <div className="card-actions justify-center">
                                     <div className="dropdown">
                                         {/* Trigger = search input */}
-                                        <div tabIndex={0} className="btn bg-base-100 p-0 w-100">
+                                        <div
+                                            tabIndex={0}
+                                            className="btn bg-base-100 p-0 w-60 md:w-100"
+                                        >
                                             <input
                                                 type="text"
                                                 placeholder="Search team..."

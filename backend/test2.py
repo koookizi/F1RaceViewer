@@ -10,234 +10,114 @@ from urllib.parse import urlencode
 import math
 import openpyxl
 
+#from api.models import Season, Circuit, Event, Session, Team, Driver
+
 import fastf1
 from fastf1.ergast import Ergast
 
-ergast = Ergast(result_type="pandas", auto_cast=True)
+def ingest_drivers():
+    response = Ergast().get_drivers(limit=5000)
 
-def grandPrixEntered():
-    resp = ergast.get_race_results(constructor="haas", limit=1000)
-    
-    race_count = 0
+    created = 0
 
-    while True:
-        race_count += len(resp.content)  # one dataframe per race
-        try:
-            resp = resp.get_next_result_page()
-        except ValueError:
-            break
+    for driver in response.content:
+        ergast_id = driver["driverId"]
 
-    print(race_count)
-
-def teamPoints():
-    seasons = ergast.get_seasons(constructor="haas", limit=1000)
-    seasons = list(seasons["season"])
-
-    total_points = 0.0
-
-    for year in seasons:
-        standing = ergast.get_constructor_standings(
-            season=year,
-            constructor="haas",
-            limit=1
+        _, was_created = Driver.objects.update_or_create(
+            ergast_id=ergast_id,
+            defaults={
+                "given_name": driver.get("givenName", ""),
+                "family_name": driver.get("familyName", ""),
+                "nationality": driver.get("nationality", ""),
+            },
         )
-        if standing.content:
-            points = standing.content[0].loc[0, "points"]
-            if points > 0:
-                total_points += points
+
+        if was_created:
+            created += 1
+
+    return created
+
+def ingest_teams():
+    response = Ergast().get_constructor_info(limit=1000)
+
+    created = 0
+
+    print(response)
+    print(type(response))
+
+    # for constructor in response.content:
+    #     ergast_id = constructor["constructorId"]
+
+    #     _, was_created = Team.objects.update_or_create(
+    #         ergast_id=ergast_id,
+    #         defaults={
+    #             "name": constructor.get("name", ""),
+    #             "nationality": constructor.get("nationality", ""),
+    #         },
+    #     )
+
+    #     if was_created:
+    #         created += 1
+
+    # return created
+
+ingest_teams()
+
+def ingest_schedule(season_obj, year: int):
+    session_names = ["Session1", "Session2", "Session3", "Session4","Session5"]
+
+    schedule_df_fastf1 = pd.DataFrame(fastf1.get_event_schedule(year, include_testing=False))
+    schedule_df_ergast = pd.DataFrame(Ergast().get_race_schedule(season=year))
     
-    print(total_points)
+    # get circuitId from ergast by matching round numbers
+    schedule_df_fastf1["RoundNumber"] = schedule_df_fastf1["RoundNumber"].astype(int)
+    schedule_df_ergast["round"] = schedule_df_ergast["round"].astype(int)
+    ergast_necessary_columns = schedule_df_ergast[["round", "circuitId","circuitName"]]
+    schedule_df_ergast["circuitId"] = schedule_df_ergast["Circuit"].apply(lambda x: x["circuitId"])
 
-def highest_race_finish():
-    resp = ergast.get_race_results(constructor="haas", limit=100)
+    merged_df = schedule_df_fastf1.merge(
+        ergast_necessary_columns,
+        left_on="RoundNumber",
+        right_on="round",
+        how="left"
+    )
 
-    all_dfs = []
+    merged_df = merged_df.drop(columns=["round"])
 
-    # gets all rows with pagintation
-    while True:
-        all_dfs.extend(resp.content)
-        try:
-            resp = resp.get_next_result_page()
-        except ValueError:
-            break
+    for _, row in merged_df.iterrows():
+        rnd = row["RoundNumber"]
+        country = row["Country"]
+        circuit_obj = _create_circuit_row(row)
 
-    hrf_df = pd.concat(all_dfs, ignore_index=True)
-    hrf_df["position"] = pd.to_numeric(hrf_df["position"], errors="coerce")
-    best_position = hrf_df["position"].min()
-    count = (hrf_df["position"] == best_position).sum()
+        event_obj, _ = Event.objects.update_or_create(
+                    season=season_obj,
+                    round=rnd,
+                    defaults={"country": country, "circuit": circuit_obj},
+                )
+        
+        for session in session_names:
+            if pd.notna(row[session]):
+                Session.objects.update_or_create(
+                    event=event_obj,
+                    session_type=session,
+                )
 
-    print(best_position)
-    print(count)
+def _create_circuit_row(self, race_row) -> Circuit:
+    circuit_id = (race_row["circuitId"] or "").strip()
+    circuit_name = (race_row["circuitName"] or "").strip()
+    country = (race_row["country"] or "").strip()
 
-def podiums():
-    resp = ergast.get_race_results(constructor="haas", limit=100)
+    if not circuit_id:
+        # Fallback: derive a stable-ish id from the name
+        circuit_id = circuit_name.lower().strip().replace(" ", "_")[:64] or "unknown"
 
-    podiums = 0
+    circuit_obj, _ = Circuit.objects.update_or_create(
+        ergast_id=circuit_id,
+        defaults={
+            "name": circuit_name[:100] if circuit_name else circuit_id[:100],
+            "country": country[:100],
+        },
+    )
+    return circuit_obj
 
-    all_dfs = []
-
-    # gets all rows with pagintation
-    while True:
-        all_dfs.extend(resp.content)
-        try:
-            resp = resp.get_next_result_page()
-        except ValueError:
-            break
-
-    podiums_df = pd.concat(all_dfs, ignore_index=True)
-    podiums_df["position"] = pd.to_numeric(podiums_df["position"], errors="coerce")
-
-    for c in range(1,4):
-        podiums += (podiums_df["position"] == c).sum()
-
-    print(podiums)
-
-def highest_grid_position():
-    resp = ergast.get_race_results(constructor="haas", limit=100)
-
-    all_dfs = []
-
-    # gets all rows with pagintation
-    while True:
-        all_dfs.extend(resp.content)
-        try:
-            resp = resp.get_next_result_page()
-        except ValueError:
-            break
-
-    hgp_df = pd.concat(all_dfs, ignore_index=True)
-    hgp_df["grid"] = pd.to_numeric(hgp_df["grid"], errors="coerce")
-    grid_valid = hgp_df.loc[hgp_df["grid"].notna() & (hgp_df["grid"] > 0), "grid"]
-    best_grid_position = int(grid_valid.min())
-    count = (hgp_df["grid"] == best_grid_position).sum()
-
-    print(best_grid_position)
-    print(count)
-
-def pole_positions():
-    resp = ergast.get_race_results(constructor="haas", grid_position=1, limit=1)
-    print(resp.total_results)
-
-def world_championships():
-    seasons = ergast.get_seasons(constructor="alpine", limit=1000)
-    seasons = list(seasons["season"])
-    print(seasons)
-
-    count = 0
-
-    for year in seasons:
-        standing = ergast.get_constructor_standings(
-            season=year,
-            constructor="alpine",
-            limit=1
-        )
-        if standing.content:
-            try:
-                position_col = standing.content[0].loc[0, "position"]
-            except KeyError:
-                position_col = standing.content[0].loc[0, "positionText"]
-                if position_col == "-":
-                    position_col = 0
-                else:
-                    position_col = int(position_col)
-            if position_col == 1:
-                count += 1
-    
-    print(count)
-
-def mainFunction():
-    team_ergast_id = "haas"
-
-    # main necessary ergast requests
-    race_results_ergast = ergast.get_race_results(constructor=team_ergast_id, limit=1000)
-    temp_df = []
-    while True:
-        temp_df.extend(race_results_ergast.content)
-        try:
-            race_results_ergast = race_results_ergast.get_next_result_page()
-        except ValueError:
-            break
-    race_results_ergast_dfs = pd.concat(temp_df, ignore_index=True)
-
-    seasons_ergast = ergast.get_seasons(constructor=team_ergast_id, limit=1000)
-    seasons_ergast = list(seasons_ergast["season"])
-
-    pole_positions_ergast = ergast.get_race_results(constructor=team_ergast_id, grid_position=1, limit=1)
-
-    team_name = ""
-
-    # grand prix entered
-    race_results_gp_ergast = ergast.get_race_results(constructor="haas", limit=1000)
-    
-    race_count = 0
-
-    while True:
-        race_count += len(race_results_gp_ergast.content)  # one dataframe per race
-        try:
-            race_results_gp_ergast = race_results_gp_ergast.get_next_result_page()
-        except ValueError:
-            break
-
-    # career points, world championships
-    team_points = 0.0
-    championships = 0
-
-    for year in seasons_ergast:
-        standing = ergast.get_constructor_standings(
-            season=year,
-            constructor=team_ergast_id,
-            limit=1
-        )
-        if standing.content: 
-            points_col = standing.content[0].loc[0, "points"]
-
-            team_points += points_col # career points
-
-            try:
-                position_col = standing.content[0].loc[0, "position"]
-            except KeyError:
-                position_col = standing.content[0].loc[0, "positionText"]
-                if position_col == "-":
-                    position_col = 0
-                else:
-                    position_col = int(position_col)
-            if position_col == 1:
-                championships += 1 # world championships
-
-            if team_name == "":
-                team_name = standing.content[0].loc[0, "constructorName"]
-
-    # highest race finish
-    hrf_valid = race_results_ergast_dfs.loc[race_results_ergast_dfs["position"].notna() & (race_results_ergast_dfs["position"] > 0), "position"]
-    hrf_best_position = int(hrf_valid.min())
-    hrf_count = (race_results_ergast_dfs["position"] == hrf_best_position).sum()
-
-    # podiums
-    podiums = 0
-    for c in range(1,4):
-        podiums += (race_results_ergast_dfs["position"] == c).sum()
-
-    # highest grid position
-    hgp_valid = race_results_ergast_dfs.loc[race_results_ergast_dfs["grid"].notna() & (race_results_ergast_dfs["grid"] > 0), "grid"]
-    hgp_best_position = int(hgp_valid.min())
-    hgp_count = (race_results_ergast_dfs["grid"] == hgp_best_position).sum()
-
-    # pole positions
-    pole_positions = pole_positions_ergast.total_results
-
-
-    return ({
-        "team": f"{team_name}",
-        "grand_prix_entered": int(race_count),
-        "team_points": float(team_points),
-        "highest_race_finish": int(hrf_best_position),                    # e.g. 1
-        "highest_race_finish_count": int(hrf_count),        # e.g. 105
-        "podiums": int(podiums),
-        "highest_grid_position": int(hgp_best_position),                # e.g. 1
-        "highest_grid_position_count": int(hgp_count),    # e.g. 104
-        "pole_positions": int(pole_positions),
-        "world_championships": int(championships),
-    })
-
-print(json.dumps(mainFunction(), indent=4))
 

@@ -256,14 +256,5 @@ def mainFunction():
         "dnfs": int(dnfs),
     })
 
-print(json.dumps(mainFunction(), indent=4))
-
-
-
-    
-    
-
-
-
-
-#highest_grid_position()
+schedule_df_fastf1 = pd.DataFrame(fastf1.get_event_schedule(1950, include_testing=False))
+print(schedule_df_fastf1["Session5"])
