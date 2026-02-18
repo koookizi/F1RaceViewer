@@ -51,6 +51,23 @@ export function Sidebar() {
                     {/* Sidebar content here */}
                     <ul className="menu w-full grow ">
                         {/* List item */}
+                        <li className="mb-5">
+                            <NavLink
+                                to="/"
+                                className={({ isActive }) =>
+                                    `
+                flex items-center gap-3
+                is-drawer-close:tooltip is-drawer-close:tooltip-right
+                ${isActive ? "active font-semibold" : ""}
+                `
+                                }
+                                data-tip="Home"
+                            >
+                                <i className="bi bi-house-door-fill"></i>
+
+                                <span className="is-drawer-close:hidden">Home</span>
+                            </NavLink>
+                        </li>
                         <li>
                             <NavLink
                                 to="/race-viewer"
