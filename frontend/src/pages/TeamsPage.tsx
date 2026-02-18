@@ -48,6 +48,7 @@ export function TeamsPage() {
     const [blockCurrentSeason, setBlockCurrentSeason] = useState<blockState>({
         blocked: false,
         reason: "",
+        error: "",
     });
 
     // -- VR Builder
@@ -111,6 +112,7 @@ export function TeamsPage() {
                 setBlockCurrentSeason({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
             })
             .finally(() => {

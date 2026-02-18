@@ -3,6 +3,7 @@ export type TrackPoint = [number, number];
 export type blockState = {
     blocked: boolean;
     reason: string;
+    error: string;
 };
 
 export type DriverSample = {

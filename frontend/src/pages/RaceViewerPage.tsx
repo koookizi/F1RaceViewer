@@ -106,34 +106,42 @@ export function RaceViewerPage() {
     const [blockRacePlayback, setBlockRacePlayback] = useState<blockState>({
         blocked: false,
         reason: "",
+        error: "",
     });
     const [blockPlaybackControls, setBlockPlaybackControls] = useState<blockState>({
         blocked: false,
         reason: "",
+        error: "",
     });
     const [blockRacePlaybackHeader, setBlockRacePlaybackHeader] = useState<blockState>({
         blocked: false,
         reason: "",
+        error: "",
     });
     const [blockRacePlaybackLeaderboard, setBlockRacePlaybackLeaderboard] = useState<blockState>({
         blocked: false,
         reason: "",
+        error: "",
     });
     const [blockRacePlaybackCircuit, setBlockRacePlaybackCircuit] = useState<blockState>({
         blocked: false,
         reason: "",
+        error: "",
     });
     const [blockRacePlaybackCarData, setBlockRacePlaybackCarData] = useState<blockState>({
         blocked: false,
         reason: "",
+        error: "",
     });
     const [blockRacePlaybackRaceControl, setBlockRacePlaybackRaceControl] = useState<blockState>({
         blocked: false,
         reason: "",
+        error: "",
     });
     const [blockRacePlaybackTeamRadio, setBlockRacePlaybackTeamRadio] = useState<blockState>({
         blocked: false,
         reason: "",
+        error: "",
     });
 
     // -- VR Builder
@@ -284,6 +292,7 @@ export function RaceViewerPage() {
             setBlockRacePlayback({
                 blocked: true,
                 reason: "Race Playback only available for races 2023 onwards.",
+                error: "",
             });
         }
 
@@ -306,7 +315,6 @@ export function RaceViewerPage() {
             });
 
         // Fetches results + starting grid data
-
         console.log("Fetching summary results data");
         fetchJson<{ results: Result[] }>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/result/`,
@@ -347,18 +355,22 @@ export function RaceViewerPage() {
                 setBlockRacePlayback({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
                 setBlockRacePlaybackHeader({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
                 setBlockRacePlaybackCircuit({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
                 setBlockPlaybackControls({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
             });
 
@@ -377,14 +389,17 @@ export function RaceViewerPage() {
                 setBlockRacePlaybackLeaderboard({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
                 setBlockRacePlaybackCarData({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
                 setBlockRacePlaybackCircuit({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
             });
 
@@ -402,6 +417,7 @@ export function RaceViewerPage() {
                 setBlockRacePlaybackHeader({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
             });
 
@@ -419,6 +435,7 @@ export function RaceViewerPage() {
                 setBlockRacePlaybackRaceControl({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
             });
 
@@ -436,6 +453,7 @@ export function RaceViewerPage() {
                 setBlockRacePlaybackTeamRadio({
                     blocked: true,
                     reason: err.message,
+                    error: err.error,
                 });
             });
     };
@@ -775,7 +793,7 @@ export function RaceViewerPage() {
                         ) : (
                             <div className="mt-2 pb-24">
                                 {/* Race playback controls */}
-                                {blockPlaybackControls ? (
+                                {blockPlaybackControls.blocked ? (
                                     <BlockedCard
                                         title="Race Playback Controls Disabled"
                                         reason={blockPlaybackControls.reason}
@@ -799,7 +817,7 @@ export function RaceViewerPage() {
 
                                 <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
                                     <div className="md:col-span-12">
-                                        {blockRacePlaybackHeader ? (
+                                        {blockRacePlaybackHeader.blocked ? (
                                             <BlockedCard
                                                 title="Race Playback Header Disabled"
                                                 reason={blockRacePlaybackHeader.reason}
@@ -818,7 +836,7 @@ export function RaceViewerPage() {
                                     </div>
 
                                     <div className="md:col-span-8">
-                                        {blockRacePlaybackLeaderboard ? (
+                                        {blockRacePlaybackLeaderboard.blocked ? (
                                             <BlockedCard
                                                 title="Race Playback Leaderboard Disabled"
                                                 reason={blockRacePlaybackLeaderboard.reason}
@@ -834,7 +852,7 @@ export function RaceViewerPage() {
                                     </div>
 
                                     <div className="grid col-span-4 grid-cols-1 gap-2 self-start h-fit">
-                                        {blockRacePlaybackCircuit ? (
+                                        {blockRacePlaybackCircuit.blocked ? (
                                             <BlockedCard
                                                 title="Race Playback Circuit Disabled"
                                                 reason={blockRacePlaybackCircuit.reason}
@@ -848,7 +866,7 @@ export function RaceViewerPage() {
                                             />
                                         )}
 
-                                        {blockRacePlaybackCarData ? (
+                                        {blockRacePlaybackCarData.blocked ? (
                                             <BlockedCard
                                                 title="Race Playback Car Data Disabled"
                                                 reason={blockRacePlaybackCarData.reason}
@@ -863,7 +881,7 @@ export function RaceViewerPage() {
                                     </div>
 
                                     <div className="md:col-span-6">
-                                        {blockRacePlaybackRaceControl ? (
+                                        {blockRacePlaybackRaceControl.blocked ? (
                                             <BlockedCard
                                                 title="Race Playback Race Control Disabled"
                                                 reason={blockRacePlaybackRaceControl.reason}
@@ -877,7 +895,7 @@ export function RaceViewerPage() {
                                     </div>
 
                                     <div className="md:col-span-6">
-                                        {blockRacePlaybackTeamRadio ? (
+                                        {blockRacePlaybackTeamRadio.blocked ? (
                                             <BlockedCard
                                                 title="Race Playback Team Radio Disabled"
                                                 reason={blockRacePlaybackTeamRadio.reason}
