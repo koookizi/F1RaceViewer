@@ -173,14 +173,9 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
     session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
     session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
 
-    openf1_start = pd.to_datetime(session_df.loc[0, "date_start"], utc=True)
-    openf1_end = pd.to_datetime(session_df.loc[0, "date_end"], utc=True)
-
     # FastF1
     session = fastf1.get_session(year, country, session_name)
     session.load()
-
-    fastf1_start = session.t0_date + session.session_start_time # gets the actual datetime of session start (first telemetry point)
 
     # ---
 
@@ -284,7 +279,7 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
         # Reduce columns early
         tel = tel[[c for c in keep_cols if c in tel.columns]]
 
-        # Downsample early (HUGE speed win + smaller JSON)
+        # Downsample
         step=10
         if step and step > 1:
             tel = tel.iloc[::step].copy()
@@ -369,10 +364,10 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
         laps = session.laps.pick_drivers(drv)  # pick_driver (singular) is the usual one
         tel = laps.get_telemetry().copy()
 
-        # Reduce columns early
+        # Reduce columns
         tel = tel[[c for c in keep_cols if c in tel.columns]]
 
-        # Downsample early (HUGE speed win + smaller JSON)
+        # Downsample
         if step and step > 1:
             tel = tel.iloc[::step].copy()
 

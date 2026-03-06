@@ -11,7 +11,6 @@ function HomeLayout() {
 }
 
 function SidebarLayout() {
-    // IMPORTANT: only do this if Sidebar already renders <Outlet />
     return <Sidebar />;
 }
 

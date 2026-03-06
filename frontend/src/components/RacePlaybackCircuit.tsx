@@ -27,7 +27,6 @@ export function RacePlaybackCircuit({
     return (
         <div className="w-full flex justify-center">
             <svg viewBox="-1.2 -1.2 2.4 2.4" className="w-full max-w-3xl">
-                {/* ===== GLOW FILTER (isolated per element) ===== */}
                 <defs>
                     <filter
                         id="driverGlow"
@@ -45,7 +44,6 @@ export function RacePlaybackCircuit({
                     </filter>
                 </defs>
 
-                {/* ===== TRACK ===== */}
                 <polyline
                     fill="none"
                     stroke="#05070eff"
@@ -59,7 +57,6 @@ export function RacePlaybackCircuit({
                     points={track.points.map(([x, y]) => `${x},${-y}`).join(" ")}
                 />
 
-                {/* ===== DRIVERS ===== */}
                 {drivers.map((drv) => {
                     const pos = getPositionAtTime(drv.samples, currentTime);
                     if (!pos) return null;
@@ -69,7 +66,6 @@ export function RacePlaybackCircuit({
 
                     const driverNumber = getDriverNumberByAbbreviation(leaderboardData, drv.code);
 
-                    // 🔴 CORRECT selection logic (by driver number)
                     const isSelected = selectedDriver != null && driverNumber === selectedDriver;
 
                     const dimOthers = selectedDriver != null && !isSelected;

@@ -65,7 +65,14 @@ class Command(BaseCommand):
         seasons = self.ergast.get_seasons(limit=1000)
         seasons = list(seasons["season"])
 
-        for year in seasons:
+        # for year in seasons:
+        #     self.stdout.write(f"-- YEAR {year} --")
+        #     season_obj, _ = Season.objects.get_or_create(year=year)
+        #     self.ingest_schedule(season_obj, year)
+        #     self.stdout.write(f"Schedule ingested for season {year}")
+        #     time.sleep(1.0)
+
+        for year in range(2026,2027):
             self.stdout.write(f"-- YEAR {year} --")
             season_obj, _ = Season.objects.get_or_create(year=year)
             self.ingest_schedule(season_obj, year)
