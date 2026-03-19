@@ -1,14 +1,12 @@
 import StatCard from "@/components/StatCard";
 import { useToast } from "@/components/ToastContext";
 import type { currentSeasonData, TeamSummaryData, blockState } from "@/types";
-import { color } from "framer-motion";
 import { useEffect, useState, useMemo } from "react";
 import DriverCard from "@/components/DriverCard";
 import { VRBuilderBuildControls } from "@/components/VRBuilderBuildControls";
 import { VRBuilderLivePreview } from "@/components/VRBuilderLivePreview";
 import { VRBuilderInsightsReports } from "@/components/VRBuilderInsightsReports";
 import type { ChartResponse } from "@/components/ChartCard";
-import type { MultiSelectOption } from "@/components/MultiSelect";
 import { fetchJson } from "../helpers/api";
 import { BlockedCard } from "@/components/BlockedCard";
 

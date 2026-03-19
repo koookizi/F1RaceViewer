@@ -9,21 +9,25 @@ export type ChartResponse = {
     title?: string;
     result: PlotlyResult;
 
-    // ✅ new optional metadata (won’t break existing code)
     meta?: {
-        createdAtISO?: string; // when the chart was generated (optional)
-        addedToReportAtISO?: string; // when user clicked “Add to report” (this is what you want)
+        createdAtISO?: string; 
+        addedToReportAtISO?: string;
         templateId?: string;
         intent?: string;
         year?: string;
         country?: string;
         session_name?: string;
 
-        // snapshot of the inputs used to generate that chart
         inputs?: Record<string, any>;
     };
 };
 
+/**
+ * Wrapper component for displaying chart-based visualisations.
+ *
+ * Provides a consistent layout and styling for Plotly charts and
+ * related visual outputs within the application.
+ */
 export function ChartCard({
     chart,
     height = 420,

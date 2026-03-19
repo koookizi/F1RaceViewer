@@ -1,5 +1,3 @@
-// src/components/PlaybackControls.tsx
-import React from "react";
 import type { PlaybackData } from "../types";
 import { getPositionAtTime, formatWallClockTime } from "../helpers/playback";
 
@@ -20,6 +18,12 @@ type PlaybackControlsProps = {
     triggerTeamRadioAutoplay: () => void;
 };
 
+/**
+ * Provides playback controls for the race viewer.
+ *
+ * Handles play/pause, scrubbing and time progression, and updates
+ * the global playback state used by all playback components.
+ */
 export function PlaybackControls({
     data,
     currentTime,
@@ -110,12 +114,12 @@ export function PlaybackControls({
                         onMouseDown={() => setIsScrubbing(true)}
                         onMouseUp={() => {
                             setIsScrubbing(false);
-                            triggerTeamRadioAutoplay(); // ✅ scrub finished → autoplay first
+                            triggerTeamRadioAutoplay();
                         }}
                         onTouchStart={() => setIsScrubbing(true)}
                         onTouchEnd={() => {
                             setIsScrubbing(false);
-                            triggerTeamRadioAutoplay(); // ✅ scrub finished → autoplay first
+                            triggerTeamRadioAutoplay();
                         }}
                         className="range range-neutral w-full"
                     />

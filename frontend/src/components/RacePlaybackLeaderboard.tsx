@@ -1,4 +1,3 @@
-import React, { useEffect, useState } from "react";
 import type {
   LeaderboardApiResponse,
   LeaderboardPositionsData,
@@ -29,6 +28,12 @@ type RacePlaybackLeaderboardProps = {
   ) => void;
 };
 
+/**
+ * Renders the live leaderboard for the session.
+ *
+ * Driver positions, lap times and gaps are updated dynamically based
+ * on playback time, using processed timing and lap data from the backend.
+ */
 export function RacePlaybackLeaderboard({
   leaderboardData,
   currentTime,
@@ -558,11 +563,11 @@ function formatGap(value: number | null): string {
 function getPositionsGainedColour(pg: string | null | undefined) {
   if (!pg) return "inherit";
   if (pg.startsWith("+")) return "#00c851"; // green
-  if (pg.startsWith("-")) return "#ff4444"; // red;
+  if (pg.startsWith("-")) return "#ff4444"; // red
   return "inherit"; // "0"
 }
 
-// F1 universal-ish colours (common across timing UIs)
+// F1 universal-ish colours
 const LAP_PURPLE = "#A855F7"; // session best
 const LAP_GREEN = "#22C55E"; // personal best
 const LAP_NEUTRAL = "#E5E7EB"; // normal/unknown (light grey)
@@ -578,11 +583,11 @@ function getLapTimeColorHex(
 
   const displayedMs = Math.round(displayedLapTime * 1000);
 
-  // Driver best so far (PB) up to currentTime
+  // driver best so far (PB) up to currentTime
   const driverBestMs = getDriverBestLapMsSoFar(driver.laps_data, currentTime);
   if (driverBestMs == null) return LAP_DIM;
 
-  // Session best so far up to currentTime (across all drivers)
+  // session best so far up to currentTime (across all drivers)
   const sessionBestMs = getSessionBestLapMsSoFar(allDrivers, currentTime);
   if (sessionBestMs == null) return LAP_DIM;
 
@@ -643,10 +648,10 @@ function getGapTrendColorHex(
   const currentValue =
     kind === "interval" ? currentRow.interval : currentRow.gap_to_leader;
 
-  // No trend color if leader/invalid
+  // no trend color if leader/invalid
   if (currentValue == null) return "#9CA3AF";
 
-  // Find previous row (strictly before currentRow)
+  // find previous row
   const idx = gap.findIndex((g) => g.SessionTime === currentRow.SessionTime);
   const prevRow = idx > 0 ? gap[idx - 1] : null;
 

@@ -37,8 +37,38 @@ __all__ = [
     "session_vrdetails_view"
 ]
 
+"""
+An example of a template function is in /vrtemplates/race.py, which includes detailed comments on the processing steps. The general structure of a template function is as follows:
+1 - Load session data using FastF1 based on the provided year, country and session name.
+2 - Filter the session laps to include only the selected drivers (if any).
+3 - Optionally exclude laps affected by safety car or virtual safety car periods.
+4 - Ensure lap times are in a consistent format (e.g. seconds) for plotting.
+5 - Generate a Plotly figure (e.g. scatter plot of lap time vs lap number) with appropriate styling and hover information.
+6 - Convert the Plotly figure to a JSON-serialisable format for inclusion in the API response.
+7 - Return a structured JSON response containing the visualisation data and any relevant metadata (e.g
+title, description) for the frontend to render the visualisation builder output.
+
+The vr_create_view function routes incoming requests to the appropriate template function based on the provided template ID, while the session_vrdetails_view function retrieves driver and team information for a given session to support frontend selection in the visualisation builder.
+Furthermore, the template function is assigned to a template ID, which can be routed below. The meanings of each one can be found in Appendix A.
+
+"""
+
 @csrf_exempt
 def vr_create_view(request):
+    """
+    Routes a visualisation/report request to the correct template handler.
+
+    The request body includes a template ID and input parameters, which are
+    extracted and passed to the corresponding backend function responsible
+    for generating the required visualisation.
+
+    Args:
+        request: HTTP request containing templateId and input values.
+
+    Returns:
+        JsonResponse: Result from the selected template, or an error if the
+        template ID is not recognised.
+    """
     body = json.loads(request.body)
     template_id = body["templateId"]
     inputs = body.get("inputs", {})
@@ -92,6 +122,22 @@ def vr_create_view(request):
 
 @lru_cache(maxsize=32)
 def session_vrdetails_view(request, year: int, country: str, session_name: str):
+    """
+    Returns the drivers and teams for a given session to support frontend
+    selection in the visualisation builder.
+
+    Session results are loaded via FastF1 and parsed to extract driver
+    abbreviations and a unique list of team names.
+
+    Args:
+        request: HTTP request object.
+        year (int): Race year.
+        country (str): Grand Prix location.
+        session_name (str): Session type.
+
+    Returns:
+        JsonResponse: Driver abbreviations and unique team names for the session.
+    """
     session = fastf1.get_session(year, country, session_name)
 
     session.load(telemetry=False)

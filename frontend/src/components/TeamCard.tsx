@@ -5,6 +5,12 @@ type DriverCardProps = {
     team: string;
 };
 
+/**
+ * Displays summary information for a team.
+ *
+ * Used to present team-level data such as name, colour and
+ * performance-related metrics.
+ */
 export default function DriverCard({ driver, team }: DriverCardProps) {
     const teamColor = driver.team_colour || "000000";
 
@@ -29,7 +35,7 @@ export default function DriverCard({ driver, team }: DriverCardProps) {
             }}
         >
             <div className="card-body p-3 flex flex-row items-center gap-4">
-                {/* Team details */}
+                {/* team details */}
                 <div className="flex flex-col justify-center leading-tight">
                     <div className="text-white font-semibold text-lg">{team}</div>
                     <div className="text-white/80 text-sm">

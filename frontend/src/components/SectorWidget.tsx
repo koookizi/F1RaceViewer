@@ -1,17 +1,14 @@
-import React from "react";
 import type { LeaderboardLapsData, LeaderboardDriverData } from "../types";
 import { atOrBefore } from "../helpers/leaderboard";
 
-/** F1 universal-ish colours you asked to keep */
 const LAP_PURPLE = "#A855F7"; // session best / purple
 const LAP_GREEN = "#22C55E"; // personal best / green
 const LAP_NEUTRAL = "#E5E7EB"; // normal light
-const LAP_DIM = "#9CA3AF"; // dim/no data
+const LAP_DIM = "#9CA3AF"; // no data
 
-/** Extra colours used for OpenF1 minisector codes */
 const MINI_YELLOW = "#FACC15"; // yellow minisector
-const MINI_PIT = "#60A5FA"; // pitlane minisector (blue-ish)
-const MINI_PENDING = "#374151"; // dark pending
+const MINI_PIT = "#60A5FA"; // pitlane minisector
+const MINI_PENDING = "#374151"; // pending
 
 function pickSectorTime(lap: LeaderboardLapsData, sector: 1 | 2 | 3): number {
   return sector === 1
@@ -35,7 +32,7 @@ function pickSectorSegments(
   return Array.isArray(segs) ? segs : [];
 }
 
-/** Sector times in OpenF1 are seconds; your screenshot format is SS.mmm */
+/** sector times in OpenF1 are seconds */
 function formatSectorTime(seconds: number | null): string {
   if (seconds == null || seconds <= 0) return "—";
   const totalMs = Math.round(seconds * 1000);
@@ -44,7 +41,7 @@ function formatSectorTime(seconds: number | null): string {
   return `${s}.${ms.toString().padStart(3, "0")}`;
 }
 
-/** Driver best sector time so far (up to currentTime) */
+/** driver best sector time so far (up to currentTime) */
 function getDriverBestSectorTimeSoFar(
   laps: LeaderboardLapsData[],
   sector: 1 | 2 | 3,
@@ -60,7 +57,7 @@ function getDriverBestSectorTimeSoFar(
   return best === Infinity ? null : best;
 }
 
-/** Session best sector time so far (up to currentTime), across all drivers */
+/** session best sector time so far (up to currentTime) across all drivers */
 function getSessionBestSectorTimeSoFar(
   drivers: LeaderboardDriverData[],
   sector: 1 | 2 | 3,
@@ -78,10 +75,7 @@ function getSessionBestSectorTimeSoFar(
   return best === Infinity ? null : best;
 }
 
-/**
- * F1-style colour for the displayed sector time:
- * purple if session best so far, green if driver PB so far, else neutral/dim.
- */
+
 function getSectorTimeColorHex(
   displayedSeconds: number | null,
   driver: LeaderboardDriverData,
@@ -114,10 +108,7 @@ function getSectorTimeColorHex(
   return LAP_NEUTRAL;
 }
 
-/**
- * OpenF1 minisector codes mapping (per docs):
- * 0 not available, 2048 yellow, 2049 green, 2051 purple, 2064 pitlane. :contentReference[oaicite:1]{index=1}
- */
+
 function minisectorCodeToHex(code: number | null | undefined): string {
   if (code == null) return MINI_PENDING;
   switch (code) {
@@ -143,25 +134,26 @@ type SectorWidgetProps = {
   currentTime: number;
   sector: 1 | 2 | 3;
 
-  /** Optional: force a specific number of blocks (pad/trim) */
   blockCount?: number;
 
-  /** Styling knobs */
   widthPx?: number;
   blockWidthPx?: number;
   blockHeightPx?: number;
   blockGapPx?: number;
 
-  /** Make the small reference time slightly transparent */
   referenceOpacity?: number;
 };
 
+/**
+ * Displays sector times and performance indicators for a driver.
+ *
+ * Used to highlight sector-level performance within a lap.
+ */
 export function SectorWidget({
   driver,
   allDrivers,
   currentTime,
   sector,
-  blockCount,
   widthPx = 140,
   blockWidthPx = 10,
   blockHeightPx = 6,
@@ -211,7 +203,7 @@ export function SectorWidget({
         ))}
       </div>
 
-      {/* time text like F1-dash */}
+      {/* time text */}
       <div className="inline-flex items-baseline gap-2 leading-none">
         <span
           className="font-mono font-semibold tabular-nums"

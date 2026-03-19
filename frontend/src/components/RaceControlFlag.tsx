@@ -1,5 +1,3 @@
-// src/components/RaceControlFlag.tsx
-import * as React from "react";
 import {
   FlagGreen,
   FlagYellow,
@@ -10,7 +8,7 @@ import {
   FlagBlackWhite,
   FlagYellowRedStripes,
   FlagChequered,
-} from "./Flags"; // <-- adjust path if needed
+} from "./Flags";
 
 type RaceControlFlagProps = {
   flag: string | null;
@@ -25,7 +23,7 @@ function normalizeFlag(flag: string | null): string | null {
 export function RaceControlFlag({ flag, className }: RaceControlFlagProps) {
   const f = normalizeFlag(flag);
 
-  // default size for your list column
+  // default size for list column
   const p = { className: className ?? "w-10 h-10" };
 
   if (!f) return null;
@@ -38,10 +36,8 @@ export function RaceControlFlag({ flag, className }: RaceControlFlagProps) {
     case "YELLOW":
       return <FlagYellow {...p} />;
 
-    // OpenF1 / feeds often use this exact text
     case "DOUBLE YELLOW":
     case "DOUBLE_YELLOW":
-      // No distinct SVG in your set; use yellow (typical UI)
       return <FlagYellow {...p} />;
 
     case "RED":
@@ -73,7 +69,6 @@ export function RaceControlFlag({ flag, className }: RaceControlFlagProps) {
       return <FlagChequered {...p} />;
 
     default:
-      // Unknown flag string -> render nothing so caller can fall back to lap text
       return null;
   }
 }

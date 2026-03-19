@@ -14,10 +14,8 @@ type MultiSelectProps = {
   placeholder?: string;
   className?: string;
 
-  /** Controls width without forcing a huge control */
-  widthClassName?: string; // e.g. "w-full", "w-72", "w-80"
-  /** Caps chip overflow height so it stays compact */
-  maxChipsRows?: number; // default 2
+  widthClassName?: string;
+  maxChipsRows?: number; 
 };
 
 export function MultiSelect({
@@ -37,7 +35,6 @@ export function MultiSelect({
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // Close on click outside / Escape
   useEffect(() => {
     function onDocMouseDown(e: MouseEvent) {
       if (!rootRef.current) return;
@@ -66,7 +63,6 @@ export function MultiSelect({
       ? options.filter((o) => o.label.toLowerCase().includes(q))
       : options;
 
-    // Keep stable active index
     return list;
   }, [options, query]);
 
@@ -83,7 +79,7 @@ export function MultiSelect({
     onChange(value.filter((x) => x !== id));
   }
 
-  const maxChipsHeight = maxChipsRows * 28; // approx per row height
+  const maxChipsHeight = maxChipsRows * 28;
 
   function focusAndOpen() {
     setOpen(true);
@@ -108,7 +104,7 @@ export function MultiSelect({
       const item = filteredOptions[activeIndex];
       if (item && !item.disabled) toggle(item.id);
     } else if (e.key === "Backspace") {
-      // If query empty, remove last selected
+      // if query empty, remove last selected
       if (query === "" && selectedOptions.length > 0) {
         remove(selectedOptions[selectedOptions.length - 1].id);
       }
@@ -123,7 +119,7 @@ export function MultiSelect({
         </div>
       ) : null}
 
-      {/* Compact control */}
+      {/* compact control */}
       <div
         className={[
           "rounded-lg bg-base-200 border border-base-300",
@@ -134,7 +130,7 @@ export function MultiSelect({
         ].join(" ")}
         onClick={focusAndOpen}
       >
-        {/* Chips area (compact, capped height) */}
+        {/* chips area */}
         <div
           className="flex flex-wrap gap-1 flex-1 min-w-0 overflow-auto pr-1"
           style={{ maxHeight: maxChipsHeight }}
@@ -163,7 +159,7 @@ export function MultiSelect({
             ))
           )}
 
-          {/* Search input sits inline with chips */}
+          {/* search input sits inline with chips */}
           <input
             ref={inputRef}
             className="bg-transparent outline-none text-sm px-1 flex-1 min-w-[6ch]"
@@ -175,7 +171,7 @@ export function MultiSelect({
           />
         </div>
 
-        {/* Right-side actions */}
+        {/* right-side actions */}
         <div className="flex items-center gap-1">
           {value.length > 0 && (
             <button
@@ -210,7 +206,7 @@ export function MultiSelect({
         </div>
       </div>
 
-      {/* Dropdown */}
+      {/* dropdown */}
       {open && (
         <div className="mt-2 rounded-lg bg-base-100 shadow border border-base-300 p-1">
           <div className="max-h-56 overflow-auto">

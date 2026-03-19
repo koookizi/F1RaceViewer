@@ -1,5 +1,3 @@
-// src/components/RacePlayback.tsx
-import React from "react";
 import type { PlaybackData, LeaderboardApiResponse } from "../types";
 import { getPositionAtTime } from "../helpers/playback";
 import { teamBgByDriver } from "../helpers/team_colour";
@@ -12,6 +10,13 @@ type RacePlaybackCircuitProps = {
     selectedDriver: number | null;
 };
 
+/**
+ * Renders the race circuit and driver positions for playback.
+ *
+ * Track coordinates are pre-processed and normalised on the backend,
+ * and this component updates driver positions over time based on the
+ * current playback timestamp.
+ */
 export function RacePlaybackCircuit({
     data,
     currentTime,

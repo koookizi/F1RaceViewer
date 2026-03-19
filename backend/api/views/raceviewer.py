@@ -31,6 +31,18 @@ __all__ = [
 ]
 
 def season_years(request):
+    """
+    Returns a list of available season years in descending order.
+
+    The data is retrieved from the Season model and used to populate
+    frontend selection components.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        JsonResponse: List of season years ordered from most recent to oldest.
+    """
     years = (
         Season.objects
         .order_by('-year')
@@ -39,6 +51,19 @@ def season_years(request):
     return JsonResponse({"years":list(years)})
 
 def season_countries(request, year):
+    """
+    Returns the list of countries for a given season year.
+
+    Event data is filtered by season and reduced to distinct country names
+    to support race selection in the frontend.
+
+    Args:
+        request: HTTP request object.
+        year (int): Season year.
+
+    Returns:
+        JsonResponse: List of unique countries for the specified season.
+    """
     countries = (
         Event.objects
         .filter(season__year=year)
@@ -48,6 +73,20 @@ def season_countries(request, year):
     return JsonResponse({"countries": list(countries)})
 
 def season_sessions(request, year, country):
+    """
+    Returns the available session types for a given race weekend.
+
+    Sessions are filtered by season year and country, then reduced to a
+    distinct, ordered list to populate frontend selection options.
+
+    Args:
+        request: HTTP request object.
+        year (int): Season year.
+        country (str): Grand Prix location.
+
+    Returns:
+        JsonResponse: List of session types for the specified event.
+    """
     sessions = (
         Session.objects
         .filter(event__country=country)
@@ -60,6 +99,21 @@ def season_sessions(request, year, country):
 
 @lru_cache(maxsize=32)
 def session_circuit(request, year: int, country: str):
+    """
+    Returns the circuit name for a given season and race location.
+
+    The event is queried with its related circuit to avoid additional
+    database lookups. If no matching event is found, an error is returned.
+
+    Args:
+        request: HTTP request object.
+        year (int): Season year.
+        country (str): Grand Prix location.
+
+    Returns:
+        JsonResponse: Circuit name for the specified event, or an error if
+        no event exists.
+    """
     event = (
         Event.objects
         .select_related("circuit")
@@ -75,6 +129,24 @@ def session_circuit(request, year: int, country: str):
 
 @lru_cache(maxsize=32)
 def session_teamradio_view(request, year: int, country: str, session_name: str):    
+    """
+    Retrieves and formats team radio messages for a given session using OpenF1 data.
+
+    Session metadata is first obtained to identify the session key, after which
+    team radio events are fetched and aligned to session-relative time using
+    FastF1 timing references. The data is then cleaned and structured for
+    frontend playback.
+
+    Args:
+        request: HTTP request object.
+        year (int): Race year.
+        country (str): Grand Prix location.
+        session_name (str): Session type.
+
+    Returns:
+        JsonResponse: List of team radio messages with timestamps aligned to
+        session time, formatted for playback.
+    """
     # OpenF1
     session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
     session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
@@ -122,6 +194,23 @@ def session_teamradio_view(request, year: int, country: str, session_name: str):
 
 @lru_cache(maxsize=32)
 def session_racecontrol_view(request, year: int, country: str, session_name: str):    
+    """
+    Retrieves and formats race control messages for a given session.
+
+    Session details are used to obtain the relevant OpenF1 race control data,
+    which is then aligned to session-relative time using FastF1 timestamps.
+    The data is cleaned and structured for use in race playback.
+
+    Args:
+        request: HTTP request object.
+        year (int): Race year.
+        country (str): Grand Prix location.
+        session_name (str): Session type.
+
+    Returns:
+        JsonResponse: List of race control events with timestamps aligned to
+        session time, formatted for playback.
+    """
     # OpenF1
     session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
     session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
@@ -169,6 +258,24 @@ def session_racecontrol_view(request, year: int, country: str, session_name: str
 
 @lru_cache(maxsize=32)
 def session_leaderboard_view(request, year: int, country: str, session_name: str):    
+    """
+    Builds the session leaderboard dataset used by the race playback view.
+
+    The function combines OpenF1 timing feeds with FastF1 telemetry to
+    assemble per-driver position, lap, stint, pit, gap and car data, all
+    aligned to a common session time reference before being returned in a
+    frontend-ready structure.
+
+    Args:
+        request: HTTP request object.
+        year (int): Race year.
+        country (str): Grand Prix location.
+        session_name (str): Session type.
+
+    Returns:
+        JsonResponse: Driver-level leaderboard and telemetry data for the
+        selected session, formatted for playback.
+    """
     # OpenF1
     session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
     session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
@@ -276,11 +383,11 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
         laps = session.laps.pick_drivers(drv) 
         tel = laps.get_telemetry().copy()
 
-        # Reduce columns early
+        # reduce columns early
         tel = tel[[c for c in keep_cols if c in tel.columns]]
 
-        # Downsample
-        step=10
+        # downsample
+        step=2
         if step and step > 1:
             tel = tel.iloc[::step].copy()
 
@@ -349,7 +456,28 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
     return JsonResponse(finalJSON, safe=False)
 
 @lru_cache(maxsize=32)
-def session_telemetry_view(request, year: int, country: str, session_name: str, step=10):
+def session_telemetry_view(request, year: int, country: str, session_name: str, step=2):
+    """
+    Returns processed telemetry data for all drivers in a given session.
+
+    FastF1 telemetry is loaded for each driver, reduced to the required
+    channels, downsampled, and aligned to common time bins so that driver
+    states can be compared at the same point in session time. Additional
+    fields such as lap number, grid position, live position and positions
+    gained are then derived before the data is formatted for JSON output.
+
+    Args:
+        request: HTTP request object.
+        year (int): Race year.
+        country (str): Grand Prix location.
+        session_name (str): Session type.
+        step (int, optional): Downsampling interval applied to telemetry rows.
+
+    Returns:
+        JsonResponse: Per-driver telemetry records formatted for frontend
+        playback and comparison.
+    """
+
     session = fastf1.get_session(year, country, session_name)
     session.load()
 
@@ -388,13 +516,6 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
     merged_tel["TimeBin"] = (merged_tel["SessionTime"] / bin_size).round().astype("int64") # remember: time bin is not a measurement in seconds, it is a bin allocation
     merged_tel["TimeBinSize"] = bin_size
 
-    # to ensure that there is only one driver per bin (by first sorting sessiontimes, get rows by timebin and drivernumber (whcih gets possible duplicates),
-    #  and remove the other duplicates via .tail(1)
-    # merged_tel = (
-    # merged_tel.sort_values(["DriverNumber", "SessionTime"])
-    #       .groupby(["TimeBin", "DriverNumber"], as_index=False)
-    #       .tail(1)
-    # )
     merged_tel = merged_tel.sort_values("SessionTime").drop_duplicates(
     subset=["TimeBin", "DriverNumber"], keep="last"
     )
@@ -423,19 +544,19 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
 
     # > live positions
     print("-- live positions")
-    # 1) Ensure one row per (TimeBin, DriverNumber): keep latest Time
+    # 1 - one row per (TimeBin, DriverNumber): keep latest Time
     merged_tel = merged_tel.sort_values("Time").drop_duplicates(
         subset=["TimeBin", "DriverNumber"],
         keep="last"
     )
 
-    # 2) Sort so that "ahead" rows come first within each TimeBin
+    # 2 - sort so "ahead" rows come first within each TimeBin
     merged_tel = merged_tel.sort_values(
         ["TimeBin", "LapNumber", "Distance"],
         ascending=[True, False, False]
     )
 
-    # 3) Assign positions 1..N within each TimeBin
+    # 3 - assign positions 1..N within each TimeBin
     merged_tel["LivePosition"] = merged_tel.groupby("TimeBin").cumcount() + 1
 
 
@@ -453,15 +574,11 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
         "TimeBin", "TimeBinSize", "SessionTime",
         "GridPosition", "LivePosition", "PositionsGained", "LapNumber",
         "Distance", "X", "Y", "Speed", "Throttle", "Brake", "nGear", "RPM", "DRS","DriverNumber","DriverCode"
+
     ]
-    # 1) Select columns once
     df = merged_tel[[c for c in cols if c in merged_tel.columns]].copy()
 
-    # 2) Clean once (vectorized)
     df = df.replace([np.inf, -np.inf], np.nan)
-
-    # Convert numpy scalars -> python scalars + NaN->None in one go:
-    # (this produces dtype=object, which is what you want for JSON)
     df = df.astype(object).where(df.notna(), None)
 
     print("-- get driver info")
@@ -471,7 +588,7 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
     for drv, g in df.groupby("DriverNumber", sort=False)}
 
     # Export to excel
-    print("-- exporting to excel")
+    #print("-- exporting to excel")
     #merged_tel.to_excel("test_tel.xlsx", index=False)
 
     return JsonResponse(final, safe=False)
@@ -479,6 +596,24 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
 
 @lru_cache(maxsize=32)
 def session_laps_view(request, year: int, country: str, session: str):
+    """
+    Returns lap-by-lap session data for each driver.
+
+    FastF1 lap data is loaded per driver and extended with derived fields
+    such as grid position and positions gained relative to the start. The
+    result is then cleaned and structured for frontend use.
+
+    Args:
+        request: HTTP request object.
+        year (int): Race year.
+        country (str): Grand Prix location.
+        session (str): Session type.
+
+    Returns:
+        JsonResponse: Driver-level lap data for the selected session,
+        formatted for JSON output.
+    """
+
     session = fastf1.get_session(year, country, session)
     session.load()
 
@@ -513,17 +648,14 @@ def session_laps_view(request, year: int, country: str, session: str):
 
     drivers = []
 
-    # Defensive guard in case results aren't available (e.g. practice)
     results = getattr(session, "results", None)
 
     for drv in session.drivers:
         laps = session.laps.pick_drivers(drv)[columns].copy()
 
-        # Default: no grid position if results are missing
         grid_pos = None
         if results is not None and not results.empty:
             try:
-                # SessionResults indexed by driver number; row has 'GridPosition'
                 driver_result = results.loc[drv]
                 grid_val = driver_result.get("GridPosition", None)
                 if pd.notna(grid_val):
@@ -531,10 +663,8 @@ def session_laps_view(request, year: int, country: str, session: str):
             except KeyError:
                 grid_pos = None
 
-        # Add GridPosition column (same value for all laps of that driver)
         laps["GridPosition"] = grid_pos
 
-        # PositionsGainedString = "+3", "-1", "0", or None
         def compute_positions_gained_str(row):
             if grid_pos is None or pd.isna(row["Position"]):
                 return None
@@ -551,7 +681,7 @@ def session_laps_view(request, year: int, country: str, session: str):
 
         laps["PositionsGained"] = laps.apply(compute_positions_gained_str, axis=1)
 
-        # Now convert to JSON-safe format
+        # convert to JSON-safe format
         df_clean = prepare_laps_df_for_json(laps)
         laps_json = df_clean.to_dict(orient="records")
 
@@ -569,6 +699,14 @@ def session_laps_view(request, year: int, country: str, session: str):
 
 @lru_cache(maxsize=32)
 def session_weather_view(request, year: int, country: str, session: str):
+    """Return weather data of a race given its year, country and session via FastF1.
+
+    Args:
+        request: HTTP request object
+        year (int): Year for which to retrieve weather data
+        country (str): Country for which to retrieve weather data
+        session (str): Session name for which to retrieve weather data
+    """
     session_obj = fastf1.get_session(year, country, session)
 
     session_obj.load(telemetry=False)
@@ -614,6 +752,25 @@ def session_weather_view(request, year: int, country: str, session: str):
 
 @lru_cache(maxsize=32)
 def session_playback_view(request, year: int, country: str, session_name: str):
+    """
+    Builds the core playback dataset for a given session.
+
+    OpenF1 and FastF1 session data are combined to align timing, generate a
+    normalised track map, and produce per-driver position samples for race
+    playback. The response also includes overall session values such as race
+    duration, lap count and playback timing offsets.
+
+    Args:
+        request: HTTP request object.
+        year (int): Race year.
+        country (str): Grand Prix location.
+        session_name (str): Session type.
+
+    Returns:
+        JsonResponse: Track geometry, per-driver playback samples, and
+        session-level timing metadata for the selected session.
+    """
+
     # OpenF1
     session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
     session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
@@ -644,7 +801,6 @@ def session_playback_view(request, year: int, country: str, session_name: str):
     ref_lap = session.laps.pick_drivers(ref_driver).pick_fastest()
     pos = ref_lap.get_pos_data()   # contains X, Y, Date, gives you a dataframe
 
-    # pos.loc[row_selection, column_selection], : means all rows. so all X and Y only, and then turn into numpy
     track_xy = pos.loc[:, ['X', 'Y']].to_numpy()
     # it's converted to mumpy because it's fast at linear algebra, good for the rotate() and normalize_xy() func
 
@@ -665,7 +821,7 @@ def session_playback_view(request, year: int, country: str, session_name: str):
         if laps.empty:
             continue
 
-        # Collect positions for all laps of this driver
+        # collect positions for all laps of this driver
         samples = []
         for _, lap in laps.iterrows(): # gives you index, row
             lap_obj = lap  # Series
@@ -708,12 +864,6 @@ def session_playback_view(request, year: int, country: str, session_name: str):
             for drv in drivers_payload
             for sample in drv["samples"]
         )
-        # same concept
-        # total_laps = max(
-        #     sample["lap"]
-        #     for drv in drivers_payload
-        #     for sample in drv["samples"]
-        # )
     else:
         race_duration = 0.0
         # total_laps = 0
@@ -732,25 +882,40 @@ def session_playback_view(request, year: int, country: str, session_name: str):
 
 @lru_cache(maxsize=32)
 def results_view(request, year: int, country: str, session: str):
+    """
+    Returns the classified session results for a given event.
+
+    FastF1 result data is loaded and supplemented with lap-derived values
+    where required, including best lap time, final lap time, lap count and
+    position when these are missing from the base dataset. The result is then
+    formatted into a consistent JSON structure for frontend display.
+
+    Args:
+        request: HTTP request object.
+        year (int): Race year.
+        country (str): Grand Prix location.
+        session (str): Session type.
+
+    Returns:
+        JsonResponse: Structured session results for each driver, or an
+        error response if the session data cannot be loaded.
+    """
     sessionFF1 = fastf1.get_session(year, country, session)
     try:
         sessionFF1.load()
     except Exception as e:
-        # If FastF1 itself fails to load the session
         return JsonResponse(
             {"error": f"Failed to load session data: {e}"},
             status=500,
         )
 
-    # Base results (may be missing Position / BestLapTime / Laps for practice/quali)
     df = sessionFF1.results
     if df is None or df.empty:
-        # No results; don't crash, just return empty
         return JsonResponse({"results": []})
 
     df = df.copy()
 
-    # Ensure key columns exist
+    # ensure key columns exist
     if "BestLapTime" not in df.columns:
         df["BestLapTime"] = pd.NaT
 
@@ -763,9 +928,7 @@ def results_view(request, year: int, country: str, session: str):
     if "Position" not in df.columns:
         df["Position"] = pd.NA
 
-    # ---------------------------
-    # 1) Build per-driver data from laps
-    # ---------------------------
+    # -- build per-driver data from laps
     best_laps = None
     lap_counts = None
     last_laps = None
@@ -773,26 +936,21 @@ def results_view(request, year: int, country: str, session: str):
     try:
         laps = sessionFF1.laps  # <- this can raise DataNotLoadedError
         if laps is not None and not laps.empty:
-            # Best lap per driver (only accurate laps with a LapTime)
-            valid_laps = laps.pick_accurate().dropna(subset=["LapTime"])
-
-            # Best lap per driver (only accurate, non-null LapTime)
             valid_laps = laps.pick_accurate().dropna(subset=["LapTime"])
             best_laps = (
                 valid_laps
                 .groupby("DriverNumber")["LapTime"]
                 .min()
-            )  # Series: DriverNumber -> Timedelta
+            ) 
 
-            # Lap count per driver (use all laps with a LapTime)
             lap_counts = (
                 laps
                 .dropna(subset=["LapTime"])
                 .groupby("DriverNumber")["LapNumber"]
                 .count()
-            )  # Series: DriverNumber -> int
+            ) 
 
-            # Last lap per driver
+            # last lap per driver
             last_laps = (
             laps
             .dropna(subset=["LapTime"])
@@ -801,16 +959,11 @@ def results_view(request, year: int, country: str, session: str):
             .last()
             )
     except Exception:
-        # No lap data available for this session (common for very old seasons)
         best_laps = None
         lap_counts = None
         last_laps = None
 
-    
-
-    # ---------------------------
-    # 2) Merge best lap + lap count into results df
-    # ---------------------------
+    # -- merge best lap + lap count into results df
     if best_laps is not None:
         df = df.merge(
         best_laps.rename("BestSessionLapTime"),
@@ -819,11 +972,9 @@ def results_view(request, year: int, country: str, session: str):
         how="left",
         )
         pd.set_option('future.no_silent_downcasting', True)
-        # Ensure BestLapTime column exists; if not, create it
         if "BestLapTime" not in df.columns:
             df["BestLapTime"] = pd.NaT
 
-        # Fill missing BestLapTime with our computed best session lap
         df["BestLapTime"] = df["BestLapTime"].fillna(df["BestSessionLapTime"])
 
     if lap_counts is not None:
@@ -833,11 +984,9 @@ def results_view(request, year: int, country: str, session: str):
         right_index=True,
         how="left",
         )
-        # Ensure Laps column exists; if not, create it
         if "Laps" not in df.columns:
             df["Laps"] = pd.NA
 
-        # Fill missing Laps with our computed session lap count
         df["Laps"] = df["Laps"].fillna(df["SessionLapCount"])
 
     if last_laps is not None:
@@ -852,28 +1001,21 @@ def results_view(request, year: int, country: str, session: str):
 
 
 
-    # ---------------------------
-    # 3) Create / fill Position when it's missing (practice etc.)
-    # ---------------------------
+    # -- create / fill position when it's missing
     if "Position" not in df.columns:
         df["Position"] = pd.NA
 
     missing_pos_mask = df["Position"].isna()
 
     if missing_pos_mask.any() and df["BestLapTime"].notna().any():
-        # Sort only the missing-position rows by best lap
         subset = (
             df.loc[missing_pos_mask]
             .sort_values("BestLapTime")
             .reset_index()
         )
 
-        # Assign positions 1..N to them based on best lap order
         df.loc[subset["index"], "Position"] = range(1, len(subset) + 1)
 
-    # ---------------------------
-    # 4) Build JSON-friendly result list
-    # ---------------------------
     results = []
 
     for _, row in df.iterrows():

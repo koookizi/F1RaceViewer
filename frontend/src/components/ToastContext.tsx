@@ -24,7 +24,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
         setToasts((prev) => {
-            // Optional: cap stack size (keeps UI tidy)
             const next = [...prev, { id, message, type }];
             return next.slice(-5);
         });
@@ -34,7 +33,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         <ToastContext.Provider value={showToast}>
             {children}
 
-            {/* Stacking container (bottom-right). DaisyUI `toast` stacks children automatically */}
+            {/* stacking container (bottom-right). DaisyUI stacks children automatically */}
             <div className="toast toast-bottom toast-end z-50">
                 {toasts.map((t) => (
                     <Toast

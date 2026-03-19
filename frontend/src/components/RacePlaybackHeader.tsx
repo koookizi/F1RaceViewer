@@ -1,4 +1,3 @@
-import React, { useEffect, useState } from "react";
 import type { WeatherApiResponse, PlaybackData } from "../types";
 import { WeatherInfo } from "../components/RacePlaybackWeatherInfo";
 import { getPositionAtTime, formatWallClockTime } from "../helpers/playback";
@@ -26,7 +25,7 @@ export function RacePlaybackHeader({
         return <div className="skeleton h-24 w-auto mt-2"></div>;
     }
 
-    const { raceDuration, totalLaps, drivers, playbackControlOffset } = playbackData;
+    const { totalLaps, drivers } = playbackData;
 
     const leader = drivers[0];
     const leaderPos = leader ? getPositionAtTime(leader.samples, currentTime) : null;

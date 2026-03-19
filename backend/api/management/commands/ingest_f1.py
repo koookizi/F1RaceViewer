@@ -17,9 +17,10 @@ from fastf1.ergast.interface import ErgastInvalidRequestError
 def call_with_retry(fn, *, retries=8, wait_seconds=30):
     """
     Calls `fn()` and retries on 429 / Too Many Requests.
-    Handles both:
-      - fastf1.ergast.interface.ErgastInvalidRequestError
-      - requests.exceptions.HTTPError (raised by requests_cache/requests)
+
+    Raises:
+        - fastf1.ergast.interface.ErgastInvalidRequestError
+        - requests.exceptions.HTTPError (raised by requests_cache/requests)
     """
     last_exc = None
 
@@ -57,6 +58,9 @@ def call_with_retry(fn, *, retries=8, wait_seconds=30):
 
 
 class Command(BaseCommand):
+    """
+    Populate F1 DB from 1950 to current season (FastF1 sessions 2018+, FastF1 Ergast pre-2018)
+    """
     help = "Populate F1 DB from 1950 to current season (FastF1 sessions 2018+, FastF1 Ergast pre-2018)"
 
     def handle(self, *args, **opts):
@@ -65,19 +69,19 @@ class Command(BaseCommand):
         seasons = self.ergast.get_seasons(limit=1000)
         seasons = list(seasons["season"])
 
-        # for year in seasons:
-        #     self.stdout.write(f"-- YEAR {year} --")
-        #     season_obj, _ = Season.objects.get_or_create(year=year)
-        #     self.ingest_schedule(season_obj, year)
-        #     self.stdout.write(f"Schedule ingested for season {year}")
-        #     time.sleep(1.0)
-
-        for year in range(2026,2027):
+        for year in seasons:
             self.stdout.write(f"-- YEAR {year} --")
             season_obj, _ = Season.objects.get_or_create(year=year)
             self.ingest_schedule(season_obj, year)
             self.stdout.write(f"Schedule ingested for season {year}")
             time.sleep(1.0)
+
+        # for year in range(2026,2027):
+        #     self.stdout.write(f"-- YEAR {year} --")
+        #     season_obj, _ = Season.objects.get_or_create(year=year)
+        #     self.ingest_schedule(season_obj, year)
+        #     self.stdout.write(f"Schedule ingested for season {year}")
+        #     time.sleep(1.0)
 
         drivers_created = self.ingest_drivers()
         teams_created = self.ingest_teams()

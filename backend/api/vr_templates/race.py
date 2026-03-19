@@ -10,13 +10,18 @@ from api.helpers.vr import (
     parse_bool
 )
 
-# -	Driver laptimes (scatterplot)
+"""
+As an example for the rest of the template functions, 
+I have created comments for vr_pace_1, which is the base for template functions.
+"""
+
 def vr_pace_1(year, country, session_name, inputs):
+    # extract selected drivers and optional safety car exclusion flag
     drivers = inputs.get("drivers", [])
     exclude_sc = parse_bool(inputs.get("excludeSCVSC", False))
 
-    # 1) Load session
     try:
+        # load session lap data (telemetry/weather not required for this view)
         session = fastf1.get_session(year, country, session_name)
         session.load(laps=True, telemetry=False, weather=False)
     except Exception as e:
@@ -24,29 +29,23 @@ def vr_pace_1(year, country, session_name, inputs):
 
     laps = session.laps.copy()
 
-    # 2) Filter to selected drivers
+    # filter to selected drivers only
     laps = laps[laps["Driver"].isin(drivers)]
 
-    # 3) Keep only laps with a valid LapTime
+    # remove laps without valid lap times
     laps = laps[laps["LapTime"].notna()]
 
-    # 4) Exclude SC/VSC laps (only if column exists in your laps data)
-    # FastF1 can vary by session/year; keep this defensive.
     if exclude_sc and "TrackStatus" in laps.columns:
-        # TrackStatus is typically a string of marshalling flags.
-        # This is a best-effort filter; adjust if you have a more reliable SC/VSC indicator.
         laps = laps[~laps["TrackStatus"].astype(str).str.contains("4|5", regex=True)]
 
-    # 5) Convert LapTime (Timedelta) -> seconds float (JSON-friendly)
-    # FastF1 LapTime is usually pandas Timedelta
+    # normalise lap time to seconds for consistent plotting
     if pd.api.types.is_timedelta64_dtype(laps["LapTime"]):
         laps["LapTimeSeconds"] = laps["LapTime"].dt.total_seconds()
     else:
-        # Fallback if it comes already numeric/string
         laps["LapTimeSeconds"] = pd.to_numeric(laps["LapTime"], errors="coerce")
         laps = laps[laps["LapTimeSeconds"].notna()]
 
-    # 6) Build Plotly scatter
+    # generate scatter plot of lap time against lap number per driver
     fig = px.scatter(
         laps,
         x="LapNumber",
@@ -57,17 +56,16 @@ def vr_pace_1(year, country, session_name, inputs):
         hover_data=[c for c in ["Compound", "Stint", "TyreLife"] if c in laps.columns],
     )
 
-    # Optional: make “faster = higher” by reversing y-axis (some people prefer this)
-    # fig.update_yaxes(autorange="reversed")
-
+    # apply consistent layout styling
     fig.update_layout(
         margin=dict(l=40, r=20, t=60, b=40),
         legend_title_text="Driver",
     )
 
-    # 7) Convert figure to JSON-safe dict and return
+    # convert plotly figure to json-serialisable format for api response
     figure_dict = json.loads(json.dumps(fig, cls=PlotlyJSONEncoder))
 
+    # standardised response structure for visualisation builder
     payload = {
         "title": "Driver laptimes (scatter)",
         "result": {
@@ -78,13 +76,11 @@ def vr_pace_1(year, country, session_name, inputs):
 
     return JsonResponse(payload)
 
-# - Driver laptimes (distribution chart)
 def vr_pace_2(year, country, session_name, inputs):
     drivers = inputs.get("drivers", [])
     exclude_sc = parse_bool(inputs.get("excludeSCVSC", False))
     show_points = parse_bool(inputs.get("showPoints", True))
 
-    # 1) Load session
     try:
         session = fastf1.get_session(year, country, session_name)
         session.load(laps=True, telemetry=False, weather=False)
@@ -93,23 +89,19 @@ def vr_pace_2(year, country, session_name, inputs):
 
     laps = session.laps.copy()
 
-    # 2) Filter to selected drivers (if provided)
     if drivers:
         laps = laps[laps["Driver"].isin(drivers)]
 
-    # 3) Keep only laps with valid LapTime
     laps = laps[laps["LapTime"].notna()].copy()
     if laps.empty:
         return HttpResponseBadRequest("No valid laptimes found after filtering.")
 
-    # 4) Exclude SC/VSC laps (defensive; TrackStatus can vary)
     if exclude_sc and "TrackStatus" in laps.columns:
         laps = laps[~laps["TrackStatus"].astype(str).str.contains("4|5", regex=True)]
 
     if laps.empty:
         return HttpResponseBadRequest("No laptimes left after SC/VSC filtering.")
 
-    # 5) Convert LapTime (Timedelta) -> seconds float (JSON-friendly)
     if pd.api.types.is_timedelta64_dtype(laps["LapTime"]):
         laps["LapTimeSeconds"] = laps["LapTime"].dt.total_seconds()
     else:
@@ -119,7 +111,6 @@ def vr_pace_2(year, country, session_name, inputs):
     if laps.empty:
         return HttpResponseBadRequest("LapTime could not be converted to seconds.")
 
-    # 6) Distribution chart (violin per driver)
     fig = px.violin(
         laps,
         x="Driver",
@@ -137,10 +128,6 @@ def vr_pace_2(year, country, session_name, inputs):
         yaxis_title="Lap time (s)",
     )
 
-    # Optional: make faster times appear higher
-    # fig.update_yaxes(autorange="reversed")
-
-    # 7) Convert figure to JSON-safe dict and return
     figure_dict = json.loads(json.dumps(fig, cls=PlotlyJSONEncoder))
 
     payload = {
@@ -153,12 +140,10 @@ def vr_pace_2(year, country, session_name, inputs):
 
     return JsonResponse(payload)
 
-# -	Lap time trend (line chart)
 def vr_pace_3(year, country, session_name, inputs):
     drivers = inputs.get("drivers", [])
     exclude_sc = parse_bool(inputs.get("excludeSCVSC", False))
 
-    # 1) Load session
     try:
         session = fastf1.get_session(year, country, session_name)
         session.load(laps=True, telemetry=False, weather=False)
@@ -167,29 +152,19 @@ def vr_pace_3(year, country, session_name, inputs):
 
     laps = session.laps.copy()
 
-    # 2) Filter to selected drivers
     laps = laps[laps["Driver"].isin(drivers)]
 
-    # 3) Keep only laps with a valid LapTime
     laps = laps[laps["LapTime"].notna()]
 
-    # 4) Exclude SC/VSC laps (only if column exists in your laps data)
-    # FastF1 can vary by session/year; keep this defensive.
     if exclude_sc and "TrackStatus" in laps.columns:
-        # TrackStatus is typically a string of marshalling flags.
-        # This is a best-effort filter; adjust if you have a more reliable SC/VSC indicator.
         laps = laps[~laps["TrackStatus"].astype(str).str.contains("4|5", regex=True)]
 
-    # 5) Convert LapTime (Timedelta) -> seconds float (JSON-friendly)
-    # FastF1 LapTime is usually pandas Timedelta
     if pd.api.types.is_timedelta64_dtype(laps["LapTime"]):
         laps["LapTimeSeconds"] = laps["LapTime"].dt.total_seconds()
     else:
-        # Fallback if it comes already numeric/string
         laps["LapTimeSeconds"] = pd.to_numeric(laps["LapTime"], errors="coerce")
         laps = laps[laps["LapTimeSeconds"].notna()]
 
-    # 6) Build Plotly line chart
     fig = px.line(
         laps,
         x="LapNumber",
@@ -200,15 +175,11 @@ def vr_pace_3(year, country, session_name, inputs):
         hover_data=[c for c in ["Compound", "Stint", "TyreLife"] if c in laps.columns],
     )
 
-    # Optional: make “faster = higher” by reversing y-axis (some people prefer this)
-    # fig.update_yaxes(autorange="reversed")
-
     fig.update_layout(
         margin=dict(l=40, r=20, t=60, b=40),
         legend_title_text="Driver",
     )
 
-    # 7) Convert figure to JSON-safe dict and return
     figure_dict = json.loads(json.dumps(fig, cls=PlotlyJSONEncoder))
 
     payload = {
@@ -221,12 +192,10 @@ def vr_pace_3(year, country, session_name, inputs):
 
     return JsonResponse(payload)
 
-# -	Sector time breakdown (S1/S2/S3 per driver) (grouped bar chart/line chart)
 def vr_pace_4(year, country, session_name, inputs):
     drivers = inputs.get("drivers", [])
     exclude_sc = parse_bool(inputs.get("excludeSCVSC", False))
 
-    # 1) Load session
     try:
         session = fastf1.get_session(year, country, session_name)
         session.load(laps=True, telemetry=False, weather=False)
@@ -235,11 +204,9 @@ def vr_pace_4(year, country, session_name, inputs):
 
     laps = session.laps.copy()
 
-    # 2) Filter to selected drivers (if provided)
     if drivers:
         laps = laps[laps["Driver"].isin(drivers)]
 
-    # 3) Ensure sector columns exist
     sector_cols = ["Sector1Time", "Sector2Time", "Sector3Time"]
     missing = [c for c in sector_cols if c not in laps.columns]
     if missing:
@@ -247,11 +214,9 @@ def vr_pace_4(year, country, session_name, inputs):
             f"Sector columns missing in this session data: {missing}"
         )
 
-    # 4) Exclude SC/VSC laps (best-effort defensive)
     if exclude_sc and "TrackStatus" in laps.columns:
         laps = laps[~laps["TrackStatus"].astype(str).str.contains("4|5", regex=True)]
 
-    # 5) Keep only laps with all 3 sector times
     for c in sector_cols:
         laps = laps[laps[c].notna()]
 
@@ -260,7 +225,6 @@ def vr_pace_4(year, country, session_name, inputs):
             "No laps available after filtering (sectors missing/filtered out)."
         )
 
-    # 6) Convert sector timedeltas to seconds
     for c in sector_cols:
         out = c + "Seconds"
         if pd.api.types.is_timedelta64_dtype(laps[c]):
@@ -271,7 +235,6 @@ def vr_pace_4(year, country, session_name, inputs):
 
     s1, s2, s3 = "Sector1TimeSeconds", "Sector2TimeSeconds", "Sector3TimeSeconds"
 
-    # 7) Aggregate per driver
     cols = [s1, s2, s3]
     grp = laps.groupby("Driver", as_index=False)[cols].median()
     agg_label = "Median"
@@ -279,11 +242,9 @@ def vr_pace_4(year, country, session_name, inputs):
     if grp.empty:
         return HttpResponseBadRequest("No aggregated sector data to plot.")
 
-    # Optional: stable ordering (fastest total first)
     grp["TotalSeconds"] = grp[s1] + grp[s2] + grp[s3]
     grp = grp.sort_values("TotalSeconds", ascending=True)
 
-    # 8) Build grouped bar chart + line overlay
     sectors = ["Sector 1", "Sector 2", "Sector 3"]
     fig = go.Figure()
 
@@ -296,7 +257,6 @@ def vr_pace_4(year, country, session_name, inputs):
 
         cumulative = [s1, s1 + s2, s1 + s2 + s3]
 
-        # Bars: sector times
         fig.add_trace(go.Bar(
             name=drv,
             x=sectors,
@@ -308,7 +268,6 @@ def vr_pace_4(year, country, session_name, inputs):
             ),
         ))
 
-        # Line overlay: cumulative total
         fig.add_trace(go.Scatter(
             name=f"{drv} total",
             x=sectors,
@@ -337,7 +296,6 @@ def vr_pace_4(year, country, session_name, inputs):
         legend_title_text="Driver",
     )
 
-    # 9) Convert to JSON-safe dict and return
     figure_dict = json.loads(json.dumps(fig, cls=PlotlyJSONEncoder))
 
     payload = {
@@ -349,7 +307,6 @@ def vr_pace_4(year, country, session_name, inputs):
 
 
 def _ergast_to_df(resp):
-    # supports resp.content[0], resp.df, or DataFrame directly
     if resp is None:
         return None
     if isinstance(resp, pd.DataFrame):
@@ -367,13 +324,11 @@ def _ergast_to_df(resp):
 
 
 def vr_positions_3(inputs):
-    # --- Inputs ---
     SEASON = int(inputs.get("season", 2024))
     ROUND = int(inputs.get("round", 1))
 
     ergast = Ergast()
 
-    # 1) standings
     try:
         standings = ergast.get_driver_standings(season=SEASON, round=ROUND)
         driver_standings = _ergast_to_df(standings)
@@ -383,7 +338,6 @@ def vr_positions_3(inputs):
     if driver_standings is None or driver_standings.empty:
         return HttpResponseBadRequest("No driver standings returned.")
 
-    # normalize
     for col in ["position", "points", "givenName", "familyName"]:
         if col not in driver_standings.columns:
             return HttpResponseBadRequest(f"Standings missing '{col}' column.")
@@ -394,7 +348,6 @@ def vr_positions_3(inputs):
     driver_standings = driver_standings.dropna(subset=["points", "position_num"])
     driver_standings = driver_standings.sort_values("position_num").reset_index(drop=True)
 
-    # 2) remaining points model (same as FastF1 example)
     POINTS_FOR_SPRINT = 8 + 25          # sprint win + race win
     POINTS_FOR_CONVENTIONAL = 25        # race win
 
@@ -415,7 +368,6 @@ def vr_positions_3(inputs):
 
     max_points_remaining = sprint_events * POINTS_FOR_SPRINT + conventional_events * POINTS_FOR_CONVENTIONAL
 
-    # 3) compute table rows
     leader_points = int(driver_standings.loc[0, "points"])
 
     out = driver_standings.copy()
@@ -424,11 +376,9 @@ def vr_positions_3(inputs):
     out["TheoreticalMax"] = (out["CurrentPoints"] + int(max_points_remaining)).astype(int)
     out["CanWin"] = out["TheoreticalMax"].apply(lambda p: "Yes" if p >= leader_points else "No")
 
-    # sort: can win first, then points desc
     out["CanWinSort"] = out["CanWin"].map({"Yes": 0, "No": 1})
     out = out.sort_values(["CanWinSort", "CurrentPoints"], ascending=[True, False]).drop(columns=["CanWinSort"])
 
-    # 4) build plotly Table figure
     fig = go.Figure(
         data=[
             go.Table(
@@ -455,7 +405,6 @@ def vr_positions_3(inputs):
         margin=dict(l=20, r=20, t=60, b=20),
     )
 
-    # 5) JSON-safe payload (same shape as your scatter example)
     figure_dict = json.loads(json.dumps(fig, cls=PlotlyJSONEncoder))
 
     payload = {

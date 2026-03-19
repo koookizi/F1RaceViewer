@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type {
     LeaderboardApiResponse,
-    RaceControlApiResponse,
     TeamRadioApiResponse,
 } from "../types";
 import { AnimatePresence, motion } from "framer-motion";
@@ -19,6 +18,12 @@ type RacePlaybackTeamRadioProps = {
     teamRadioAutoplayToken: number;
 };
 
+/**
+ * Displays team radio messages during playback.
+ *
+ * Audio messages are triggered based on session time, with optional
+ * autoplay and visual highlighting for newly received communications.
+ */
 export function RacePlaybackTeamRadio({
     teamRadioData,
     currentTime,

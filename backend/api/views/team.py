@@ -9,6 +9,18 @@ __all__ = [
 ]
 
 def teams_getTeams(request):
+    """
+    Returns a list of teams ordered by name for use in frontend selection.
+
+    Team data is retrieved from the database and includes both the display
+    name and associated Ergast identifier.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        JsonResponse: List of teams with name and ergast_id fields.
+    """
     teams = (
         Team.objects
         .order_by("name")
@@ -18,6 +30,21 @@ def teams_getTeams(request):
     return JsonResponse({"teams": list(teams)})
 
 def teams_getTeamSummary(request, team_ergast_id: str):
+    """
+    Returns summary statistics for a constructor using historical Ergast data.
+
+    The function aggregates season and race result data to calculate overall
+    team metrics such as championship count, total points, podiums, pole
+    positions, highest grid slot, and best race finish.
+
+    Args:
+        request: HTTP request object.
+        team_ergast_id (str): Ergast constructor identifier for the team.
+
+    Returns:
+        JsonResponse: Summary statistics for the selected team across its
+        recorded Formula 1 history.
+    """
     ergast = Ergast(result_type="pandas", auto_cast=True)
 
     # main necessary ergast requests

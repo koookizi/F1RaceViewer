@@ -16,7 +16,6 @@ from api.helpers.vr import (
 def vr_tsp_1(season_year: int, team_name: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
 
-    # 1) Load season schedule
     try:
         schedule = fastf1.get_event_schedule(season_year)
     except Exception as e:
@@ -31,11 +30,9 @@ def vr_tsp_1(season_year: int, team_name: str, inputs: dict):
 
     rows = []
 
-    # 2) Iterate through rounds
     for _, event in schedule.iterrows():
         round_number = int(event["RoundNumber"])
 
-        # Skip invalid rounds (testing etc.)
         if round_number <= 0:
             continue
 
@@ -43,7 +40,7 @@ def vr_tsp_1(season_year: int, team_name: str, inputs: dict):
             session = fastf1.get_session(season_year, round_number, session_type)
             session.load(laps=False, telemetry=False, weather=False, messages=False)
         except Exception:
-            continue  # Skip failed rounds safely
+            continue 
 
         results = session.results
         if results is None or results.empty:
@@ -52,7 +49,6 @@ def vr_tsp_1(season_year: int, team_name: str, inputs: dict):
         if "TeamName" not in results.columns or "Points" not in results.columns:
             continue
 
-        # Direct exact match
         team_results = results[results["TeamName"] == team_name]
 
         if team_results.empty:
@@ -73,7 +69,6 @@ def vr_tsp_1(season_year: int, team_name: str, inputs: dict):
 
     df = pd.DataFrame(rows).sort_values("Round")
 
-    # 3) Create Plotly figure
     fig = px.line(
         df,
         x="Round",
@@ -137,7 +132,6 @@ def vr_tsp_2(season_year: int, team_name: str, inputs: dict):
         if team_res.empty:
             continue
 
-        # "Position" is commonly present; be defensive
         pos_col = "Position" if "Position" in team_res.columns else ("ClassifiedPosition" if "ClassifiedPosition" in team_res.columns else None)
         if pos_col is None:
             continue
@@ -166,7 +160,6 @@ def vr_tsp_2(season_year: int, team_name: str, inputs: dict):
         labels={"Position": "Finish position"},
         hover_data=["Round", "Event", "Driver", "Position"],
     )
-    # Lower position number is better; invert y-axis so P1 is at top
     fig.update_yaxes(autorange="reversed")
 
     fig.update_layout(margin=dict(l=40, r=20, t=60, b=40))
@@ -179,11 +172,6 @@ def vr_tsp_2(season_year: int, team_name: str, inputs: dict):
         "meta": {"season": season_year, "team": team_name, "session_type": session_type, "source": "fastf1"},
     }
     return JsonResponse(payload)
-
-
-# ============================================================
-# t26 — Grid vs finish scatter (race execution)
-# ============================================================
 
 def vr_tsp_3(season_year: int, team_name: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
@@ -216,7 +204,6 @@ def vr_tsp_3(season_year: int, team_name: str, inputs: dict):
         if team_res.empty:
             continue
 
-        # Column names vary slightly across versions
         grid_col = "GridPosition" if "GridPosition" in team_res.columns else ("Grid" if "Grid" in team_res.columns else None)
         pos_col = "Position" if "Position" in team_res.columns else ("ClassifiedPosition" if "ClassifiedPosition" in team_res.columns else None)
 
@@ -254,7 +241,6 @@ def vr_tsp_3(season_year: int, team_name: str, inputs: dict):
         labels={"Grid": "Grid position", "Finish": "Finish position"},
         hover_data=["Round", "Event", "Driver", "Grid", "Finish", "PositionsGained"],
     )
-    # Invert y so better finishes are higher on chart
     fig.update_yaxes(autorange="reversed")
     fig.update_layout(margin=dict(l=40, r=20, t=60, b=40), legend_title_text="Driver")
 
@@ -266,11 +252,6 @@ def vr_tsp_3(season_year: int, team_name: str, inputs: dict):
         "meta": {"season": season_year, "team": team_name, "session_type": session_type, "source": "fastf1"},
     }
     return JsonResponse(payload)
-
-
-# ============================================================
-# t27 — Average points by circuit (bar)
-# ============================================================
 
 def vr_tca_1(season_from: int, season_to: int, team_name: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
@@ -349,11 +330,6 @@ def vr_tca_1(season_from: int, season_to: int, team_name: str, inputs: dict):
     }
     return JsonResponse(payload)
 
-
-# ============================================================
-# t28 — Best and worst circuits table
-# ============================================================
-
 def vr_tca_2(season_from: int, season_to: int, team_name: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
     min_races = int(inputs.get("min_races", 2))
@@ -362,7 +338,6 @@ def vr_tca_2(season_from: int, season_to: int, team_name: str, inputs: dict):
     if season_from > season_to:
         season_from, season_to = season_to, season_from
 
-    # Reuse the same aggregation approach as t27
     rows = []
     for year in range(season_from, season_to + 1):
         schedule = get_schedule(year)
@@ -408,7 +383,6 @@ def vr_tca_2(season_from: int, season_to: int, team_name: str, inputs: dict):
     best = agg.sort_values("AvgPoints", ascending=False).head(top_n)
     worst = agg.sort_values("AvgPoints", ascending=True).head(top_n)
 
-    # Build a single table with a "Bucket" column
     table_df = pd.concat([
         best.assign(Bucket="Best"),
         worst.assign(Bucket="Worst"),
@@ -437,11 +411,6 @@ def vr_tca_2(season_from: int, season_to: int, team_name: str, inputs: dict):
         },
     }
     return JsonResponse(payload)
-
-
-# ============================================================
-# t29 — Circuit performance heatmap (circuits x seasons)
-# ============================================================
 
 def vr_tca_3(season_from: int, season_to: int, team_name: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
@@ -490,7 +459,6 @@ def vr_tca_3(season_from: int, season_to: int, team_name: str, inputs: dict):
 
     df = pd.DataFrame(rows)
 
-    # Aggregate to season x circuit mean points
     agg = (
         df.groupby(["Season", "Circuit"], as_index=False)
           .agg(Races=("Points", "size"), AvgPoints=("Points", "mean"))
@@ -517,11 +485,6 @@ def vr_tca_3(season_from: int, season_to: int, team_name: str, inputs: dict):
         "meta": {"season_from": season_from, "season_to": season_to, "team": team_name, "session_type": session_type, "min_races": min_races, "source": "fastf1"},
     }
     return JsonResponse(payload)
-
-
-# ============================================================
-# t30 — Race pace delta vs field (boxplot)
-# ============================================================
 
 def vr_tpc_1(season_year: int, team_name: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
@@ -552,7 +515,6 @@ def vr_tpc_1(season_year: int, team_name: str, inputs: dict):
         if laps.empty:
             continue
 
-        # Convert lap time to seconds
         laps = laps.copy()
         laps["LapTimeSeconds"] = timedelta_to_seconds(laps["LapTime"])
         laps = laps[laps["LapTimeSeconds"].notna()]
@@ -560,17 +522,13 @@ def vr_tpc_1(season_year: int, team_name: str, inputs: dict):
         if laps.empty:
             continue
 
-        # Field median (one value per race)
         field_median = float(laps["LapTimeSeconds"].median())
 
-        # Team laps
         if "Team" in laps.columns:
             team_laps = laps[laps["Team"] == team_name].copy()
         elif "TeamName" in laps.columns:
             team_laps = laps[laps["TeamName"] == team_name].copy()
         else:
-            # If laps doesn't carry team, use results to map drivers -> team
-            # (rare; but defensive)
             res = session.results
             if res is None or res.empty or "TeamName" not in res.columns:
                 continue
@@ -583,10 +541,8 @@ def vr_tpc_1(season_year: int, team_name: str, inputs: dict):
         if team_laps.empty:
             continue
 
-        # Delta per team lap vs field median
         team_laps["DeltaToFieldMedian"] = team_laps["LapTimeSeconds"] - field_median
 
-        # Keep for plot
         for _, r in team_laps.iterrows():
             rows.append({
                 "Round": rnd,
@@ -621,11 +577,6 @@ def vr_tpc_1(season_year: int, team_name: str, inputs: dict):
     }
     return JsonResponse(payload)
 
-
-# ============================================================
-# t31 — Tyre degradation by compound (stint analysis line)
-# ============================================================
-
 def vr_tpc_2(season_year: int, team_name: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
     min_stint_laps = int(inputs.get("min_stint_laps", 6))
@@ -656,7 +607,6 @@ def vr_tpc_2(season_year: int, team_name: str, inputs: dict):
         if laps.empty:
             continue
 
-        # Need team column + compound + stint
         if "Team" not in laps.columns or "Compound" not in laps.columns or "Stint" not in laps.columns:
             continue
 
@@ -669,14 +619,12 @@ def vr_tpc_2(season_year: int, team_name: str, inputs: dict):
         if team_laps.empty:
             continue
 
-        # Compute LapInStint as sequence count per (Driver, Stint)
         if "Driver" not in team_laps.columns or "LapNumber" not in team_laps.columns:
             continue
 
         team_laps = team_laps.sort_values(["Driver", "Stint", "LapNumber"])
         team_laps["LapInStint"] = team_laps.groupby(["Driver", "Stint"]).cumcount() + 1
 
-        # Filter out short stints (to reduce SC/oddity noise)
         stint_sizes = team_laps.groupby(["Driver", "Stint"]).size().rename("StintSize").reset_index()
         team_laps = team_laps.merge(stint_sizes, on=["Driver", "Stint"], how="left")
         team_laps = team_laps[team_laps["StintSize"] >= min_stint_laps]
@@ -684,7 +632,6 @@ def vr_tpc_2(season_year: int, team_name: str, inputs: dict):
         if team_laps.empty:
             continue
 
-        # Keep for aggregation
         team_laps["Round"] = rnd
         team_laps["Event"] = safe_event_name(event)
 
@@ -695,7 +642,6 @@ def vr_tpc_2(season_year: int, team_name: str, inputs: dict):
 
     df = pd.concat(all_rows, ignore_index=True)
 
-    # Aggregate median lap time by compound and lap-in-stint
     agg = (
         df.groupby(["Compound", "LapInStint"], as_index=False)
           .agg(MedianLapTime=("LapTimeSeconds", "median"), N=("LapTimeSeconds", "size"))

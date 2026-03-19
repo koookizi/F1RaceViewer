@@ -11,8 +11,14 @@ interface StartingGridProps {
   results: Result[];
 }
 
+/**
+ * Renders the starting grid for a session.
+ *
+ * Displays driver positions and associated information based on
+ * qualifying or grid data.
+ */
 export function StartingGrid({ results }: StartingGridProps) {
-  // 1. Normalise gridPos (string/float/null → number|null)
+  // 1 - normalise grid pos
   const clean = results
     .map((r) => {
       const num = r.gridPos == null ? NaN : Number(r.gridPos);
@@ -23,11 +29,11 @@ export function StartingGrid({ results }: StartingGridProps) {
     .filter((r) => r.gridPosInt !== null)
     .sort((a, b) => a.gridPosInt! - b.gridPosInt!);
 
-  // 2. Split into TWO LANES
+  // 2 - split into two lanes
   const topLane = clean.filter((d) => d.gridPosInt! % 2 === 1); // P1, P3, P5…
   const bottomLane = clean.filter((d) => d.gridPosInt! % 2 === 0); // P2, P4, P6…
 
-  // 3. Card component for each driver
+  // 3 - card component for each driver
   function Card({ driver }: { driver: (typeof clean)[number] }) {
     return (
       <div className="flex">
@@ -61,11 +67,10 @@ export function StartingGrid({ results }: StartingGridProps) {
     }
   }, [results]);
 
-  // 4. Render lanes + finish line
+  // 4 - render lanes and finish lines
   return (
     <div ref={scrollRef} className="w-full overflow-x-auto">
       <div className="inline-flex items-stretch gap-4 min-w-[720px] px-4 py-4">
-        {/* ========================= GRID AREA ========================= */}
         <div className="flex-1 pr-4 relative border-r border-dashed border-gray-500">
           <div className="flex flex-col gap-4">
             <div
@@ -76,14 +81,14 @@ export function StartingGrid({ results }: StartingGridProps) {
               }}
             ></div>
 
-            {/* Top Lane (Odd positions) — reversed so P1 is closest to finish line */}
+            {/* top lane */}
             <div className="flex flex-row-reverse gap-4 me-15">
               {topLane.map((d) => (
                 <Card key={`top-${d.driverNumber}`} driver={d} />
               ))}
             </div>
 
-            {/* Bottom Lane (Even positions) */}
+            {/* bottom Lane */}
             <div className="flex flex-row-reverse gap-4 me-22">
               {bottomLane.map((d) => (
                 <Card key={`bottom-${d.driverNumber}`} driver={d} />
@@ -99,13 +104,11 @@ export function StartingGrid({ results }: StartingGridProps) {
             ></div>
           </div>
 
-          {/* Vertical GRID label */}
           <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center justify-center translate-x-1 text-[10px] uppercase tracking-[0.2em] text-neutral-500 rotate-90">
             Starting Grid
           </span>
         </div>
 
-        {/* ========================= FINISH LINE ========================= */}
         <div className="w-16 relative flex items-center justify-center">
           <div
             className="

@@ -11,6 +11,18 @@ __all__ = [
 ]
 
 def drivers_getDrivers(request):
+    """
+    Returns the list of drivers available in the database.
+
+    Driver records are ordered by Ergast identifier and reduced to the
+    fields required for frontend selection.
+
+    Args:
+        request: HTTP request object.
+
+    Returns:
+        JsonResponse: List of drivers with Ergast ID, given name and family name.
+    """
     drivers = (
         Driver.objects
         .order_by("ergast_id")
@@ -21,6 +33,19 @@ def drivers_getDrivers(request):
     return JsonResponse({"drivers": list(drivers)})
 
 def driver_getDriverCode(request, driver_ergast_id: str):
+    """
+    Returns the driver code for a given Ergast driver identifier.
+
+    The code is retrieved from the Ergast driver information endpoint and is
+    used where a short driver abbreviation is required in the frontend.
+
+    Args:
+        request: HTTP request object.
+        driver_ergast_id (str): Ergast identifier for the driver.
+
+    Returns:
+        JsonResponse: Driver abbreviation for the selected driver.
+    """
     ergast = Ergast()
     df = ergast.get_driver_info(driver=driver_ergast_id)
     abbr = df.loc[0, "driverCode"]
@@ -28,6 +53,20 @@ def driver_getDriverCode(request, driver_ergast_id: str):
     
 
 def driver_getDriverSummary(request, driver_ergast_id: str):
+    """
+    Returns summary statistics for a driver using historical Ergast data.
+
+    Race results, standings and finishing status data are aggregated to
+    calculate overall career measures such as points, podiums, pole
+    positions, championships, best finish and DNFs.
+
+    Args:
+        request: HTTP request object.
+        driver_ergast_id (str): Ergast identifier for the driver.
+
+    Returns:
+        JsonResponse: Career summary statistics for the selected driver.
+    """
     ergast = Ergast(result_type="pandas", auto_cast=True)
 
     # main necessary ergast requests

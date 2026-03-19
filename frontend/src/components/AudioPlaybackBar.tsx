@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
+import { useToast } from "@/components/ToastContext";
+
 
 type AudioPlaybackBarProps = {
   src: string;
@@ -13,6 +15,9 @@ export function AudioPlaybackBar({
   autoPlayEnabled,
   autoPlayToken,
 }: AudioPlaybackBarProps) {
+  // -- Toast
+  const toast = useToast();
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastAutoPlayTokenRef = useRef<number | null>(null);
 
@@ -21,7 +26,7 @@ export function AudioPlaybackBar({
   const [current, setCurrent] = useState(0); // seconds
   const [isSeeking, setIsSeeking] = useState(false);
 
-  // Create / destroy audio only when src changes
+  // make audio only when src changes
   useEffect(() => {
     const audio = new Audio(src);
     audioRef.current = audio;
@@ -56,25 +61,26 @@ export function AudioPlaybackBar({
       audio.removeEventListener("ended", onEnded);
       if (audioRef.current === audio) audioRef.current = null;
     };
-    // include isSeeking so the handler reads the latest value (safe)
+    // include isSeeking so the handler reads the latest value
   }, [src, isSeeking]);
 
-  // Autoplay ONLY when token bumps, and only if enabled
+  // autoplay ONLY when token changes, and only if enabled
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
     if (!autoPlayEnabled) return;
 
-    // only once per token bump
+    // only once per token change
     if (lastAutoPlayTokenRef.current === autoPlayToken) return;
     lastAutoPlayTokenRef.current = autoPlayToken;
 
-    // start from beginning (optional)
+    // start from beginning
     audio.currentTime = 0;
 
     audio.play().catch(() => {
-      // browser may block autoplay; ignore
+      toast("Autoplay has been blocked by browser","error");
+
     });
   }, [autoPlayEnabled, autoPlayToken]);
 
@@ -86,7 +92,8 @@ export function AudioPlaybackBar({
       if (audio.paused) await audio.play();
       else audio.pause();
     } catch {
-      // autoplay restrictions / transient errors
+      toast("There was an error using Autoplay","error");
+
     }
   };
 

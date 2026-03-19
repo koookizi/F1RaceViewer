@@ -10,12 +10,16 @@ type DrsState = "off" | "available" | "active";
 function classifyDrs(v: number | null | undefined): DrsState {
   const n = Number(v ?? 0);
 
-  // From your table:
-  if (n === 8) return "available"; // detected/eligible
-  if (n === 10 || n === 12 || n === 14) return "active"; // on
-  return "off"; // 0,1 and unknown codes -> treat as off
+  if (n === 8) return "available"; 
+  if (n === 10 || n === 12 || n === 14) return "active";
+  return "off";
 }
 
+/**
+ * Displays vehicle speed using a gauge-style visualisation.
+ *
+ * Updated continuously during playback to reflect live telemetry data.
+ */
 export function SpeedGauge({
   carData,
   currentTime,
@@ -47,7 +51,7 @@ export function SpeedGauge({
 
   return (
     <div className="relative -ms-4 -mt-4" style={{ width: size, height: size }}>
-      {/* GAUGE LAYER (glow applies here only) */}
+      {/* Gauge layer (glow applies here only) */}
       <div className={gaugeGlowClass} style={{ width: "100%", height: "100%" }}>
         <GaugeComponent
           type="radial"
@@ -73,7 +77,7 @@ export function SpeedGauge({
         />
       </div>
 
-      {/* TEXT LAYER (no glow, lower middle) */}
+      {/* Text layer (no glow, lower middle) */}
       <div className="absolute inset-0 pointer-events-none">
         <div
           className="absolute left-1/2 -translate-x-1/2 text-center"
@@ -84,7 +88,7 @@ export function SpeedGauge({
           </div>
           <div className="text-[11px] opacity-70 tracking-wider">KM/H</div>
 
-          {/* Optional tiny DRS label (kept subtle) */}
+          {/* DRS label */}
           {drsState !== "off" && (
             <div
               className={[

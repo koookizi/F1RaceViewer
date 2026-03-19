@@ -1,4 +1,3 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChartCard, type ChartResponse } from "./ChartCard";
 
 type VRBuilderLivePreviewProps = {
@@ -7,6 +6,12 @@ type VRBuilderLivePreviewProps = {
     chartLoading: boolean;
 };
 
+/**
+ * Renders a live preview of the selected visualisation.
+ *
+ * The component updates in response to template selection and input
+ * changes, allowing users to see the generated output before exporting.
+ */
 export function VRBuilderLivePreview({
     setReportBlocks,
     previewChart,

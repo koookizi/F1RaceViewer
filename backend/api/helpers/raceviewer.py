@@ -16,6 +16,19 @@ def to_int_or_none(value):
         return None
 
 def format_lap_time(value):
+    """
+    Formats a lap time value into a readable minute-second string.
+
+    The function accepts either a pandas Timedelta or a numeric value in
+    seconds and returns it in lap-time format.
+
+    Args:
+        value: Lap time value.
+
+    Returns:
+        str | None: Formatted lap time string, or None if no valid value is
+        available.
+    """
     if pd.isna(value) or value is None:
         return None
 
@@ -41,6 +54,19 @@ def to_float_or_none(value):
         return float(value)
 
 def prepare_laps_df_for_json(df: pd.DataFrame):
+    """
+    Prepares a laps dataframe for JSON serialisation.
+
+    Timedelta and session-time columns are converted to seconds, numpy
+    scalars are cast to native Python types, and missing values are replaced
+    with None.
+
+    Args:
+        df (pd.DataFrame): Laps dataframe to clean.
+
+    Returns:
+        pd.DataFrame: Cleaned dataframe ready for JSON output.
+    """
     df = df.copy()
 
     timedelta_cols = [
@@ -70,7 +96,7 @@ def prepare_laps_df_for_json(df: pd.DataFrame):
                 lambda x: x.total_seconds() if pd.notna(x) else None
             )
 
-    # Convert numpy scalar types → Python native
+    # convert numpy scalar types to Python native
     df = df.map(lambda x: x.item() if hasattr(x, "item") else x)
 
     df = df.replace({np.nan: None})
@@ -79,8 +105,17 @@ def prepare_laps_df_for_json(df: pd.DataFrame):
 
 def add_lap_number_from_lapstarts(tel: pd.DataFrame, laps_drv: pd.DataFrame) -> pd.DataFrame:
     """
-    tel: telemetry for ONE driver, must include column 'Time'
-    laps_drv: session.laps filtered to ONE driver, must include 'LapNumber' and 'LapStartTime'
+    Assigns lap numbers to telemetry rows using lap start times.
+
+    Telemetry samples are matched to the most recent lap start at or before
+    each telemetry timestamp so that each row can be linked to its lap.
+
+    Args:
+        tel (pd.DataFrame): Telemetry data for a single driver.
+        laps_drv (pd.DataFrame): Lap data for the same driver.
+
+    Returns:
+        pd.DataFrame: Telemetry dataframe with lap numbers attached.
     """
     print("adding lap data to the tel data")
     tel = tel.sort_values("Time").copy()
@@ -92,7 +127,7 @@ def add_lap_number_from_lapstarts(tel: pd.DataFrame, laps_drv: pd.DataFrame) -> 
         .copy()
     )
 
-    # Assign the latest lap start that is <= telemetry time
+    # assign the latest lap start time that is less than or equal to each telemetry time
     tel = pd.merge_asof(
         tel,
         lapstarts,
@@ -105,14 +140,26 @@ def add_lap_number_from_lapstarts(tel: pd.DataFrame, laps_drv: pd.DataFrame) -> 
     return tel
 
 def assign_live_position_from_lap_distance(df_bin: pd.DataFrame) -> pd.DataFrame:
+    """
+    Assigns lap numbers to telemetry rows using lap start times.
+
+    Telemetry samples are matched to the most recent lap start at or before
+    each telemetry timestamp so that each row can be linked to its lap.
+
+    Args:
+        tel (pd.DataFrame): Telemetry data for a single driver.
+        laps_drv (pd.DataFrame): Lap data for the same driver.
+
+    Returns:
+        pd.DataFrame: Telemetry dataframe with lap numbers attached.
+    """
     print("assining the live positions")
     df_bin = df_bin.copy()
 
-    # You want exactly one row per driver per TimeBin.
-    # If you have multiple samples per driver per bin, keep the latest sample.
+    # need one row per driver per TimeBin.
+    # if i have multiple samples per driver per bin, keep the latest sample
     df_bin = df_bin.sort_values("Time").drop_duplicates(subset=["DriverNumber"], keep="last")
 
-    # Sort "front to back"
     df_bin = df_bin.sort_values(["LapNumber", "Distance"], ascending=[False, False])
 
     df_bin["LivePosition"] = range(1, len(df_bin) + 1)
@@ -120,7 +167,6 @@ def assign_live_position_from_lap_distance(df_bin: pd.DataFrame) -> pd.DataFrame
 
 def clean_for_json(obj):
     print("-- cleaning json")
-    """Recursively replace NaN/Inf with None so JSON is valid."""
     if obj is None:
         return None
     if isinstance(obj, float):

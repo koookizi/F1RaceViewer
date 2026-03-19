@@ -1,4 +1,3 @@
-import React from "react";
 import { TelemetryRing } from "./TelemetryRing";
 
 type Item = {
@@ -9,6 +8,12 @@ type Item = {
   subLabel?: string;
 };
 
+/**
+ * Displays a single telemetry value in a compact format.
+ *
+ * Designed for quick, readable presentation of key metrics such as
+ * speed, throttle or braking during playback.
+ */
 export function TelemetryPill({ items }: { items: Item[] }) {
   return (
     <div className="inline-flex items-end gap-4 rounded-full">

@@ -1,7 +1,19 @@
 import numpy as np
 
-# rotates all (x,y) by a given angle (in radians)
 def rotate(xy, angle: float):
+    """
+    Applies a rotation to 2D track coordinates.
+
+    A custom rotation matrix is used to match the FastF1 coordinate system,
+    which differs from the standard mathematical convention.
+
+    Args:
+        xy: Array of x/y coordinate pairs.
+        angle (float): Rotation angle in radians.
+
+    Returns:
+        np.ndarray: Rotated coordinates.
+    """
 
     # uses a rotation matrix (not standard as coordinate system of FastF1 is flipped, and it is clockwise rotation, not anticlockwise)
     rot_mat = np.array([[np.cos(angle), np.sin(angle)],
@@ -9,6 +21,19 @@ def rotate(xy, angle: float):
     return np.matmul(xy, rot_mat)
 
 def normalize_xy(x, y):
+    """
+    Normalises track coordinates for consistent visual scaling.
+
+    Coordinates are centred using the mean and scaled based on the largest
+    axis range so that the track fits within a standardised view.
+
+    Args:
+        x: Array of x coordinates.
+        y: Array of y coordinates.
+
+    Returns:
+        tuple: Normalised x and y coordinate arrays.
+    """
     # ensure that they are an array of floats
     x = np.asarray(x, dtype="float64")
     y = np.asarray(y, dtype="float64")

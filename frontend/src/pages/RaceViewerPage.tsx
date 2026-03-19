@@ -23,7 +23,7 @@ import { VRBuilderBuildControls } from "../components/VRBuilderBuildControls";
 import { VRBuilderLivePreview } from "../components/VRBuilderLivePreview";
 import { VRBuilderInsightsReports } from "../components/VRBuilderInsightsReports";
 import type { MultiSelectOption } from "../components/MultiSelect";
-import { ChartCard, type ChartResponse } from "../components/ChartCard";
+import { type ChartResponse } from "../components/ChartCard";
 import { useToast } from "../components/ToastContext";
 import { fetchJson } from "../helpers/api";
 import { BlockedCard } from "@/components/BlockedCard";
@@ -157,7 +157,7 @@ export function RaceViewerPage() {
     const [reportBlocks, setReportBlocks] = useState<ChartResponse[]>([]);
     const [chartLoading, setChartLoading] = useState(false);
 
-    // Animation loop (safe: no nested setState)
+    // Animation loop
     const isPlayingRef = useRef(isPlaying);
     const speedRef = useRef(speedMultiplier);
     const dataRef = useRef<PlaybackData | null>(data);
@@ -181,9 +181,9 @@ export function RaceViewerPage() {
         dataRef.current = data;
     }, [data]);
 
-    // Animation loop (throttled to avoid max-depth + lag)
+    // Animation loop
     useEffect(() => {
-        // Always cancel any existing RAF before deciding what to do (StrictMode-safe)
+        // Always cancel any existing RAF before deciding what to do
         if (frameRef.current !== null) {
             cancelAnimationFrame(frameRef.current);
             frameRef.current = null;
@@ -209,13 +209,12 @@ export function RaceViewerPage() {
             const deltaReal = (timestamp - lastTimestampRef.current) / 1000;
             lastTimestampRef.current = timestamp;
 
-            // advance simulation time in a ref (not state)
+            // advance simulation time in a ref
             const deltaSim = deltaReal * speedMultiplier;
             simTimeRef.current = Math.min(simTimeRef.current + deltaSim, raceDuration);
 
             const reachedEnd = simTimeRef.current >= raceDuration;
 
-            // Commit UI state at most ~30fps (every 33ms) to reduce rerenders/effects
             if (timestamp - lastUiCommitRef.current >= 33 || reachedEnd) {
                 lastUiCommitRef.current = timestamp;
                 setCurrentTime(simTimeRef.current);
@@ -242,7 +241,6 @@ export function RaceViewerPage() {
         };
     }, [isPlaying, speedMultiplier, data, setCurrentTime, setIsPlaying]);
 
-    // Prints selected driver (for debug)
     useEffect(() => {
         console.log("Selected driver:", selectedDriver);
     }, [selectedDriver]);

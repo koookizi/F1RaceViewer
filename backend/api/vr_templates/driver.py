@@ -13,10 +13,6 @@ from api.helpers.vr import (
     timedelta_to_seconds
 )
 
-# ============================================================
-# t32 — Driver points per race (season trend)
-# ============================================================
-
 def vr_dsp_1(season_year: int, driver_code: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
     cumulative = bool(inputs.get("cumulative", False))
@@ -81,10 +77,6 @@ def vr_dsp_1(season_year: int, driver_code: str, inputs: dict):
     return JsonResponse(payload)
 
 
-# ============================================================
-# t33 — Finish position distribution (consistency boxplot)
-# ============================================================
-
 def vr_dsp_2(season_year: int, driver_code: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
     exclude_nc = bool(inputs.get("exclude_non_classified", True))
@@ -113,7 +105,6 @@ def vr_dsp_2(season_year: int, driver_code: str, inputs: dict):
         if drow is None:
             continue
 
-        # Optionally remove DNFs/DNS/DSQ/NC
         if exclude_nc and "Status" in results.columns:
             status = str(drow.get("Status", ""))
             if any(x in status.upper() for x in ["DNF", "DNS", "DSQ", "NC"]):
@@ -154,10 +145,6 @@ def vr_dsp_2(season_year: int, driver_code: str, inputs: dict):
     }
     return JsonResponse(payload)
 
-
-# ============================================================
-# t34 — Positions gained histogram (grid-to-finish delta)
-# ============================================================
 
 def vr_dsp_3(season_year: int, driver_code: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
@@ -231,10 +218,6 @@ def vr_dsp_3(season_year: int, driver_code: str, inputs: dict):
     return JsonResponse(payload)
 
 
-# ============================================================
-# t35 — Points vs teammate (season comparison bar)
-# ============================================================
-
 def vr_dvt_1(season_year: int, driver_code: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
 
@@ -263,15 +246,15 @@ def vr_dvt_1(season_year: int, driver_code: str, inputs: dict):
         if drow is None:
             continue
 
-        # Set teammate once we can infer it from results
+        # set teammate once we can infer it from results
         if teammate_code is None:
             teammate_code = find_teammate_code(results, driver_code)
 
-        # Driver points
+        # driver points
         dp = pd.to_numeric(drow.get("Points"), errors="coerce")
         dp = float(0 if pd.isna(dp) else dp)
 
-        # Teammate points (same round, if we can identify teammate)
+        # teammate points (same round, if we can identify teammate)
         tp = None
         if teammate_code is not None:
             trow = find_driver_row(results, teammate_code)
@@ -315,10 +298,6 @@ def vr_dvt_1(season_year: int, driver_code: str, inputs: dict):
     return JsonResponse(payload)
 
 
-# ============================================================
-# t36 — Qualifying head-to-head vs teammate
-# ============================================================
-
 def vr_dvt_2(season_year: int, driver_code: str, inputs: dict):
     # Qualifying session for head-to-head
     session_type = (inputs.get("session_type") or "Q").upper()
@@ -336,8 +315,6 @@ def vr_dvt_2(season_year: int, driver_code: str, inputs: dict):
         if rnd <= 0:
             continue
 
-        # Optionally skip sprint-weekends special sessions (we keep it simple)
-        # If you later add Sprint Quali explicitly, you can enhance this.
         try:
             session = load_session(season_year, rnd, session_type, laps=False)
         except Exception:
@@ -407,12 +384,6 @@ def vr_dvt_2(season_year: int, driver_code: str, inputs: dict):
     return JsonResponse(payload)
 
 
-# ============================================================
-# t37 — Race pace delta vs teammate (boxplot)
-# Season-level aggregation: all clean laps in season, delta = driver_lap - teammate_lap
-# Pairing method: within each race, compare median lap times (clean laps) then collect deltas.
-# ============================================================
-
 def vr_dvt_3(season_year: int, driver_code: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
     exclude_pit = bool(inputs.get("exclude_pit_laps", True))
@@ -435,7 +406,7 @@ def vr_dvt_3(season_year: int, driver_code: str, inputs: dict):
         except Exception:
             continue
 
-        # Infer teammate from results for this event
+        # get teammate from results for this event
         results = session.results
         if teammate_code is None and results is not None and not results.empty:
             teammate_code = find_teammate_code(results, driver_code)
@@ -466,10 +437,10 @@ def vr_dvt_3(season_year: int, driver_code: str, inputs: dict):
         if d_laps.empty or t_laps.empty:
             continue
 
-        # Median pace per race (robust to outliers/traffic)
+        # median pace per race
         d_med = float(d_laps["LapTimeSeconds"].median())
         t_med = float(t_laps["LapTimeSeconds"].median())
-        delta = d_med - t_med  # positive => driver slower than teammate
+        delta = d_med - t_med  # positive means that driver slower than teammate
 
         rows.append({
             "Round": rnd,
@@ -511,12 +482,6 @@ def vr_dvt_3(season_year: int, driver_code: str, inputs: dict):
         },
     }
     return JsonResponse(payload)
-
-
-# ============================================================
-# t38 — Tyre degradation profile (season aggregate)
-# Aggregate: median lap time vs lap-in-stint, grouped by compound, for the driver.
-# ============================================================
 
 def vr_dc_1(season_year: int, driver_code: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
@@ -564,7 +529,7 @@ def vr_dc_1(season_year: int, driver_code: str, inputs: dict):
         d_laps = d_laps.sort_values(["Stint", "LapNumber"])
         d_laps["LapInStint"] = d_laps.groupby(["Stint"]).cumcount() + 1
 
-        # Filter short stints
+        # filter short stints
         stint_sizes = d_laps.groupby("Stint").size().rename("StintSize").reset_index()
         d_laps = d_laps.merge(stint_sizes, on="Stint", how="left")
         d_laps = d_laps[d_laps["StintSize"] >= min_stint_laps]
@@ -613,11 +578,6 @@ def vr_dc_1(season_year: int, driver_code: str, inputs: dict):
     }
     return JsonResponse(payload)
 
-
-# ============================================================
-# t39 — Lap-time consistency distribution (season)
-# Use a boxplot of clean-lap times across season (all races).
-# ============================================================
 
 def vr_dc_2(season_year: int, driver_code: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()
@@ -684,12 +644,6 @@ def vr_dc_2(season_year: int, driver_code: str, inputs: dict):
     }
     return JsonResponse(payload)
 
-
-# ============================================================
-# t40 — Race start & recovery (positions gained analysis)
-# Season-level: bar chart of positions gained per round (grid - finish)
-# (Different from t34 histogram: this is per-round profile.)
-# ============================================================
 
 def vr_dc_3(season_year: int, driver_code: str, inputs: dict):
     session_type = (inputs.get("session_type") or "R").upper()

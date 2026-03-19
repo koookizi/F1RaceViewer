@@ -2,7 +2,6 @@ import StatCard from "@/components/StatCard";
 import { useToast } from "@/components/ToastContext";
 import type { currentSeasonData, DriverSummaryData, blockState } from "@/types";
 import { useEffect, useState, useMemo } from "react";
-import DriverCard from "@/components/DriverCard";
 import { VRBuilderBuildControls } from "@/components/VRBuilderBuildControls";
 import { VRBuilderLivePreview } from "@/components/VRBuilderLivePreview";
 import { VRBuilderInsightsReports } from "@/components/VRBuilderInsightsReports";

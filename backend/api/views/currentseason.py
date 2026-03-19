@@ -9,8 +9,27 @@ __all__ = [
     "getCurrentSeason",
 ]
 
-def getCurrentSeason(request, data, teamOrDriver=None,):    
+def getCurrentSeason(request, data, teamOrDriver=None,):  
+    """
+    Returns current-season summary data for a selected team or driver.
+
+    OpenF1 session data is used to identify the latest active season and the
+    most relevant session key, after which championship standings, race
+    results, sprint results and grid data are aggregated into a single
+    season summary.
+
+    Args:
+        request: HTTP request object.
+        data: Team name or driver name used in the lookup.
+        teamOrDriver (str, optional): Specifies whether the lookup is for a
+        team or a driver.
+
+    Returns:
+        JsonResponse: Current-season statistics, standings data and related
+        driver information for the selected team or driver.
+    """  
     year_now = datetime.now(timezone.utc).year
+    #year_now = 2025 #temp
 
     sessions = []
     for y in (year_now - 1, year_now):

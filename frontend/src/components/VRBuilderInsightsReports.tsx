@@ -13,12 +13,17 @@ type VRBuilderInsightsReportsProps = {
     setReportBlocks: React.Dispatch<React.SetStateAction<ChartResponse[]>>;
 };
 
+/**
+ * Displays generated insights and report outputs.
+ *
+ * Results from the visualisation builder are rendered here in a
+ * structured format, supporting both on-screen analysis and export.
+ */
 export function VRBuilderInsightsReports({
     reportBlocks,
     setReportBlocks,
 }: VRBuilderInsightsReportsProps) {
-    // Helpers
-
+    // -- helpers
     function safeFileName(name: string) {
         return name
             .trim()
@@ -57,7 +62,6 @@ export function VRBuilderInsightsReports({
         document.body.appendChild(div);
 
         try {
-            // clone layout and force size for consistent exports
             const layout = {
                 ...(figure.layout ?? {}),
                 width,
@@ -112,31 +116,31 @@ export function VRBuilderInsightsReports({
             const title = block.title ?? `Chart ${i + 1}`;
             if (i > 0) pdf.addPage();
 
-            // Export chart image
+            // export chart image
             const pngDataUrl = await figureToPngDataUrl(block.result.figure, {
                 width: 1400,
                 height: 800,
                 scale: 2,
             });
 
-            // Title
+            // title
             pdf.setFont("helvetica", "bold");
             pdf.setFontSize(14);
             pdf.text(title, margin, margin + 12);
 
-            // Box we want to fit into
+            // box we want to fit into
             const boxX = margin;
             const boxY = margin + titleSpace;
             const boxW = pageW - margin * 2;
             const boxH = pageH - (margin + titleSpace) - margin;
 
-            // Compute "contain" sizing (preserve aspect ratio)
+            // calculate "contain" sizing to preserve aspect ratio
             const { w: imgW, h: imgH } = await getImageSize(pngDataUrl);
             const scale = Math.min(boxW / imgW, boxH / imgH);
             const drawW = imgW * scale;
             const drawH = imgH * scale;
 
-            // Center within the box
+            // center within the box
             const x = boxX + (boxW - drawW) / 2;
             const y = boxY + (boxH - drawH) / 2;
 

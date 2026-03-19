@@ -1,4 +1,3 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { LeaderboardApiResponse, LeaderboardCarData } from "../types";
 import { atOrBefore } from "../helpers/leaderboard";
 import { getDriverFullNameByNumber } from "../helpers/driver_identifiers";
@@ -13,6 +12,13 @@ type RacePlaybackCarDataProps = {
     selectedDriver: number | null;
 };
 
+/**
+ * Displays live car telemetry data during playback.
+ *
+ * Data such as speed, throttle, braking and gear are updated in real
+ * time using the current playback timestamp, allowing comparison of
+ * driver performance throughout the session.
+ */
 export function RacePlaybackCarData({
     leaderboardData,
     currentTime,
@@ -150,7 +156,7 @@ function BrakeBar({ active }: { active: boolean }) {
         <div className="h-2 w-full rounded-full bg-base-300 overflow-hidden">
             <motion.div
                 className="h-full w-full bg-error"
-                // When off: invisible. When on: pulse.
+                // when off: invisible. when on: pulse.
                 animate={active ? { opacity: [0.35, 1, 0.35] } : { opacity: 0 }}
                 transition={
                     active

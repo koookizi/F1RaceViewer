@@ -1,13 +1,9 @@
 import * as React from "react";
 
 type FlagProps = React.SVGProps<SVGSVGElement> & {
-  /** Primary fabric color (defaults to currentColor for mono flags) */
   fabric?: string;
-  /** Secondary accent (used by patterns like stripes/checkers) */
   accent?: string;
-  /** Pole color */
   pole?: string;
-  /** Outline stroke color */
   stroke?: string;
 };
 
@@ -16,12 +12,6 @@ const common = {
   fill: "none",
 } as const;
 
-/**
- * Base flag geometry:
- * - Pole at x=5
- * - Fabric with gentle wave, rounded corners
- * - Outer stroke for crisp UI at small sizes
- */
 function FlagBase({
   children,
   pole = "currentColor",
@@ -30,16 +20,13 @@ function FlagBase({
 }: FlagProps & { children: React.ReactNode }) {
   return (
     <svg {...common} {...props} aria-hidden="true">
-      {/* Pole */}
       <path d="M5 3v18" stroke={pole} strokeWidth="1.6" strokeLinecap="round" />
-      {/* Fabric outline */}
       <path
         d="M7.2 5.4c2.1-1.2 4.2-1.2 6.3 0 2.1 1.2 4.2 1.2 6.3 0v8.2c-2.1 1.2-4.2 1.2-6.3 0-2.1-1.2-4.2-1.2-6.3 0V5.4Z"
         stroke={stroke}
         strokeWidth="1.6"
         strokeLinejoin="round"
       />
-      {/* Clip for fills/patterns */}
       <defs>
         <clipPath id="flag-clip">
           <path d="M7.2 5.4c2.1-1.2 4.2-1.2 6.3 0 2.1 1.2 4.2 1.2 6.3 0v8.2c-2.1 1.2-4.2 1.2-6.3 0-2.1-1.2-4.2-1.2-6.3 0V5.4Z" />
@@ -48,7 +35,6 @@ function FlagBase({
 
       <g clipPath="url(#flag-clip)">{children}</g>
 
-      {/* Small pole cap */}
       <circle cx="5" cy="3" r="1.1" fill={pole} />
     </svg>
   );
@@ -63,7 +49,6 @@ export function FlagSolid({
   return (
     <FlagBase stroke={stroke} pole={pole} {...props}>
       <rect x="6.4" y="4.6" width="14.2" height="10.8" fill={fabric} />
-      {/* Subtle wave highlight */}
       <path
         d="M7.2 8.2c2.1-1.2 4.2-1.2 6.3 0 2.1 1.2 4.2 1.2 6.3 0"
         stroke="rgba(255,255,255,0.35)"
@@ -74,7 +59,6 @@ export function FlagSolid({
   );
 }
 
-/** Specific single-color flags */
 export const FlagYellow = (p: FlagProps) => (
   <FlagSolid fabric={p.fabric ?? "#F7D11E"} {...p} />
 );
@@ -104,7 +88,6 @@ export const FlagBlack = (p: FlagProps) => (
   />
 );
 
-/** Black/White diagonal warning flag (track limits / unsporting etc.) */
 export function FlagBlackWhite({
   fabric,
   accent,
@@ -128,7 +111,6 @@ export function FlagBlackWhite({
   );
 }
 
-/** Yellow/Red striped flag (slippery surface) */
 export function FlagYellowRedStripes({
   fabric,
   accent,
@@ -141,7 +123,6 @@ export function FlagYellowRedStripes({
   return (
     <FlagBase stroke={stroke} pole={pole} {...props}>
       <rect x="6.4" y="4.6" width="14.2" height="10.8" fill={yellow} />
-      {/* diagonal stripes */}
       <g opacity="0.95">
         <path d="M6.4 13.6L15.2 4.6h2.1L8.5 15.4H6.4v-1.8Z" fill={red} />
         <path d="M10.2 15.4L19 4.6h2.1l-8.8 10.8h-2.1Z" fill={red} />
@@ -157,7 +138,6 @@ export function FlagYellowRedStripes({
   );
 }
 
-/** Chequered flag */
 export function FlagChequered({
   fabric,
   accent,
@@ -171,7 +151,6 @@ export function FlagChequered({
   return (
     <FlagBase stroke={stroke} pole={pole} {...props}>
       <rect x="6.4" y="4.6" width="14.2" height="10.8" fill={white} />
-      {/* checker grid 4x3 */}
       {Array.from({ length: 12 }).map((_, i) => {
         const col = i % 4;
         const row = Math.floor(i / 4);

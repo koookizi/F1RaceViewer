@@ -5,6 +5,12 @@ import { getInterpolatedValue } from "../helpers/gauge";
 
 const MAX_RPM = 12_000;
 
+/**
+ * Visualises engine RPM as a gauge.
+ *
+ * Provides a real-time indication of engine performance during
+ * playback.
+ */
 export function RpmGauge({
   carData,
   currentTime,
@@ -30,7 +36,7 @@ export function RpmGauge({
 
   return (
     <div className="relative -ms-5 -mt-4" style={{ width: size, height: size }}>
-      {/* GAUGE LAYER (glow applies here only) */}
+      {/* Gauge layer (glow applies here only) */}
       <div
         className={[
           nearLimiter ? "drop-shadow-[0_0_14px_rgba(239,68,68,0.55)]" : "",
@@ -51,7 +57,7 @@ export function RpmGauge({
           arc={{
             colorArray: ["#5BE12C", "#F5CD19", "#EA4228"],
             subArcs: [{ limit: 7000 }, { limit: 9500 }, { limit: 11000 }, {}],
-            padding: 0, // remove padding between arc segments
+            padding: 0,
             width: 0.26,
           }}
           pointer={{
@@ -62,7 +68,7 @@ export function RpmGauge({
         />
       </div>
 
-      {/* TEXT LAYER (no glow, lower middle) */}
+      {/* Text layer (no glow, lower middle) */}
       <div className="absolute inset-0 pointer-events-none">
         <div
           className="absolute left-1/2 -translate-x-1/2 text-center"

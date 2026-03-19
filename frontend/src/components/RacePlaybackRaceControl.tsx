@@ -8,6 +8,12 @@ type RacePlaybackRaceControlProps = {
     currentTime: number;
 };
 
+/**
+ * Displays race control messages during playback.
+ *
+ * Messages are filtered by session time and shown in chronological
+ * order, with new events highlighted as they appear.
+ */
 export function RacePlaybackRaceControl({
     raceControlData,
     currentTime,

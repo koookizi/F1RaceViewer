@@ -4,6 +4,12 @@ type DriverCardProps = {
     driver: driverData;
 };
 
+/**
+ * Displays summary information for a driver.
+ *
+ * Includes identifying details and key statistics for use across
+ * different views in the application.
+ */
 export default function DriverCard({ driver }: DriverCardProps) {
     const teamColor = driver.team_colour || "000000";
 
@@ -28,7 +34,7 @@ export default function DriverCard({ driver }: DriverCardProps) {
             }}
         >
             <div className="card-body p-3 flex flex-row items-center gap-4">
-                {/* Driver headshot */}
+                {/* driver headshot */}
                 <img
                     src={driver.headshot_url}
                     alt={driver.full_name}
@@ -40,7 +46,7 @@ export default function DriverCard({ driver }: DriverCardProps) {
           "
                 />
 
-                {/* Driver details */}
+                {/* driver details */}
                 <div className="flex flex-col justify-center leading-tight">
                     <div className="text-white font-semibold text-lg">
                         {driver.first_name} {driver.last_name}

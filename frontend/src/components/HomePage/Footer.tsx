@@ -1,31 +1,5 @@
 import logo from "../../assets/logo_icon.png";
 
-type FooterLink = { label: string; href: string };
-
-const productLinks: FooterLink[] = [
-    { label: "Telemetry", href: "/telemetry" },
-    { label: "Lap times", href: "/laptimes" },
-    { label: "Race positions", href: "/positions" },
-    { label: "Pit stops", href: "/pitstops" },
-];
-
-const resourceLinks: FooterLink[] = [
-    { label: "Docs", href: "/docs" },
-    { label: "API Status", href: "/status" },
-    { label: "Changelog", href: "/changelog" },
-    { label: "Contact", href: "/contact" },
-];
-
-const legalLinks: FooterLink[] = [
-    { label: "Privacy", href: "/privacy" },
-    { label: "Terms", href: "/terms" },
-    { label: "Licenses", href: "/licenses" },
-];
-
-const socialLinks: FooterLink[] = [
-    { label: "GitHub", href: "https://github.com/" },
-    { label: "Twitter / X", href: "https://x.com/" },
-];
 
 export function Footer() {
     return (

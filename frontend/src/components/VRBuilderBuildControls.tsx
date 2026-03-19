@@ -1,4 +1,3 @@
-// VRBuilderBuildControls.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import type { MultiSelectOption } from "./MultiSelect";
 import { TemplateCardPanel } from "./TemplateCardPanel";
@@ -22,6 +21,12 @@ type VRBuilderBuildControlsProps = {
     page: Page;
 };
 
+/**
+ * Provides controls for configuring and generating visualisations.
+ *
+ * Handles template selection, input submission and triggering backend
+ * requests to build the selected visualisation.
+ */
 export function VRBuilderBuildControls({
     page,
     DRIVER_OPTIONS = [],
@@ -72,17 +77,17 @@ export function VRBuilderBuildControls({
     function validateInputs(templateId: string): string[] {
         const errors: string[] = [];
 
-        // Requires >= 1 driver(s)
+        // requires >= 1 driver(s)
         if (["t1", "t2", "t3", "t4", "t5", "t18"].includes(templateId)) {
             if (inputs.driverIds.length < 1) errors.push("Select at least 1 driver.");
         }
 
-        // Requires >=1 team(s)
+        // requires >=1 team(s)
         if (templateId === "t6") {
             if (inputs.teamIds.length < 1) errors.push("Select at least 1 team.");
         }
 
-        // Requires atleast 1 driver OR atleast 1 team
+        // requires atleast 1 driver OR atleast 1 team
         if (["t7", "t8", "t9", "t10", "t11"].includes(templateId)) {
             if (inputs.selectionMode == "Drivers") {
                 if (inputs.driverIds.length < 1) errors.push("Select at least 1 driver.");
@@ -91,7 +96,7 @@ export function VRBuilderBuildControls({
             }
         }
 
-        // Rquires 1 or 2 drivers, lap modes/numbers, telemetry channels
+        // requires 1 or 2 drivers, lap modes/numbers, telemetry channels
         if (templateId === "t12" || templateId === "t13") {
             if (inputs.driverIds.length < 1) errors.push("Select at least 1 driver.");
             if (inputs.driverIds.length > 2) errors.push("Select at most 2 drivers.");
@@ -103,31 +108,31 @@ export function VRBuilderBuildControls({
                 errors.push("Select at least 1 telemetry channel.");
         }
 
-        // Requires 1 driver, lap mode/number
+        // requires 1 driver, lap mode/number
         if (["t14", "t15", "t16"].includes(templateId)) {
             if (inputs.lapModeA === "Manual" && inputs.lapNumberA === "")
                 errors.push("Lap A number is required (Manual).");
             if (inputs.driverIds.length != 1) errors.push("Select a driver.");
         }
 
-        // Requires 1 driver, lap from/to
+        // requires 1 driver, lap from/to
         if (["t17"].includes(templateId)) {
             if (inputs.driverIds.length != 1) errors.push("Select a driver.");
             if (inputs.lapFrom == "") errors.push("Enter a 'Lap from'.");
             if (inputs.lapTo == "") errors.push("Enter a 'Lap to'.");
         }
 
-        // Requires exactly 1 driver
+        // requires exactly 1 driver
         if (["t19"].includes(templateId)) {
             if (inputs.driverIds.length != 1) errors.push("Select a driver.");
         }
 
-        // Requires top N > 0
+        // requires top N > 0
         if (["t20"].includes(templateId)) {
             if (inputs.topN == 0) errors.push("Enter a number.");
         }
 
-        // Requires season
+        // requires season
         if (
             [
                 "t21",
@@ -151,13 +156,13 @@ export function VRBuilderBuildControls({
             if (inputs.season == 0) errors.push("Enter a season.");
         }
 
-        // Requires season and round
+        // requires season and round
         if (["t23"].includes(templateId)) {
             if (inputs.season == 0) errors.push("Enter a season.");
             if (inputs.round == 0) errors.push("Enter a round.");
         }
 
-        // Requires season range
+        // requires season range
         if (["t27", "t28", "t29"].includes(templateId)) {
             if (inputs.seasonFrom == 0) errors.push("Enter a season from.");
             if (inputs.seasonTo == 0) errors.push("Enter a season to.");
@@ -174,7 +179,7 @@ export function VRBuilderBuildControls({
         const drivers = inputs.driverIds.map(String);
         const teams = inputs.teamIds.map(String);
 
-        // Requires >= 1 driver(s)
+        // requires >= 1 driver(s)
         if (["t1", "t2", "t3", "t4", "t5", "t18", "t19"].includes(templateId)) {
             return {
                 ...base,
@@ -185,7 +190,7 @@ export function VRBuilderBuildControls({
             };
         }
 
-        // Requires >=1 team(s)
+        // requires >=1 team(s)
         if (templateId === "t6") {
             return {
                 ...base,
@@ -196,7 +201,7 @@ export function VRBuilderBuildControls({
             };
         }
 
-        // Requires 1 or 2 drivers, lap modes/numbers, telemetry channels
+        // requires 1 or 2 drivers, lap modes/numbers, telemetry channels
         if (templateId === "t12" || templateId === "t13") {
             const lapA = inputs.lapModeA === "Fastest" ? "fastest" : inputs.lapNumberA;
             const lapB = inputs.lapModeB === "Fastest" ? "fastest" : inputs.lapNumberB;
@@ -204,8 +209,8 @@ export function VRBuilderBuildControls({
             return {
                 ...base,
                 drivers,
-                lapA, // "fastest" | number | ""
-                lapB, // "fastest" | number | ""
+                lapA,
+                lapB,
                 align: inputs.telemetryAlign,
                 channels: inputs.telemetryChannels,
                 year: selectedYear,
@@ -214,11 +219,11 @@ export function VRBuilderBuildControls({
             };
         }
 
-        // Requires 1 driver, lap mode/number
+        // requires 1 driver, lap mode/number
         if (["t14", "t15", "t16"].includes(templateId)) {
             const lap = inputs.lapModeA === "Fastest" ? "fastest" : inputs.lapNumberA;
 
-            // if backend expects ONE driver, you may want drivers[0]
+            // if backend expects ONE driver, then drivers[0]
             return {
                 ...base,
                 drivers, // or driver: drivers[0]
@@ -231,7 +236,7 @@ export function VRBuilderBuildControls({
             };
         }
 
-        // Requires 1 driver, lap from/to
+        // requires 1 driver, lap from/to
         if (templateId === "t17") {
             return {
                 ...base,
@@ -244,7 +249,7 @@ export function VRBuilderBuildControls({
             };
         }
 
-        // Requires top N > 0
+        // requires top N > 0
         if (templateId === "t20") {
             return {
                 ...base,
@@ -255,7 +260,7 @@ export function VRBuilderBuildControls({
             };
         }
 
-        // Requires season
+        // requires season
         if (["t21", "t22"].includes(templateId)) {
             return {
                 ...base,
@@ -266,7 +271,7 @@ export function VRBuilderBuildControls({
             };
         }
 
-        // Requires season (team)
+        // requires season (team)
         if (["t24", "t25", "t26", "t30", "t31"].includes(templateId)) {
             return {
                 ...base,
@@ -275,7 +280,7 @@ export function VRBuilderBuildControls({
             };
         }
 
-        // Requires season (driver)
+        // requires season (driver)
         if (["t32", "t33", "t34", "t35", "t36", "t37", "t38", "t39", "t40"].includes(templateId)) {
             return {
                 ...base,
@@ -284,7 +289,7 @@ export function VRBuilderBuildControls({
             };
         }
 
-        // Requires season range (team)
+        // requires season range (team)
         if (["t27", "t28", "t29"].includes(templateId)) {
             return {
                 ...base,
@@ -294,7 +299,7 @@ export function VRBuilderBuildControls({
             };
         }
 
-        // Requires season and round
+        // requires season and round
         if (templateId === "t23") {
             return {
                 ...base,
@@ -312,7 +317,6 @@ export function VRBuilderBuildControls({
     function onCreate() {
         if (!selectedTemplate) return;
 
-        // 1) validate
         const errors = validateInputs(selectedTemplate.id);
         if (errors.length) {
             toast(errors.join("\n"), "error");

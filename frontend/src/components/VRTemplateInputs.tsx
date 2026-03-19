@@ -80,6 +80,12 @@ type Props = {
     className?: string;
 };
 
+/**
+ * Renders input fields for the selected visualisation template.
+ *
+ * Inputs are generated dynamically based on template requirements and
+ * are used to parameterise backend data queries.
+ */
 export function VRTemplateInputs({
     selectedTemplate,
     driverOptions = [],
@@ -97,7 +103,7 @@ export function VRTemplateInputs({
     const requires = useMemo(() => getRequirements(templateId), [templateId]);
 
     useEffect(() => {
-        // Teams-only template (e.g. t6): force Teams mode
+        // teams-only template
         const teamsOnly = !!requires.teams && !requires.drivers && !requires.allowDriverOrTeam;
         const driversOnly = !!requires.drivers && !requires.teams && !requires.allowDriverOrTeam;
 
@@ -122,7 +128,6 @@ export function VRTemplateInputs({
         <div className={`mt-3 space-y-3 ${className}`}>
             <div className="pb-1 text-xs opacity-60 tracking-wide">Required inputs</div>
 
-            {/* Common filter (nice default for Pace/Strategy) */}
             {requires.showExcludeSC && (
                 <label className="label cursor-pointer justify-start gap-3">
                     <input
@@ -135,7 +140,7 @@ export function VRTemplateInputs({
                 </label>
             )}
 
-            {/* Choose whether template uses Drivers or Teams (for templates that allow either) */}
+            {/* choose whether template uses Drivers or Teams*/}
             {requires.allowDriverOrTeam && (
                 <div className="join w-full">
                     <button
@@ -187,7 +192,7 @@ export function VRTemplateInputs({
                 />
             )}
 
-            {/* Lap Range (e.g., positions, battle analysis) */}
+            {/* Lap Range */}
             {requires.lapRange && (
                 <div className="grid grid-cols-2 gap-2 w-100">
                     <div className="form-control">
@@ -265,7 +270,7 @@ export function VRTemplateInputs({
                 </div>
             )}
 
-            {/* Top-N selector (positions filtered view) */}
+            {/* Top-N selector */}
             {requires.topN && (
                 <div className="form-control w-100">
                     <label className="label py-1">
@@ -286,7 +291,7 @@ export function VRTemplateInputs({
                 </div>
             )}
 
-            {/* Season selector (season intent) */}
+            {/* Season selector */}
             {requires.season && (
                 <div className="form-control w-100">
                     <label className="label py-1">
@@ -328,7 +333,7 @@ export function VRTemplateInputs({
                 </div>
             )}
 
-            {/* Telemetry compare (needs 2 laps) */}
+            {/* Telemetry compare*/}
             {requires.telemetryCompare && (
                 <div className="space-y-2">
                     <div className="divider my-1">Lap selection</div>
@@ -341,7 +346,7 @@ export function VRTemplateInputs({
                         </span>
                     </div>
 
-                    {/* Driver selection (max 2 recommended) */}
+                    {/* Driver selection*/}
                     <MultiSelect
                         options={driverOptions}
                         value={value.driverIds}
@@ -465,7 +470,7 @@ export function VRTemplateInputs({
                 </div>
             )}
 
-            {/* Simple single-lap telemetry (track map / gear map etc.) */}
+            {/* Simple single-lap telemetry*/}
             {requires.telemetrySingleLap && (
                 <div className="space-y-2">
                     <div className="divider mb-4">Lap selection</div>
@@ -518,11 +523,9 @@ export function VRTemplateInputs({
 }
 
 /**
- * Minimal requirements mapping per template id.
- * Keep this in sync with your TEMPLATES ids (t1..t23).
+ * Requirements mapping per template id.
  */
 function getRequirements(templateId: string | null) {
-    // Default: nothing
     const base = {
         showExcludeSC: false,
         allowDriverOrTeam: false,

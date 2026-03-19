@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, {useMemo } from "react";
 import { CircularProgressbar, buildStyles } from "react-circular-progressbar";
 import { useMotionValue, useSpring, useMotionValueEvent } from "framer-motion";
 
@@ -7,9 +7,9 @@ import "react-circular-progressbar/dist/styles.css";
 type TelemetryRingProps = {
   /** 0..100 */
   percent: number;
-  /** text shown big in the center (you can pass "1.5" or "66") */
+  /** text shown big in the center */
   valueText: string;
-  /** small label like TRC/AIR */
+  /** small label */
   label: string;
   /** ring color */
   color: string;
@@ -20,6 +20,12 @@ type TelemetryRingProps = {
   gapRatio?: number; // 0.75..0.9 (how much of the circle is drawn)
 };
 
+/**
+ * Visualises a telemetry value using a circular progress indicator.
+ *
+ * Typically used for percentage-based data such as throttle or brake
+ * input to provide an intuitive visual representation.
+ */
 export function TelemetryRing({
   percent,
   valueText,
@@ -41,7 +47,7 @@ export function TelemetryRing({
     mv.set(clamped);
   }, [clamped, mv]);
 
-  // throttle setState to once per frame + avoid redundant sets
+  // throttle setState to once per frame and avoid redundant sets
   const rafRef = React.useRef<number | null>(null);
   const latestRef = React.useRef<number>(clamped);
   const lastCommittedRef = React.useRef<number>(clamped);
@@ -69,18 +75,13 @@ export function TelemetryRing({
     };
   }, []);
 
-  // Where the arc starts (rotation). This positions the gap at the bottom.
-  // CircularProgressbar rotation is in turns (1 = full circle).
   const rotation = 1 - gapRatio / 2; // centers the gap at bottom
 
-  // Little cap dot at the start of the arc (like your screenshot)
   const dot = useMemo(() => {
     const r = 0.5; // relative radius inside 100x100 box
     const strokeInset = 0.08; // keep dot aligned with stroke visually
     const radius = 50 - strokeWidth + strokeInset * 100;
 
-    // Start angle (in degrees) for the arc:
-    // -90° is top. rotation shifts it.
     const startAngleDeg = -90 + rotation * 360;
     const rad = (startAngleDeg * Math.PI) / 180;
 
@@ -102,9 +103,9 @@ export function TelemetryRing({
         styles={buildStyles({
           rotation,
           pathColor: color,
-          trailColor: "rgb(31 41 55)", // gray-800-ish
+          trailColor: "rgb(31 41 55)",
           strokeLinecap: "round",
-          pathTransition: "none", // we animate via framer spring
+          pathTransition: "none",
         })}
         strokeWidth={strokeWidth}
       />
@@ -125,6 +126,4 @@ export function TelemetryRing({
   );
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
+

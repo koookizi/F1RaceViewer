@@ -22,7 +22,6 @@ export function ProblemCard({ icon, title, description }: ProblemCardProps) {
                 text-center
             "
         >
-            {/* Gradient glow on hover */}
             <div
                 className="
                     absolute inset-0 rounded-2xl

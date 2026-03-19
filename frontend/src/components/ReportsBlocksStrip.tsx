@@ -1,5 +1,11 @@
 import type { ChartResponse } from "./ChartCard";
 
+/**
+ * Renders a collection of report blocks in a horizontal layout.
+ *
+ * Used to display multiple generated insights or visual outputs in a
+ * structured and scrollable format.
+ */
 export function ReportBlocksStrip({
     reportBlocks,
     onRemove,
@@ -63,7 +69,7 @@ function formatISO(iso: string) {
 }
 
 function InputsSummary({ inputs }: { inputs: Record<string, any> }) {
-    // turn inputs object into readable rows (only show meaningful values)
+    // turn inputs object into readable rows
     const rows = Object.entries(inputs)
         .filter(
             ([_, v]) =>
