@@ -8,6 +8,7 @@ __all__ = [
     "teams_getTeamSummary"
 ]
 
+
 def teams_getTeams(request):
     """
     Returns a list of teams ordered by name for use in frontend selection.

@@ -10,6 +10,7 @@ __all__ = [
     "driver_getDriverSummary"
 ]
 
+
 def drivers_getDrivers(request):
     """
     Returns the list of drivers available in the database.

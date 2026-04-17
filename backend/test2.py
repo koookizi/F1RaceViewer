@@ -1,4 +1,5 @@
 from urllib.request import urlopen
+from django.http import JsonResponse
 import fastf1 
 import pandas as pd
 import numpy as np
@@ -9,25 +10,307 @@ from urllib.request import urlopen
 from urllib.parse import urlencode
 import math
 import openpyxl
+from urllib.request import urlopen
+from urllib.error import HTTPError
 
-drivers =['HUL']
+def getCurrentSeason(request, data, teamOrDriver=None):
+    """
+    Returns current-season summary data for a selected team or driver.
 
-session = fastf1.get_session(2025, "United Kingdom", "Race")
-session.load(laps=True, telemetry=False, weather=False)
+    Logic:
+    - Load sessions from the current and previous calendar year.
+    - Identify the latest season that has at least one started race.
+    - For championship standings, walk backwards through completed race sessions
+      until OpenF1 returns actual championship data.
+    - Aggregate race, sprint and grid data across that selected season.
+    """
 
-laps = session.laps.copy()
+    def openf1_json(url):
+        try:
+            req = urlopen(url)
+            return json.loads(req.read().decode("utf-8"))
+        except HTTPError as e:
+            try:
+                body = e.read().decode("utf-8")
+                return json.loads(body)
+            except Exception:
+                return {"detail": f"HTTP {e.code}"}
 
-# 2) Filter to selected drivers
-laps = laps[laps["Driver"].isin(drivers)]
+    now = datetime.now(timezone.utc)
+    year_now = now.year
 
-# 3) Keep only laps with a valid LapTime
-laps = laps[laps["LapTime"].notna()]
+    # Load sessions from current and previous year
+    sessions = []
+    for y in (year_now - 1, year_now):
+        raw_sessions = openf1_json(f"https://api.openf1.org/v1/sessions?year={y}")
+        if isinstance(raw_sessions, list):
+            sessions.extend(raw_sessions)
 
-if pd.api.types.is_timedelta64_dtype(laps["LapTime"]):
-    laps["LapTimeSeconds"] = laps["LapTime"].dt.total_seconds()
-else:
-    # Fallback if it comes already numeric/string
-    laps["LapTimeSeconds"] = pd.to_numeric(laps["LapTime"], errors="coerce")
-    laps = laps[laps["LapTimeSeconds"].notna()]
+    if not sessions:
+        return JsonResponse({"error": "No session data available"}, status=503)
 
-print(laps[["Driver","LapNumber","LapTimeSeconds"]])
+    session_df = pd.DataFrame(sessions)
+
+    if session_df.empty:
+        return JsonResponse({"error": "No session data available"}, status=503)
+
+    session_df["date_start"] = pd.to_datetime(session_df["date_start"], utc=True)
+    session_df["date_end"] = pd.to_datetime(session_df["date_end"], utc=True)
+
+    # Keep only sessions we care about for seasonal summaries
+    session_df = session_df[
+        session_df["session_name"].isin(["Qualifying", "Sprint", "Race"])
+    ].copy()
+
+    if session_df.empty:
+        return JsonResponse(
+            {"error": "No qualifying, sprint, or race sessions found"},
+            status=503
+        )
+
+    # Find seasons that already have at least one started race
+    started_races = session_df[
+        (session_df["session_name"] == "Race") &
+        (session_df["date_start"] <= now)
+    ].copy()
+
+    if started_races.empty:
+        return JsonResponse({"error": "No started race sessions found yet"}, status=404)
+
+    latest_year = int(started_races["year"].max())
+
+    # Restrict to the selected season
+    df = session_df[session_df["year"] == latest_year].copy()
+    df = df.sort_values("date_start").reset_index(drop=True)
+
+    # Session keys for seasonal aggregation
+    race_session_keys = df.loc[df["session_name"] == "Race", "session_key"].astype(int).tolist()
+    sprint_session_keys = df.loc[df["session_name"] == "Sprint", "session_key"].astype(int).tolist()
+    qualifying_session_keys = df.loc[df["session_name"] == "Qualifying", "session_key"].astype(int).tolist()
+
+    # Candidate race sessions for standings lookup:
+    # latest completed race first, then walk backwards until OpenF1 returns data
+    candidate_races = (
+        df[(df["session_name"] == "Race") & (df["date_end"] <= now)]
+        .sort_values("date_start", ascending=False)
+        .reset_index(drop=True)
+    )
+
+    if candidate_races.empty:
+        return JsonResponse(
+            {"error": f"No completed race sessions found for season {latest_year}"},
+            status=404
+        )
+
+    standings_session_key = None
+    last_championship_df = pd.DataFrame()
+
+    if teamOrDriver == "team":
+        for _, race_row in candidate_races.iterrows():
+            candidate_session_key = int(race_row["session_key"])
+            raw = openf1_json(
+                f"https://api.openf1.org/v1/championship_teams?session_key={candidate_session_key}"
+            )
+
+            print("trying team championship session_key:", candidate_session_key)
+            print("raw response:", raw)
+
+            if isinstance(raw, dict) and raw.get("detail") == "No results found.":
+                continue
+
+            if not isinstance(raw, list) or len(raw) == 0:
+                continue
+
+            candidate_championship_df = pd.DataFrame(raw)
+
+            if not candidate_championship_df.empty:
+                standings_session_key = candidate_session_key
+                last_championship_df = candidate_championship_df
+                break
+
+        if standings_session_key is None:
+            return JsonResponse({"error": "No championship team data available"}, status=404)
+
+        print("selected standings_session_key:", standings_session_key)
+
+        matching_team = last_championship_df[last_championship_df["team_name"] == data]
+        if matching_team.empty:
+            return JsonResponse(
+                {"error": f"Team '{data}' not found in season {latest_year} championship data"},
+                status=404,
+            )
+
+        drivers_raw = openf1_json(
+            f"https://api.openf1.org/v1/drivers?team_name={data}&session_key={standings_session_key}"
+        )
+        drivers_df = pd.DataFrame(drivers_raw if isinstance(drivers_raw, list) else [])
+
+        if drivers_df.empty:
+            return JsonResponse(
+                {"error": f"No drivers found for team '{data}' in season {latest_year}"},
+                status=404,
+            )
+
+        driver_numbers = drivers_df["driver_number"].dropna().astype(int).tolist()
+
+        drivers_df = drivers_df.drop(
+            columns=["broadcast_name", "meeting_key", "session_key"],
+            errors="ignore"
+        )
+        drivers_json = drivers_df.to_dict(orient="records")
+        last_championship_df = matching_team
+
+    elif teamOrDriver == "driver":
+        for _, race_row in candidate_races.iterrows():
+            candidate_session_key = int(race_row["session_key"])
+            raw = openf1_json(
+                f"https://api.openf1.org/v1/championship_drivers?session_key={candidate_session_key}"
+            )
+
+            print("trying driver championship session_key:", candidate_session_key)
+            print("raw response:", raw)
+
+            if isinstance(raw, dict) and raw.get("detail") == "No results found.":
+                continue
+
+            if not isinstance(raw, list) or len(raw) == 0:
+                continue
+
+            candidate_championship_df = pd.DataFrame(raw)
+
+            if not candidate_championship_df.empty:
+                standings_session_key = candidate_session_key
+                last_championship_df = candidate_championship_df
+                break
+
+        if standings_session_key is None:
+            return JsonResponse({"error": "No championship driver data available"}, status=404)
+
+        print("selected standings_session_key:", standings_session_key)
+
+        parts = data.split(" ", 1)
+        if len(parts) != 2:
+            return JsonResponse(
+                {"error": "Driver name must be in 'First Last' format"},
+                status=400,
+            )
+
+        first_name, last_name = parts
+
+        drivers_raw = openf1_json(
+            f"https://api.openf1.org/v1/drivers?first_name={first_name}&last_name={last_name}&session_key={standings_session_key}"
+        )
+        drivers_df = pd.DataFrame(drivers_raw if isinstance(drivers_raw, list) else [])
+
+        if drivers_df.empty:
+            return JsonResponse(
+                {"error": f"Driver '{data}' not found in season {latest_year}"},
+                status=404,
+            )
+
+        driver_numbers = drivers_df["driver_number"].dropna().astype(int).tolist()
+        if not driver_numbers:
+            return JsonResponse(
+                {"error": f"No driver number found for '{data}'"},
+                status=404,
+            )
+
+        drivers_df = drivers_df.drop(
+            columns=["broadcast_name", "meeting_key", "session_key"],
+            errors="ignore"
+        )
+        drivers_json = drivers_df.to_dict(orient="records")
+
+        last_championship_df = last_championship_df[
+            last_championship_df["driver_number"] == driver_numbers[0]
+        ]
+
+    else:
+        return JsonResponse({"error": "teamOrDriver must be 'team' or 'driver'"}, status=400)
+
+    if not driver_numbers:
+        return JsonResponse({"error": "No driver numbers available"}, status=404)
+
+    driver_numbers_query = "&".join(f"driver_number={n}" for n in driver_numbers)
+
+    # Race + sprint results
+    all_result_keys = sprint_session_keys + race_session_keys
+    if all_result_keys:
+        all_results_query = "&".join(f"session_key={k}" for k in all_result_keys)
+        all_results_raw = openf1_json(
+            f"https://api.openf1.org/v1/session_result?{all_results_query}&{driver_numbers_query}"
+        )
+        all_results_df = pd.DataFrame(all_results_raw if isinstance(all_results_raw, list) else [])
+    else:
+        all_results_df = pd.DataFrame()
+
+    sprint_results_df = (
+        all_results_df[all_results_df["session_key"].isin(sprint_session_keys)]
+        if not all_results_df.empty else pd.DataFrame()
+    )
+
+    grand_prix_results_df = (
+        all_results_df[all_results_df["session_key"].isin(race_session_keys)]
+        if not all_results_df.empty else pd.DataFrame()
+    )
+
+    # Starting grid from qualifying sessions
+    if qualifying_session_keys:
+        grid_query = "&".join(f"session_key={k}" for k in qualifying_session_keys)
+        grid_results_raw = openf1_json(
+            f"https://api.openf1.org/v1/starting_grid?{grid_query}&{driver_numbers_query}"
+        )
+        grid_results_df = pd.DataFrame(grid_results_raw if isinstance(grid_results_raw, list) else [])
+    else:
+        grid_results_df = pd.DataFrame()
+
+    season_position = int(last_championship_df["position_current"].iloc[0]) if not last_championship_df.empty else 0
+    season_points = float(last_championship_df["points_current"].iloc[0]) if not last_championship_df.empty else 0.0
+
+    gp_races = len(race_session_keys)
+    gp_points = float(grand_prix_results_df["points"].sum()) if not grand_prix_results_df.empty else 0.0
+    gp_wins = int((grand_prix_results_df["position"] == 1).sum()) if not grand_prix_results_df.empty else 0
+    gp_podiums = int((grand_prix_results_df["position"] <= 3).sum()) if not grand_prix_results_df.empty else 0
+    gp_poles = int((grid_results_df["position"] == 1).sum()) if not grid_results_df.empty else 0
+    gp_top10s = int((grand_prix_results_df["position"] <= 10).sum()) if not grand_prix_results_df.empty else 0
+    gp_dnfs = int((grand_prix_results_df["dnf"] == True).sum()) if (not grand_prix_results_df.empty and "dnf" in grand_prix_results_df.columns) else 0
+
+    sprint_races = len(sprint_session_keys)
+    sprint_points = float(sprint_results_df["points"].sum()) if not sprint_results_df.empty else 0.0
+    sprint_wins = int((sprint_results_df["position"] == 1).sum()) if not sprint_results_df.empty else 0
+    sprint_podiums = int((sprint_results_df["position"] <= 3).sum()) if not sprint_results_df.empty else 0
+    sprint_top10s = int((sprint_results_df["position"] <= 10).sum()) if not sprint_results_df.empty else 0
+
+    print("standings_session_key:", standings_session_key)
+    print("latest_year:", latest_year)
+    print("requested data:", repr(data))
+    if teamOrDriver == "team" and not last_championship_df.empty and "team_name" in last_championship_df.columns:
+        print("championship teams returned:")
+        print(last_championship_df[["team_name"]].drop_duplicates())
+
+    finalJSON = {
+        "season_position": season_position,
+        "season_points": season_points,
+        "gp": {
+            "races": gp_races,
+            "points": gp_points,
+            "wins": gp_wins,
+            "podiums": gp_podiums,
+            "poles": gp_poles,
+            "top10s": gp_top10s,
+            "dnfs": gp_dnfs,
+        },
+        "sprint": {
+            "races": sprint_races,
+            "points": sprint_points,
+            "wins": sprint_wins,
+            "podiums": sprint_podiums,
+            "top10s": sprint_top10s,
+        },
+        "drivers": drivers_json,
+        "year": latest_year,
+    }
+
+    return JsonResponse(finalJSON, safe=False)
+
+print(getCurrentSeason(None, "Mercedes", teamOrDriver="team").content.decode("utf-8"))

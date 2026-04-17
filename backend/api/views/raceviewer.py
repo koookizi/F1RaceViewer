@@ -30,6 +30,8 @@ __all__ = [
     "results_view"
 ]
 
+fastf1.Cache.enable_cache("api/fastf1_cache")
+
 def season_years(request):
     """
     Returns a list of available season years in descending order.
@@ -381,15 +383,10 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
     for drv in session.drivers:
         print("Getting data for:",drv)
         laps = session.laps.pick_drivers(drv) 
-        tel = laps.get_telemetry().copy()
+        tel = laps.get_telemetry(frequency=10).copy() # downsampled
 
         # reduce columns early
         tel = tel[[c for c in keep_cols if c in tel.columns]]
-
-        # downsample
-        step=2
-        if step and step > 1:
-            tel = tel.iloc[::step].copy()
 
         tel["driver_number"] = drv
         tel["SessionTime"] = tel["SessionTime"].dt.total_seconds()
@@ -456,7 +453,7 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
     return JsonResponse(finalJSON, safe=False)
 
 @lru_cache(maxsize=32)
-def session_telemetry_view(request, year: int, country: str, session_name: str, step=2):
+def session_telemetry_view(request, year: int, country: str, session_name: str):
     """
     Returns processed telemetry data for all drivers in a given session.
 
@@ -490,14 +487,10 @@ def session_telemetry_view(request, year: int, country: str, session_name: str, 
     for drv in session.drivers:
         print("Getting data for:",drv)
         laps = session.laps.pick_drivers(drv)  # pick_driver (singular) is the usual one
-        tel = laps.get_telemetry().copy()
+        tel = laps.get_telemetry(frequency=10).copy() # downsampled
 
         # Reduce columns
         tel = tel[[c for c in keep_cols if c in tel.columns]]
-
-        # Downsample
-        if step and step > 1:
-            tel = tel.iloc[::step].copy()
 
         tel["DriverNumber"] = drv
         tel["DriverCode"] = session.get_driver(drv)["Abbreviation"]
