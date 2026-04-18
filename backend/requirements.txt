@@ -9,3 +9,9 @@ sqlparse
 psycopg2-binary
 python-dotenv
 gunicorn
+fastf1
+numpy
+openpyxl
+pandas
+plotly
+requests
