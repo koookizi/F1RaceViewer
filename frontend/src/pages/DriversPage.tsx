@@ -9,6 +9,8 @@ import type { ChartResponse } from "@/components/ChartCard";
 import TeamCard from "@/components/TeamCard";
 import { fetchJson } from "@/helpers/api";
 import { BlockedCard } from "@/components/BlockedCard";
+import { useLoadingTracker } from "../helpers/loading";
+import { LoadingOverlay } from "../components/LoadingOverlay";
 
 type DriverRow = {
     ergast_id: string;
@@ -35,6 +37,15 @@ export function DriversPage() {
     const filteredDrivers = useMemo(() => {
         return driverOptions.filter((d) => d.name.toLowerCase().includes(search.toLowerCase()));
     }, [driverOptions, search]);
+
+    // -- Loading tracker
+    const {
+        startLoading,
+        stopLoading,
+        progress,
+        pendingIds,
+        isLoading
+    } = useLoadingTracker();
 
     // -- Tabs
     const [activeTab, setActiveTab] = useState<"summary" | "vrbuilder" | "">("");
@@ -111,6 +122,7 @@ export function DriversPage() {
 
         // Fetches driver code
         console.log("Fetching driver code");
+        startLoading("driver");
         fetchJson<{ driverCode: string }>(
             `http://localhost:8000/api/drivers/${selectedDriverErgastID}/code/`,
         )
@@ -122,10 +134,14 @@ export function DriversPage() {
             .catch((err) => {
                 console.error("Failed to load selected driver's code", err);
                 toast(err.message || "Failed to load selected driver's code.", "error");
+            })
+            .finally(() => {
+                stopLoading("driver");
             });
 
         // Fetches current season data
         console.log("Fetching current season data");
+        startLoading("current season");
         fetchJson<currentSeasonData>(
             `http://localhost:8000/api/general/${encodeURIComponent(selectedDriver)}/driver/currentseason/`,
         )
@@ -144,10 +160,12 @@ export function DriversPage() {
             })
             .finally(() => {
                 setShowCurrentSeasonBox(true);
+                stopLoading("current season");
             });
 
         // Fetches summary data
         console.log("Fetching summary data");
+        startLoading("summary");
         fetch(`http://localhost:8000/api/drivers/${selectedDriverErgastID}/summary/`)
             .then((res) => res.json())
             .then((json: DriverSummaryData) => {
@@ -160,6 +178,7 @@ export function DriversPage() {
             })
             .finally(() => {
                 setShowDriverSummary(true);
+                stopLoading("summary");
             });
     };
 
@@ -268,6 +287,8 @@ export function DriversPage() {
                     <div className="text-lg font-semibold">Drivers</div>
                 </div>
             )}
+
+            <LoadingOverlay loading={isLoading} progress={progress} label={`Fetching ${pendingIds[0]} data`} />
 
             {/* Tabs */}
             {showTabs && (

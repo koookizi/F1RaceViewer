@@ -9,6 +9,8 @@ import { VRBuilderInsightsReports } from "@/components/VRBuilderInsightsReports"
 import type { ChartResponse } from "@/components/ChartCard";
 import { fetchJson } from "../helpers/api";
 import { BlockedCard } from "@/components/BlockedCard";
+import { useLoadingTracker } from "../helpers/loading";
+import { LoadingOverlay } from "../components/LoadingOverlay";
 
 type TeamOption = { name: string; ergast_id: string };
 
@@ -25,6 +27,15 @@ export function TeamsPage() {
     const filteredTeams = useMemo(() => {
         return teamOptions.filter((team) => team.name.toLowerCase().includes(search.toLowerCase()));
     }, [teamOptions, search]);
+
+    // -- Loading tracker
+    const {
+        startLoading,
+        stopLoading,
+        progress,
+        pendingIds,
+        isLoading
+    } = useLoadingTracker();
 
     // -- Header
     const [showHeader, setShowHeader] = useState(false);
@@ -97,6 +108,7 @@ export function TeamsPage() {
 
         // Fetches current season data
         console.log("Fetching current season data");
+        startLoading("current season");
         fetchJson<currentSeasonData>(
             `http://localhost:8000/api/general/${encodeURIComponent(selectedTeam)}/team/currentseason/`,
         )
@@ -115,10 +127,12 @@ export function TeamsPage() {
             })
             .finally(() => {
                 setShowCurrentSeasonBox(true);
+                stopLoading("current season");
             });
 
         // Fetches summary data
         console.log("Fetching summary data");
+        startLoading("summary");
         fetchJson<TeamSummaryData>(
             `http://localhost:8000/api/teams/${selectedTeamErgastID}/summary/`,
         )
@@ -132,6 +146,7 @@ export function TeamsPage() {
             })
             .finally(() => {
                 setShowTeamSummary(true);
+                stopLoading("summary");
             });
     };
 
@@ -243,6 +258,8 @@ export function TeamsPage() {
                     <div className="text-lg font-semibold">Teams</div>
                 </div>
             )}
+
+            <LoadingOverlay loading={isLoading} progress={progress} label={`Fetching ${pendingIds[0]} data`} />
 
             {/* Tabs */}
             {showTabs && (

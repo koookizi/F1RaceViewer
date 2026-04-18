@@ -26,7 +26,9 @@ import type { MultiSelectOption } from "../components/MultiSelect";
 import { type ChartResponse } from "../components/ChartCard";
 import { useToast } from "../components/ToastContext";
 import { fetchJson } from "../helpers/api";
-import { BlockedCard } from "@/components/BlockedCard";
+import { BlockedCard } from "../components/BlockedCard";
+import { useLoadingTracker } from "../helpers/loading";
+import { LoadingOverlay } from "../components/LoadingOverlay";
 
 export interface Result {
     position: number;
@@ -51,6 +53,15 @@ export interface Result {
 export function RaceViewerPage() {
     // -- Toast
     const toast = useToast();
+
+    // -- Loading tracker
+    const {
+        startLoading,
+        stopLoading,
+        progress,
+        pendingIds,
+        isLoading
+    } = useLoadingTracker();
 
     // -- Race selection
     const [yearOptions, setYearOptions] = useState<string[]>([]);
@@ -143,6 +154,17 @@ export function RaceViewerPage() {
         reason: "",
         error: "",
     });
+    const [blockFULL, setBlockFULL] = useState<blockState>({
+        blocked: false,
+        reason: "",
+        error: "",
+    });
+
+    // -- Loading indicator
+    useEffect(() => {
+        console.log("Progress:", progress + "%");
+        console.log("Is Loading:", isLoading);
+    }, [progress, isLoading]);
 
     // -- VR Builder
     const stringsToOptions = (items: string[]): MultiSelectOption[] =>
@@ -296,6 +318,7 @@ export function RaceViewerPage() {
 
         // Fetches VR data
         console.log("Fetching VR data");
+        startLoading("report builder");
         fetchJson<VRApiResponse>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/vr/`,
         )
@@ -310,9 +333,13 @@ export function RaceViewerPage() {
             .catch((err) => {
                 console.error("Failed to load VR data", err);
                 toast("Failed to load VR data: " + err.message, "error");
+            })
+            .finally(() => {                
+                stopLoading("report builder");            
             });
 
         // Fetches results + starting grid data
+        startLoading("race results");
         console.log("Fetching summary results data");
         fetchJson<{ results: Result[] }>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/result/`,
@@ -320,19 +347,31 @@ export function RaceViewerPage() {
             .then((data: { results: Result[] }) => {
                 setResults(data.results);
                 console.log("Summary results JSON:", data);
+
+                if (data.results.length === 0) {
+                    setBlockFULL({
+                    blocked: true,
+                    reason: "No results data available for this session. This session may not have taken place, or data may be missing.",
+                    error: "Race not loaded.",
+                });
+                }
+
             })
             .catch((err) => {
                 console.error("Failed to load results", err);
                 toast("Failed to load results: " + err.message, "error");
             })
             .finally(() => {
+            
                 setShowResultsBox(true);
                 if (raceSessionsWithGridPos.includes(selectedSession)) {
                     setShowStartGrid(true);
                 }
+                stopLoading("race results");
             });
 
         // Fetches playback data
+        startLoading("race playback");
         console.log("Fetching playback data");
         fetchJson<PlaybackData>(
             `http://localhost:8000/api/session/${selectedYear}/${encodeURIComponent(
@@ -370,9 +409,13 @@ export function RaceViewerPage() {
                     reason: err.message,
                     error: err.error,
                 });
+            })
+            .finally(() => {                
+                stopLoading("race playback");            
             });
 
         // Fetches leaderboard data
+        startLoading("leaderboard");
         console.log("Fetching leaderboard data");
         fetchJson<LeaderboardApiResponse>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/leaderboard/`,
@@ -399,9 +442,14 @@ export function RaceViewerPage() {
                     reason: err.message,
                     error: err.error,
                 });
+            })
+            .finally(() => {                
+                stopLoading("leaderboard");            
             });
+            
 
         // Fetches weather data
+        startLoading("weather");
         fetchJson<WeatherApiResponse>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/weather/`,
         )
@@ -417,9 +465,13 @@ export function RaceViewerPage() {
                     reason: err.message,
                     error: err.error,
                 });
+            })
+            .finally(() => {                
+                stopLoading("weather");            
             });
 
         // Fetches race control data
+        startLoading("race control");
         fetchJson<RaceControlApiResponse[]>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/racecontrol/`,
         )
@@ -435,9 +487,13 @@ export function RaceViewerPage() {
                     reason: err.message,
                     error: err.error,
                 });
+            })
+            .finally(() => {                
+                stopLoading("race control");            
             });
 
         // Fetches team radio data
+        startLoading("team radio");
         fetchJson<TeamRadioApiResponse[]>(
             `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/teamradio/`,
         )
@@ -453,6 +509,9 @@ export function RaceViewerPage() {
                     reason: err.message,
                     error: err.error,
                 });
+            })
+            .finally(() => {                
+                stopLoading("team radio");            
             });
     };
 
@@ -671,6 +730,10 @@ export function RaceViewerPage() {
                                 </div>
                             </div>
                         </div>
+
+                        <p className="text-sm text-slate-500 mt-8 text-center">
+                            Due to data availability, Race Playback is only available for 2023 to 2025 seasons.
+                        </p>
                     </div>
                 </div>
             )}
@@ -706,6 +769,17 @@ export function RaceViewerPage() {
                     <div className="text-lg font-semibold">Race Viewer</div>
                 </div>
             )}
+
+            {blockFULL.blocked ? (
+                <div className="flex items-center justify-center py-24">
+                    <BlockedCard
+                        title="Race not available"
+                        reason={blockFULL.reason}
+                    />
+                </div>
+            ) : (
+                <>
+                    <LoadingOverlay loading={isLoading} progress={progress} label={`Fetching ${pendingIds[0]} data`} />
 
             {/* Tabs */}
             {showTabs && (
@@ -1183,6 +1257,10 @@ export function RaceViewerPage() {
                     </>
                 )}
             </div>
+                </>
+            )}
+
+            
         </>
     );
 }
