@@ -7,7 +7,6 @@ type SampleComponentProps = {
 
 export function SampleComponent({
   raceControlData,
-  currentTime,
 }: SampleComponentProps) {
   if (!raceControlData) {
     return <div className="skeleton h-24 w-auto"></div>;
