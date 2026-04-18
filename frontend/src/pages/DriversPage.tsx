@@ -76,7 +76,7 @@ export function DriversPage() {
     const [chartLoading, setChartLoading] = useState(false);
 
     useEffect(() => {
-        fetchJson<{ drivers: DriverRow[] }>("http://localhost:8000/api/drivers/")
+        fetchJson<{ drivers: DriverRow[] }>("/api/drivers/")
             .then((data: { drivers: DriverRow[] }) => {
                 const options: DriverOption[] = data.drivers.map((d) => ({
                     id: d.ergast_id,
@@ -124,7 +124,7 @@ export function DriversPage() {
         console.log("Fetching driver code");
         startLoading("driver");
         fetchJson<{ driverCode: string }>(
-            `http://localhost:8000/api/drivers/${selectedDriverErgastID}/code/`,
+            `/api/drivers/${selectedDriverErgastID}/code/`,
         )
             .then((json) => {
                 setSelectedDriverCode(json.driverCode);
@@ -143,7 +143,7 @@ export function DriversPage() {
         console.log("Fetching current season data");
         startLoading("current season");
         fetchJson<currentSeasonData>(
-            `http://localhost:8000/api/general/${encodeURIComponent(selectedDriver)}/driver/currentseason/`,
+            `/api/general/${encodeURIComponent(selectedDriver)}/driver/currentseason/`,
         )
             .then((json: currentSeasonData) => {
                 setCurrentSeasonData(json);
@@ -166,7 +166,7 @@ export function DriversPage() {
         // Fetches summary data
         console.log("Fetching summary data");
         startLoading("summary");
-        fetch(`http://localhost:8000/api/drivers/${selectedDriverErgastID}/summary/`)
+        fetch(`/api/drivers/${selectedDriverErgastID}/summary/`)
             .then((res) => res.json())
             .then((json: DriverSummaryData) => {
                 setDriverSummary(json);

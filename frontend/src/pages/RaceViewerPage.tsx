@@ -320,7 +320,7 @@ export function RaceViewerPage() {
         console.log("Fetching VR data");
         startLoading("report builder");
         fetchJson<VRApiResponse>(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/vr/`,
+            `/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/vr/`,
         )
             .then((json: VRApiResponse) => {
                 console.log("VR JSON:", json);
@@ -342,7 +342,7 @@ export function RaceViewerPage() {
         startLoading("race results");
         console.log("Fetching summary results data");
         fetchJson<{ results: Result[] }>(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/result/`,
+            `/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/result/`,
         )
             .then((data: { results: Result[] }) => {
                 setResults(data.results);
@@ -374,7 +374,7 @@ export function RaceViewerPage() {
         startLoading("race playback");
         console.log("Fetching playback data");
         fetchJson<PlaybackData>(
-            `http://localhost:8000/api/session/${selectedYear}/${encodeURIComponent(
+            `/api/session/${selectedYear}/${encodeURIComponent(
                 selectedCountry,
             )}/${encodeURIComponent(selectedSession)}/playback/`,
         )
@@ -418,7 +418,7 @@ export function RaceViewerPage() {
         startLoading("leaderboard");
         console.log("Fetching leaderboard data");
         fetchJson<LeaderboardApiResponse>(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/leaderboard/`,
+            `/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/leaderboard/`,
         )
             .then((json: LeaderboardApiResponse) => {
                 console.log("Leaderboard JSON:", json);
@@ -451,7 +451,7 @@ export function RaceViewerPage() {
         // Fetches weather data
         startLoading("weather");
         fetchJson<WeatherApiResponse>(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/weather/`,
+            `/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/weather/`,
         )
             .then((json: WeatherApiResponse) => {
                 console.log("Weather JSON:", json);
@@ -473,7 +473,7 @@ export function RaceViewerPage() {
         // Fetches race control data
         startLoading("race control");
         fetchJson<RaceControlApiResponse[]>(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/racecontrol/`,
+            `/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/racecontrol/`,
         )
             .then((json: RaceControlApiResponse[]) => {
                 console.log("Race control JSON:", json);
@@ -495,7 +495,7 @@ export function RaceViewerPage() {
         // Fetches team radio data
         startLoading("team radio");
         fetchJson<TeamRadioApiResponse[]>(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/teamradio/`,
+            `/api/session/${selectedYear}/${selectedCountry}/${selectedSession}/teamradio/`,
         )
             .then((json: TeamRadioApiResponse[]) => {
                 console.log("Team radio JSON:", json);
@@ -525,7 +525,7 @@ export function RaceViewerPage() {
 
     // Gets years
     useEffect(() => {
-        fetchJson<{ years: string[] }>("http://localhost:8000/api/seasons_years/")
+        fetchJson<{ years: string[] }>("/api/seasons_years/")
             .then((data) => {
                 setYearOptions(data.years.map(String));
             })
@@ -543,7 +543,7 @@ export function RaceViewerPage() {
             return;
         }
         fetchJson<{ countries: string[] }>(
-            `http://localhost:8000/api/seasons/${selectedYear}/countries/`,
+            `/api/seasons/${selectedYear}/countries/`,
         )
             .then((data: { countries: string[] }) => {
                 setCountryOptions(data.countries);
@@ -565,7 +565,7 @@ export function RaceViewerPage() {
             return;
         }
         fetchJson<{ sessions: string[] }>(
-            `http://localhost:8000/api/seasons/${selectedYear}/${selectedCountry}/sessions/`,
+            `/api/seasons/${selectedYear}/${selectedCountry}/sessions/`,
         )
             .then((data: { sessions: string[] }) => {
                 setSessionsOptions(data.sessions);
@@ -585,7 +585,7 @@ export function RaceViewerPage() {
             return;
         }
         fetchJson<{ circuit: string }>(
-            `http://localhost:8000/api/session/${selectedYear}/${selectedCountry}/circuit/`,
+            `/api/session/${selectedYear}/${selectedCountry}/circuit/`,
         )
             .then((data) => {
                 setCircuitName(data.circuit);

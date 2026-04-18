@@ -66,7 +66,7 @@ export function TeamsPage() {
     const [chartLoading, setChartLoading] = useState(false);
 
     useEffect(() => {
-        fetchJson<{ teams: TeamOption[] }>("http://localhost:8000/api/teams/")
+        fetchJson<{ teams: TeamOption[] }>("/api/teams/")
             .then((data) => setTeamOptions(data.teams))
             .catch((err) => {
                 console.error("Failed to load teams", err);
@@ -110,7 +110,7 @@ export function TeamsPage() {
         console.log("Fetching current season data");
         startLoading("current season");
         fetchJson<currentSeasonData>(
-            `http://localhost:8000/api/general/${encodeURIComponent(selectedTeam)}/team/currentseason/`,
+            `/api/general/${encodeURIComponent(selectedTeam)}/team/currentseason/`,
         )
             .then((json: currentSeasonData) => {
                 setCurrentSeasonData(json);
@@ -134,7 +134,7 @@ export function TeamsPage() {
         console.log("Fetching summary data");
         startLoading("summary");
         fetchJson<TeamSummaryData>(
-            `http://localhost:8000/api/teams/${selectedTeamErgastID}/summary/`,
+            `/api/teams/${selectedTeamErgastID}/summary/`,
         )
             .then((json: TeamSummaryData) => {
                 setTeamSummary(json);
