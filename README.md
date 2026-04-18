@@ -106,7 +106,7 @@ npm run dev
 
 ## ⚠️ Limitations
 
-- OpenF1 data is limited to **2018 onwards**  
+- Race Playback feature is limited to **2023 onwards**  
 - API rate limits may affect data availability  
 - Designed as a **single-user academic prototype**  
 
