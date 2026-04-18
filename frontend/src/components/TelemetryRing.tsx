@@ -78,7 +78,6 @@ export function TelemetryRing({
   const rotation = 1 - gapRatio / 2; // centers the gap at bottom
 
   const dot = useMemo(() => {
-    const r = 0.5; // relative radius inside 100x100 box
     const strokeInset = 0.08; // keep dot aligned with stroke visually
     const radius = 50 - strokeWidth + strokeInset * 100;
 

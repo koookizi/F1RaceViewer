@@ -33,8 +33,6 @@ export function RacePlaybackCarData({
     const brake = getBrake(carData?.car_data, currentTime) ?? false;
     const throttle = getThrottle(carData?.car_data, currentTime) ?? 0;
 
-    const isSelected = selectedDriver !== null;
-
     return (
         <div className="card card-border bg-base-100 w-full">
             <div className="card-body p-3 overflow-y-auto">
@@ -103,16 +101,6 @@ export function getSpeed(
 
     const row = atOrBefore(data, currentTime);
     return row?.Speed != null ? Math.round(row.Speed) : null;
-}
-
-function getGear(carData: LeaderboardCarData[] | undefined, currentTime: number): number | null {
-    const data = carData ?? [];
-    if (data.length === 0) return null;
-
-    if (currentTime < data[0].SessionTime) return 0;
-
-    const row = atOrBefore(data, currentTime);
-    return row?.nGear != null ? row.nGear : null;
 }
 
 export function getRPM(

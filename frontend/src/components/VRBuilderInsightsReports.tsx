@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React from "react";
 
 import { ReportBlocksStrip } from "./ReportsBlocksStrip";
 import { type ChartResponse } from "./ChartCard";

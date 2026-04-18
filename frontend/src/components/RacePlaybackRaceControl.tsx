@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { RaceControlApiResponse } from "../types";
 import { AnimatePresence, motion } from "framer-motion";
 import { RaceControlFlag } from "../components/RaceControlFlag";

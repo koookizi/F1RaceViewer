@@ -42,7 +42,7 @@ export function ChartCard({
     }
     if (!chart) return <div style={{ height }}>No chart yet.</div>;
 
-    const { title, result } = chart;
+    const { result } = chart;
 
     return (
         <div>

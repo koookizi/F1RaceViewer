@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { WeatherApiResponse, WeatherSample } from "../types";
 import { TelemetryPill } from "../components/TelemetryPill";
 
@@ -69,8 +69,6 @@ export function WeatherInfo({ weatherData, currentTime }: RacePlaybackProps) {
     rangeWindSpeed && windSpeedPercentage != null
       ? getGradientColorNormal(windSpeedPercentage)
       : null;
-  const windDirPercentage =
-    w.wind_dir != null ? calculatePercentage([0, 360], w.wind_dir) : null;
 
   return (
     <div className="flex gap-4 overflow-x-auto overflow-y-hidden whitespace-nowrap mx-auto items-center justify-center">
