@@ -2,7 +2,7 @@
 
 **F1 Race Viewer** is an API-driven web application for visualising and analysing Formula 1 telemetry and race data.
 
-The system integrates **FastF1** and **OpenF1** to provide synchronised race playback, telemetry exploration, and a visualisation/report builder, allowing users to generate analytical insights without directly interacting with raw API data.
+The system integrates **FastF1** and **OpenF1** to provide synchronised race playback, telemetry exploration, and a visualisation/report builder, allowing users to generate analytical insights without directly interacting with raw API data
 
 ---
 
