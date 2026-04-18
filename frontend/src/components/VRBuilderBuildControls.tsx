@@ -329,7 +329,7 @@ export function VRBuilderBuildControls({
         };
 
         setChartLoading(true);
-        fetch("http://localhost:8000/api/session/vr/create/", {
+        fetch("/api/session/vr/create/", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(body),
