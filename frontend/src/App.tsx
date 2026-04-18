@@ -18,19 +18,17 @@ function App() {
     return (
         <ToastProvider>
             <Routes>
-                {/* Home route WITHOUT sidebar */}
                 <Route element={<HomeLayout />}>
-                    <Route path="/" element={<HomePage />} />
+                    <Route index element={<HomePage />} />
                 </Route>
 
-                {/* Dashboard routes WITH sidebar */}
                 <Route element={<SidebarLayout />}>
-                    <Route path="/" element={<Navigate to="/race-viewer" replace />} />
-                    <Route path="/race-viewer" element={<RaceViewerPage />} />
-                    <Route path="/teams" element={<TeamsPage />} />
-                    <Route path="/drivers" element={<DriversPage />} />
+                    <Route path="race-viewer" element={<RaceViewerPage />} />
+                    <Route path="teams" element={<TeamsPage />} />
+                    <Route path="drivers" element={<DriversPage />} />
                 </Route>
 
+                <Route path="dashboard" element={<Navigate to="/race-viewer" replace />} />
                 <Route path="*" element={<p className="text-slate-300">Page not found.</p>} />
             </Routes>
         </ToastProvider>
