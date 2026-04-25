@@ -1,10 +1,12 @@
 from django.http import JsonResponse
+from django.core.cache import cache
 import pandas as pd 
 import json
 from datetime import datetime
 from urllib.request import urlopen
 from datetime import timezone
 from urllib.error import HTTPError
+from urllib.parse import urlencode
 
 __all__ = [
     "getCurrentSeason",
@@ -22,16 +24,41 @@ def getCurrentSeason(request, data, teamOrDriver=None):
     - Aggregate race, sprint and grid data across that selected season.
     """
 
+    def openf1_cache_timeout(url):
+        if "/sessions?" in url:
+            return 60 * 60 * 6
+        if "/drivers?" in url:
+            return 60 * 60 * 24
+        if "/championship_" in url:
+            return 60 * 30
+        return 60 * 15
+
     def openf1_json(url):
+        cache_key = f"openf1:{url}"
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return cached
+
         try:
             req = urlopen(url)
-            return json.loads(req.read().decode("utf-8"))
+            data = json.loads(req.read().decode("utf-8"))
         except HTTPError as e:
             try:
                 body = e.read().decode("utf-8")
-                return json.loads(body)
+                data = json.loads(body)
             except Exception:
-                return {"detail": f"HTTP {e.code}"}
+                data = {"detail": f"HTTP {e.code}"}
+
+        is_rate_limited = isinstance(data, dict) and data.get("error") == "Too Many Requests"
+        if not is_rate_limited:
+            cache.set(cache_key, data, timeout=openf1_cache_timeout(url))
+
+        return data
+
+    response_cache_key = f"currentseason:{teamOrDriver}:{data}"
+    cached_response = cache.get(response_cache_key)
+    if cached_response is not None:
+        return JsonResponse(cached_response, safe=False)
 
     now = datetime.now(timezone.utc)
     year_now = now.year
@@ -145,9 +172,11 @@ def getCurrentSeason(request, data, teamOrDriver=None):
                 status=404,
             )
 
-        drivers_raw = openf1_json(
-            f"https://api.openf1.org/v1/drivers?team_name={data}&session_key={standings_session_key}"
-        )
+        drivers_query = urlencode({
+            "team_name": data,
+            "session_key": standings_session_key,
+        })
+        drivers_raw = openf1_json(f"https://api.openf1.org/v1/drivers?{drivers_query}")
         drivers_df = pd.DataFrame(drivers_raw if isinstance(drivers_raw, list) else [])
 
         if isinstance(drivers_raw, dict) and drivers_raw.get("error") == "Too Many Requests":
@@ -218,9 +247,12 @@ def getCurrentSeason(request, data, teamOrDriver=None):
 
         print(parts)
 
-        drivers_raw = openf1_json(
-            f"https://api.openf1.org/v1/drivers?first_name={first_name}&last_name={last_name}&session_key={standings_session_key}"
-        )
+        drivers_query = urlencode({
+            "first_name": first_name,
+            "last_name": last_name,
+            "session_key": standings_session_key,
+        })
+        drivers_raw = openf1_json(f"https://api.openf1.org/v1/drivers?{drivers_query}")
         drivers_df = pd.DataFrame(drivers_raw if isinstance(drivers_raw, list) else [])
 
         if isinstance(drivers_raw, dict) and drivers_raw.get("error") == "Too Many Requests":
@@ -347,5 +379,7 @@ def getCurrentSeason(request, data, teamOrDriver=None):
     }
 
     print("finalJSON:", finalJSON)
+
+    cache.set(response_cache_key, finalJSON, timeout=60 * 10)
 
     return JsonResponse(finalJSON, safe=False)
