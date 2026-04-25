@@ -112,8 +112,15 @@ def getCurrentSeason(request, data, teamOrDriver=None):
             print("trying team championship session_key:", candidate_session_key)
             print("raw response:", raw)
 
+            if isinstance(raw, dict) and raw.get("error") == "Too Many Requests":
+                return JsonResponse(
+                    {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
+                    status=429
+                )
+
             if isinstance(raw, dict) and raw.get("detail") == "No results found.":
                 continue
+
 
             if not isinstance(raw, list) or len(raw) == 0:
                 continue
@@ -132,6 +139,7 @@ def getCurrentSeason(request, data, teamOrDriver=None):
 
         matching_team = last_championship_df[last_championship_df["team_name"] == data]
         if matching_team.empty:
+            print("matching team is empty")
             return JsonResponse(
                 {"error": f"Team '{data}' not found in season {latest_year} championship data"},
                 status=404,
@@ -141,6 +149,12 @@ def getCurrentSeason(request, data, teamOrDriver=None):
             f"https://api.openf1.org/v1/drivers?team_name={data}&session_key={standings_session_key}"
         )
         drivers_df = pd.DataFrame(drivers_raw if isinstance(drivers_raw, list) else [])
+
+        if isinstance(drivers_raw, dict) and drivers_raw.get("error") == "Too Many Requests":
+            return JsonResponse(
+                {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
+                status=429
+            )
 
         if drivers_df.empty:
             return JsonResponse(
@@ -168,6 +182,12 @@ def getCurrentSeason(request, data, teamOrDriver=None):
 
             print("trying driver championship session_key:", candidate_session_key)
             print("raw response:", raw)
+
+            if isinstance(raw, dict) and raw.get("error") == "Too Many Requests":
+                return JsonResponse(
+                    {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
+                    status=429
+                )
 
             if isinstance(raw, dict) and raw.get("detail") == "No results found.":
                 continue
@@ -202,6 +222,12 @@ def getCurrentSeason(request, data, teamOrDriver=None):
             f"https://api.openf1.org/v1/drivers?first_name={first_name}&last_name={last_name}&session_key={standings_session_key}"
         )
         drivers_df = pd.DataFrame(drivers_raw if isinstance(drivers_raw, list) else [])
+
+        if isinstance(drivers_raw, dict) and drivers_raw.get("error") == "Too Many Requests":
+            return JsonResponse(
+                {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
+                status=429
+            )
 
 
         if drivers_df.empty:
@@ -264,6 +290,11 @@ def getCurrentSeason(request, data, teamOrDriver=None):
         grid_results_raw = openf1_json(
             f"https://api.openf1.org/v1/starting_grid?{grid_query}&{driver_numbers_query}"
         )
+        if isinstance(grid_results_raw, dict) and grid_results_raw.get("error") == "Too Many Requests":
+                return JsonResponse(
+                    {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
+                    status=429
+                )
         grid_results_df = pd.DataFrame(grid_results_raw if isinstance(grid_results_raw, list) else [])
     else:
         grid_results_df = pd.DataFrame()

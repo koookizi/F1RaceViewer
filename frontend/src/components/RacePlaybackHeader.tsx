@@ -48,7 +48,11 @@ export function RacePlaybackHeader({
                         </div>
                     </div>
                     <div className="col-span-1">
-                        <WeatherInfo weatherData={weatherData} currentTime={currentTime} />
+                        <WeatherInfo
+                            weatherData={weatherData}
+                            currentTime={currentTime}
+                            playbackStartTime={playbackData.playbackControlOffset}
+                        />
                     </div>
                     <div className="col-span-1 p-3">
                         <div className="flex items-center justify-end h-full text-right">

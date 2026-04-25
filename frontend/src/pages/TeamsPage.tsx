@@ -119,6 +119,8 @@ export function TeamsPage() {
             .catch((err) => {
                 console.error("Failed to load current season data", err);
                 toast("Failed to load current season data: " + err.message, "error");
+                console.log(err.message);
+                console.log(err.error);
                 setBlockCurrentSeason({
                     blocked: true,
                     reason: err.message,

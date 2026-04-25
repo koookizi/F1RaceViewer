@@ -1,76 +1,70 @@
-import React, { useEffect, useState } from "react";
 import type { WeatherApiResponse, WeatherSample } from "../types";
 import { TelemetryPill } from "../components/TelemetryPill";
 
 type RacePlaybackProps = {
   weatherData: WeatherApiResponse | null;
   currentTime: number;
+  playbackStartTime: number;
 };
 
-export function WeatherInfo({ weatherData, currentTime }: RacePlaybackProps) {
-  const [rangeAirTemp, setRangeAirTemp] = useState<[number, number]>([0, 0]);
-  const [rangeHumidity, setRangeHumidity] = useState<[number, number]>([0, 0]);
-  const [rangePressure, setRangePressure] = useState<[number, number]>([0, 0]);
-  const [rangeTrackTemp, setRangeTrackTemp] = useState<[number, number]>([
-    0, 0,
-  ]);
-  const [rangeWindSpeed, setRangeWindSpeed] = useState<[number, number]>([
-    0, 0,
-  ]);
-
-  useEffect(() => {
-    if (weatherData) {
-      setRangeAirTemp(weatherData.rangeAirTemp);
-      setRangeHumidity(weatherData.rangeHumidity);
-      setRangePressure(weatherData.rangePressure);
-      setRangeTrackTemp(weatherData.rangeTrackTemp);
-      setRangeWindSpeed(weatherData.rangeWindSpeed);
-    }
-  }, [weatherData]);
-
+export function WeatherInfo({
+  weatherData,
+  currentTime,
+  playbackStartTime,
+}: RacePlaybackProps) {
   if (!weatherData) {
-    return;
+    return null;
   }
 
-  const w = getWeatherAtTime(weatherData.weather, currentTime);
+  const weatherTimeline = normalizeWeatherSamples(weatherData.weather);
+  const alignedTime = getAlignedWeatherTime(
+    weatherTimeline,
+    currentTime,
+    playbackStartTime
+  );
+  const w = getWeatherAtTime(weatherTimeline, alignedTime);
   if (!w) return <div>No weather</div>;
   const airTempPercentage =
-    w.air_temp != null ? calculatePercentage(rangeAirTemp, w.air_temp) : null;
+    w.air_temp != null
+      ? calculatePercentage(weatherData.rangeAirTemp, w.air_temp)
+      : null;
   const airTempColour =
-    rangeAirTemp && airTempPercentage != null
+    airTempPercentage != null
       ? getGradientColorNormal(airTempPercentage)
       : null;
 
   const humidityPercentage =
-    w.humidity != null ? calculatePercentage(rangeHumidity, w.humidity) : null;
+    w.humidity != null
+      ? calculatePercentage(weatherData.rangeHumidity, w.humidity)
+      : null;
   const humidityColour =
-    rangeHumidity && humidityPercentage != null
+    humidityPercentage != null
       ? getGradientColorNormal(humidityPercentage)
       : null;
   const pressurePercentage =
-    w.pressure != null ? calculatePercentage(rangePressure, w.pressure) : null;
+    w.pressure != null
+      ? calculatePercentage(weatherData.rangePressure, w.pressure)
+      : null;
   const pressureColour =
-    rangePressure && pressurePercentage != null
+    pressurePercentage != null
       ? getGradientColorNormal(pressurePercentage)
       : null;
   const trackTempPercentage =
     w.track_temp != null
-      ? calculatePercentage(rangeTrackTemp, w.track_temp)
+      ? calculatePercentage(weatherData.rangeTrackTemp, w.track_temp)
       : null;
   const trackTempColour =
-    rangeTrackTemp && trackTempPercentage != null
+    trackTempPercentage != null
       ? getGradientColorNormal(trackTempPercentage)
       : null;
   const windSpeedPercentage =
     w.wind_speed != null
-      ? calculatePercentage(rangeWindSpeed, w.wind_speed)
+      ? calculatePercentage(weatherData.rangeWindSpeed, w.wind_speed)
       : null;
   const windSpeedColour =
-    rangeWindSpeed && windSpeedPercentage != null
+    windSpeedPercentage != null
       ? getGradientColorNormal(windSpeedPercentage)
       : null;
-  const windDirPercentage =
-    w.wind_dir != null ? calculatePercentage([0, 360], w.wind_dir) : null;
 
   return (
     <div className="flex gap-4 overflow-x-auto overflow-y-hidden whitespace-nowrap mx-auto items-center justify-center">
@@ -117,6 +111,53 @@ export function WeatherInfo({ weatherData, currentTime }: RacePlaybackProps) {
   );
 }
 
+function normalizeWeatherSamples(samples: WeatherSample[]): WeatherSample[] {
+  return [...samples]
+    .filter((sample) => Number.isFinite(sample.time_sec))
+    .sort((a, b) => a.time_sec - b.time_sec)
+    .filter(
+      (sample, index, sorted) =>
+        index === 0 || sample.time_sec !== sorted[index - 1].time_sec
+    );
+}
+
+function getAlignedWeatherTime(
+  samples: WeatherSample[],
+  currentTime: number,
+  playbackStartTime: number
+): number {
+  if (!samples.length) return currentTime;
+
+  const firstSampleTime = samples[0].time_sec;
+  const lastSampleTime = samples[samples.length - 1].time_sec;
+
+  if (currentTime >= firstSampleTime && currentTime <= lastSampleTime) {
+    return currentTime;
+  }
+
+  const normalizedPlaybackTime = currentTime - playbackStartTime;
+  if (
+    normalizedPlaybackTime >= firstSampleTime &&
+    normalizedPlaybackTime <= lastSampleTime
+  ) {
+    return normalizedPlaybackTime;
+  }
+
+  // Fall back to the clock that lands closest to the weather series.
+  const rawDistance = Math.min(
+    Math.abs(currentTime - firstSampleTime),
+    Math.abs(currentTime - lastSampleTime)
+  );
+  const normalizedDistance = Math.min(
+    Math.abs(normalizedPlaybackTime - firstSampleTime),
+    Math.abs(normalizedPlaybackTime - lastSampleTime)
+  );
+
+  return normalizedDistance < rawDistance
+    ? normalizedPlaybackTime
+    : currentTime;
+}
+
 function getWeatherAtTime(
   samples: WeatherSample[],
   currentTime: number
@@ -129,21 +170,21 @@ function getWeatherAtTime(
     return samples[samples.length - 1];
   }
 
-  // this part below basically uses interpolation to use data between of the correct weather data row closest to the current time
-  // find the two rows around current_time
-  let idx = 0;
-  for (let i = 0; i < samples.length - 1; i++) {
-    const a = samples[i];
-    const b = samples[i + 1];
-    if (currentTime >= a.time_sec && currentTime <= b.time_sec) {
-      idx = i; // the index of the weather sample before/equal the current time
-      break;
+  let left = 0;
+  let right = samples.length - 1;
+
+  while (left <= right) {
+    const mid = Math.floor((left + right) / 2);
+    if (samples[mid].time_sec <= currentTime) {
+      left = mid + 1;
+    } else {
+      right = mid - 1;
     }
   }
 
+  const idx = Math.max(0, right);
   const a = samples[idx];
   const b = samples[idx + 1];
-  // ^ so one row before current time, one after
 
   const t0 = a.time_sec;
   const t1 = b.time_sec;

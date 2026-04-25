@@ -20,11 +20,16 @@ export function AudioPlaybackBar({
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastAutoPlayTokenRef = useRef<number | null>(null);
+  const isSeekingRef = useRef(false);
 
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0); // seconds
   const [current, setCurrent] = useState(0); // seconds
   const [isSeeking, setIsSeeking] = useState(false);
+
+  useEffect(() => {
+    isSeekingRef.current = isSeeking;
+  }, [isSeeking]);
 
   // make audio only when src changes
   useEffect(() => {
@@ -39,7 +44,7 @@ export function AudioPlaybackBar({
 
     const onLoaded = () => setDuration(audio.duration || 0);
     const onTime = () => {
-      if (!isSeeking) setCurrent(audio.currentTime || 0);
+      if (!isSeekingRef.current) setCurrent(audio.currentTime || 0);
     };
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
@@ -61,8 +66,7 @@ export function AudioPlaybackBar({
       audio.removeEventListener("ended", onEnded);
       if (audioRef.current === audio) audioRef.current = null;
     };
-    // include isSeeking so the handler reads the latest value
-  }, [src, isSeeking]);
+  }, [src]);
 
   // autoplay ONLY when token changes, and only if enabled
   useEffect(() => {
@@ -78,11 +82,16 @@ export function AudioPlaybackBar({
     // start from beginning
     audio.currentTime = 0;
 
-    audio.play().catch(() => {
-      toast("Autoplay has been blocked by browser","error");
+    audio.play().catch((error: unknown) => {
+      if (audioRef.current !== audio) return;
 
+      if (error instanceof DOMException && error.name === "NotAllowedError") {
+        toast("Autoplay has been blocked by browser", "error");
+      } else {
+        console.warn("Autoplay attempt did not complete", { src, error });
+      }
     });
-  }, [autoPlayEnabled, autoPlayToken]);
+  }, [autoPlayEnabled, autoPlayToken, src, toast]);
 
   const togglePlay = async () => {
     const audio = audioRef.current;
