@@ -6,9 +6,9 @@ import pandas as pd
 import numpy as np
 from functools import lru_cache
 from api.helpers.geometry import rotate, normalize_xy
-import json
-from urllib.request import urlopen
 from datetime import timezone
+from urllib.parse import urlencode
+from api.helpers.openf1 import openf1_json, is_rate_limited
 from api.helpers.raceviewer import (
     add_lap_number_from_lapstarts,
     prepare_laps_df_for_json,to_float_or_none,
@@ -30,6 +30,41 @@ __all__ = [
 ]
 
 fastf1.Cache.enable_cache("api/fastf1_cache")
+
+OPENF1_RACEVIEWER_CACHE_TIMEOUT = 60 * 60 * 24 * 30
+
+
+def _openf1_json_or_error(url: str):
+    payload = openf1_json(
+        url,
+        timeout=OPENF1_RACEVIEWER_CACHE_TIMEOUT,
+        retries=2,
+        retry_delay=1.5,
+    )
+
+    if is_rate_limited(payload):
+        return None, JsonResponse(
+            {"error": "API - Rate Limit Hit (429). Please retry shortly."},
+            status=429,
+        )
+
+    return payload, None
+
+
+def _session_df_or_error(year: int, country: str, session_name: str):
+    query = urlencode(
+        {
+            "country_name": country,
+            "session_name": session_name,
+            "year": year,
+        }
+    )
+    payload, error = _openf1_json_or_error(f"https://api.openf1.org/v1/sessions?{query}")
+    if error is not None:
+        return None, error
+    if not isinstance(payload, list) or len(payload) == 0:
+        return None, JsonResponse({"error": "OpenF1 session data not found"}, status=404)
+    return pd.DataFrame(payload), None
 
 def season_years(request):
     """
@@ -148,9 +183,9 @@ def session_teamradio_view(request, year: int, country: str, session_name: str):
         JsonResponse: List of team radio messages with timestamps aligned to
         session time, formatted for playback.
     """
-    # OpenF1
-    session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
-    session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
+    session_df, error_response = _session_df_or_error(year, country, session_name)
+    if error_response is not None:
+        return error_response
 
     # FastF1
     session = fastf1.get_session(year, country, session_name)
@@ -160,9 +195,17 @@ def session_teamradio_view(request, year: int, country: str, session_name: str):
 
     # ---
 
-    # get team radio data
-    teamradio_data_req = urlopen(f"https://api.openf1.org/v1/team_radio?session_key={session_df.loc[0, 'session_key']}&date>{session_df.loc[0, "date_start"]}")
-    teamradio_data = pd.DataFrame(json.loads(teamradio_data_req.read().decode('utf-8')))
+    team_radio_url = (
+        f"https://api.openf1.org/v1/team_radio?session_key={session_df.loc[0, 'session_key']}"
+        f"&date>{session_df.loc[0, 'date_start']}"
+    )
+    teamradio_payload, error_response = _openf1_json_or_error(team_radio_url)
+    if error_response is not None:
+        return error_response
+    teamradio_data = pd.DataFrame(teamradio_payload if isinstance(teamradio_payload, list) else [])
+
+    if teamradio_data.empty:
+        return JsonResponse([], safe=False)
     teamradio_data["date"] = pd.to_datetime(
         teamradio_data["date"],
         utc=True,
@@ -212,9 +255,9 @@ def session_racecontrol_view(request, year: int, country: str, session_name: str
         JsonResponse: List of race control events with timestamps aligned to
         session time, formatted for playback.
     """
-    # OpenF1
-    session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
-    session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
+    session_df, error_response = _session_df_or_error(year, country, session_name)
+    if error_response is not None:
+        return error_response
 
     # FastF1
     session = fastf1.get_session(year, country, session_name)
@@ -224,9 +267,17 @@ def session_racecontrol_view(request, year: int, country: str, session_name: str
 
     # ---
 
-    # get race control data
-    racecontrol_data_req = urlopen(f"https://api.openf1.org/v1/race_control?session_key={session_df.loc[0, 'session_key']}&date>{session_df.loc[0, "date_start"]}")
-    racecontrol_data = pd.DataFrame(json.loads(racecontrol_data_req.read().decode('utf-8')))
+    race_control_url = (
+        f"https://api.openf1.org/v1/race_control?session_key={session_df.loc[0, 'session_key']}"
+        f"&date>{session_df.loc[0, 'date_start']}"
+    )
+    racecontrol_payload, error_response = _openf1_json_or_error(race_control_url)
+    if error_response is not None:
+        return error_response
+    racecontrol_data = pd.DataFrame(racecontrol_payload if isinstance(racecontrol_payload, list) else [])
+
+    if racecontrol_data.empty:
+        return JsonResponse([], safe=False)
     racecontrol_data["date"] = pd.to_datetime(
         racecontrol_data["date"],
         utc=True,
@@ -277,9 +328,9 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
         JsonResponse: Driver-level leaderboard and telemetry data for the
         selected session, formatted for playback.
     """
-    # OpenF1
-    session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
-    session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
+    session_df, error_response = _session_df_or_error(year, country, session_name)
+    if error_response is not None:
+        return error_response
 
     # FastF1
     session = fastf1.get_session(year, country, session_name)
@@ -287,9 +338,17 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
 
     # ---
 
-    # get position data
-    positions_data_req = urlopen(f"https://api.openf1.org/v1/position?meeting_key={session_df.loc[0, 'meeting_key']}&date>={session_df.loc[0, "date_start"]}")
-    positions_data = pd.DataFrame(json.loads(positions_data_req.read().decode('utf-8')))
+    position_url = (
+        f"https://api.openf1.org/v1/position?meeting_key={session_df.loc[0, 'meeting_key']}"
+        f"&date>={session_df.loc[0, 'date_start']}"
+    )
+    positions_payload, error_response = _openf1_json_or_error(position_url)
+    if error_response is not None:
+        return error_response
+    positions_data = pd.DataFrame(positions_payload if isinstance(positions_payload, list) else [])
+
+    if positions_data.empty:
+        return JsonResponse({"drivers": []}, safe=False)
     positions_data["date"] = pd.to_datetime(
         positions_data["date"],
         utc=True,
@@ -310,9 +369,17 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
     positions_data = positions_data.astype(object)
     positions_data = positions_data.where(pd.notna(positions_data), None)
 
-    # get lap data
-    laps_data_req = urlopen(f"https://api.openf1.org/v1/laps?session_key={session_df.loc[0, "session_key"]}&date_start>={session_df.loc[0, "date_start"]}")
-    laps_data = pd.DataFrame(json.loads(laps_data_req.read().decode('utf-8')))
+    laps_url = (
+        f"https://api.openf1.org/v1/laps?session_key={session_df.loc[0, 'session_key']}"
+        f"&date_start>={session_df.loc[0, 'date_start']}"
+    )
+    laps_payload, error_response = _openf1_json_or_error(laps_url)
+    if error_response is not None:
+        return error_response
+    laps_data = pd.DataFrame(laps_payload if isinstance(laps_payload, list) else [])
+
+    if laps_data.empty:
+        return JsonResponse({"drivers": []}, safe=False)
     laps_data["date_start"] = pd.to_datetime(
         laps_data["date_start"],
         utc=True,
@@ -332,36 +399,48 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
     laps_data = laps_data.astype(object)
     laps_data = laps_data.where(pd.notna(laps_data), None)
 
-    # get stint data
-    stint_data_req = urlopen(f"https://api.openf1.org/v1/stints?session_key={session_df.loc[0, "session_key"]}")
-    stint_data = pd.DataFrame(json.loads(stint_data_req.read().decode('utf-8')))
-    stint_data = stint_data.drop(columns=['meeting_key', 'session_key'])
+    stint_url = f"https://api.openf1.org/v1/stints?session_key={session_df.loc[0, 'session_key']}"
+    stint_payload, error_response = _openf1_json_or_error(stint_url)
+    if error_response is not None:
+        return error_response
+    stint_data = pd.DataFrame(stint_payload if isinstance(stint_payload, list) else [])
+    stint_data = stint_data.drop(columns=['meeting_key', 'session_key'], errors='ignore')
 
     stint_data = stint_data.astype(object)
     stint_data = stint_data.where(pd.notna(stint_data), None)
+    if stint_data.empty:
+        stint_data = pd.DataFrame(columns=["driver_number"])
 
-    # get pit data
-    pit_data_req = urlopen(f"https://api.openf1.org/v1/pit?session_key={session_df.loc[0, 'session_key']}&date>={session_df.loc[0, 'date_start']}")
-    pit_data = pd.DataFrame(json.loads(pit_data_req.read().decode('utf-8')))
-    pit_data["date"] = pd.to_datetime(
-        pit_data["date"],
-        utc=True,
-        format="ISO8601"
+    pit_url = (
+        f"https://api.openf1.org/v1/pit?session_key={session_df.loc[0, 'session_key']}"
+        f"&date>={session_df.loc[0, 'date_start']}"
     )
+    pit_payload, error_response = _openf1_json_or_error(pit_url)
+    if error_response is not None:
+        return error_response
+    pit_data = pd.DataFrame(pit_payload if isinstance(pit_payload, list) else [])
+    if not pit_data.empty:
+        pit_data["date"] = pd.to_datetime(
+            pit_data["date"],
+            utc=True,
+            format="ISO8601"
+        )
 
-    pit_data["SessionTime"] = (
-        pit_data["date"] - session.t0_date.replace(tzinfo=timezone.utc)
-    ).dt.total_seconds()
+        pit_data["SessionTime"] = (
+            pit_data["date"] - session.t0_date.replace(tzinfo=timezone.utc)
+        ).dt.total_seconds()
 
-    pit_data = pit_data[
-    ["SessionTime"] + [c for c in pit_data.columns if c != "SessionTime"]]
-    pit_data.sort_values("SessionTime")
+        pit_data = pit_data[
+        ["SessionTime"] + [c for c in pit_data.columns if c != "SessionTime"]]
+        pit_data.sort_values("SessionTime")
 
-    pit_data = pit_data.drop(columns=['date', 'meeting_key', 'session_key'])
+        pit_data = pit_data.drop(columns=['date', 'meeting_key', 'session_key'])
 
-    # > cleans any NaNs for JSON
-    pit_data = pit_data.astype(object)
-    pit_data = pit_data.where(pd.notna(pit_data), None)
+        # > cleans any NaNs for JSON
+        pit_data = pit_data.astype(object)
+        pit_data = pit_data.where(pd.notna(pit_data), None)
+    else:
+        pit_data = pd.DataFrame(columns=["driver_number"])
 
     # get car data
     grid_positions = {}
@@ -404,32 +483,39 @@ def session_leaderboard_view(request, year: int, country: str, session_name: str
 
     car_data["grid_position"] = car_data["driver_number"].astype(str).map(grid_positions)
 
-    # get gap data
-    gap_data_req = urlopen(f"https://api.openf1.org/v1/intervals?meeting_key={session_df.loc[0, 'meeting_key']}")
-    gap_data = pd.DataFrame(json.loads(gap_data_req.read().decode('utf-8')))
-    gap_data["date"] = pd.to_datetime(
-        gap_data["date"],
-        utc=True,
-        format="ISO8601"
-    )
+    gap_url = f"https://api.openf1.org/v1/intervals?meeting_key={session_df.loc[0, 'meeting_key']}"
+    gap_payload, error_response = _openf1_json_or_error(gap_url)
+    if error_response is not None:
+        return error_response
+    gap_data = pd.DataFrame(gap_payload if isinstance(gap_payload, list) else [])
+    if not gap_data.empty:
+        gap_data["date"] = pd.to_datetime(
+            gap_data["date"],
+            utc=True,
+            format="ISO8601"
+        )
 
-    gap_data["SessionTime"] = (
-        gap_data["date"] - session.t0_date.replace(tzinfo=timezone.utc)
-    ).dt.total_seconds()
+        gap_data["SessionTime"] = (
+            gap_data["date"] - session.t0_date.replace(tzinfo=timezone.utc)
+        ).dt.total_seconds()
 
-    gap_data = gap_data[
-    ["SessionTime"] + [c for c in gap_data.columns if c != "SessionTime"]]
-    gap_data.sort_values("SessionTime")
+        gap_data = gap_data[
+        ["SessionTime"] + [c for c in gap_data.columns if c != "SessionTime"]]
+        gap_data.sort_values("SessionTime")
 
-    gap_data = gap_data.drop(columns=['date', 'meeting_key', 'session_key'])
+        gap_data = gap_data.drop(columns=['date', 'meeting_key', 'session_key'])
 
-    # > cleans any NaNs for JSON
-    gap_data = gap_data.astype(object)
-    gap_data = gap_data.where(pd.notna(gap_data), None)
+        # > cleans any NaNs for JSON
+        gap_data = gap_data.astype(object)
+        gap_data = gap_data.where(pd.notna(gap_data), None)
+    else:
+        gap_data = pd.DataFrame(columns=["driver_number"])
 
-    # -- get driver info / final structure
-    drivers_data_req = urlopen(f"https://api.openf1.org/v1/drivers?session_key={session_df.loc[0, "session_key"]}")
-    drivers_df = pd.DataFrame(json.loads(drivers_data_req.read().decode('utf-8')))
+    drivers_url = f"https://api.openf1.org/v1/drivers?session_key={session_df.loc[0, 'session_key']}"
+    drivers_payload, error_response = _openf1_json_or_error(drivers_url)
+    if error_response is not None:
+        return error_response
+    drivers_df = pd.DataFrame(drivers_payload if isinstance(drivers_payload, list) else [])
     finalJSON = {}
     drivers = []
     for _, driver_row in drivers_df.iterrows():
@@ -629,9 +715,9 @@ def session_playback_view(request, year: int, country: str, session_name: str):
         session-level timing metadata for the selected session.
     """
 
-    # OpenF1
-    session_data_req = urlopen(f"https://api.openf1.org/v1/sessions?country_name={country.replace(" ","+")}&session_name={session_name.replace(" ","+")}&year={year}")
-    session_df = pd.DataFrame(json.loads(session_data_req.read().decode('utf-8')))
+    session_df, error_response = _session_df_or_error(year, country, session_name)
+    if error_response is not None:
+        return error_response
 
     openf1_start = pd.to_datetime(session_df.loc[0, "date_start"], utc=True)
     openf1_end = pd.to_datetime(session_df.loc[0, "date_end"], utc=True)

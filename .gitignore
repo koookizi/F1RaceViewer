@@ -5,6 +5,7 @@ env/
 __pycache__/
 *.pyc
 venv/
+backend/django_cache/
 
 # Node
 node_modules/

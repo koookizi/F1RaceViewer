@@ -1,12 +1,11 @@
 from django.http import JsonResponse
 from django.core.cache import cache
 import pandas as pd 
-import json
+import hashlib
 from datetime import datetime
-from urllib.request import urlopen
 from datetime import timezone
-from urllib.error import HTTPError
 from urllib.parse import urlencode
+from api.helpers.openf1 import openf1_json, is_rate_limited
 
 __all__ = [
     "getCurrentSeason",
@@ -33,29 +32,9 @@ def getCurrentSeason(request, data, teamOrDriver=None):
             return 60 * 30
         return 60 * 15
 
-    def openf1_json(url):
-        cache_key = f"openf1:{url}"
-        cached = cache.get(cache_key)
-        if cached is not None:
-            return cached
-
-        try:
-            req = urlopen(url)
-            data = json.loads(req.read().decode("utf-8"))
-        except HTTPError as e:
-            try:
-                body = e.read().decode("utf-8")
-                data = json.loads(body)
-            except Exception:
-                data = {"detail": f"HTTP {e.code}"}
-
-        is_rate_limited = isinstance(data, dict) and data.get("error") == "Too Many Requests"
-        if not is_rate_limited:
-            cache.set(cache_key, data, timeout=openf1_cache_timeout(url))
-
-        return data
-
-    response_cache_key = f"currentseason:{teamOrDriver}:{data}"
+    response_cache_key = "currentseason:" + hashlib.sha256(
+        f"{teamOrDriver}:{data}".encode("utf-8")
+    ).hexdigest()
     cached_response = cache.get(response_cache_key)
     if cached_response is not None:
         return JsonResponse(cached_response, safe=False)
@@ -66,7 +45,12 @@ def getCurrentSeason(request, data, teamOrDriver=None):
     # Load sessions from current and previous year
     sessions = []
     for y in (year_now - 1, year_now):
-        raw_sessions = openf1_json(f"https://api.openf1.org/v1/sessions?year={y}")
+        raw_sessions = openf1_json(
+            f"https://api.openf1.org/v1/sessions?year={y}",
+            timeout=openf1_cache_timeout(f"https://api.openf1.org/v1/sessions?year={y}"),
+            retries=2,
+            retry_delay=1.5,
+        )
         if isinstance(raw_sessions, list):
             sessions.extend(raw_sessions)
 
@@ -132,14 +116,20 @@ def getCurrentSeason(request, data, teamOrDriver=None):
     if teamOrDriver == "team":
         for _, race_row in candidate_races.iterrows():
             candidate_session_key = int(race_row["session_key"])
-            raw = openf1_json(
+            championship_url = (
                 f"https://api.openf1.org/v1/championship_teams?session_key={candidate_session_key}"
+            )
+            raw = openf1_json(
+                championship_url,
+                timeout=openf1_cache_timeout(championship_url),
+                retries=2,
+                retry_delay=1.5,
             )
 
             print("trying team championship session_key:", candidate_session_key)
             print("raw response:", raw)
 
-            if isinstance(raw, dict) and raw.get("error") == "Too Many Requests":
+            if is_rate_limited(raw):
                 return JsonResponse(
                     {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
                     status=429
@@ -176,10 +166,16 @@ def getCurrentSeason(request, data, teamOrDriver=None):
             "team_name": data,
             "session_key": standings_session_key,
         })
-        drivers_raw = openf1_json(f"https://api.openf1.org/v1/drivers?{drivers_query}")
+        drivers_url = f"https://api.openf1.org/v1/drivers?{drivers_query}"
+        drivers_raw = openf1_json(
+            drivers_url,
+            timeout=openf1_cache_timeout(drivers_url),
+            retries=2,
+            retry_delay=1.5,
+        )
         drivers_df = pd.DataFrame(drivers_raw if isinstance(drivers_raw, list) else [])
 
-        if isinstance(drivers_raw, dict) and drivers_raw.get("error") == "Too Many Requests":
+        if is_rate_limited(drivers_raw):
             return JsonResponse(
                 {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
                 status=429
@@ -205,14 +201,20 @@ def getCurrentSeason(request, data, teamOrDriver=None):
     elif teamOrDriver == "driver":
         for _, race_row in candidate_races.iterrows():
             candidate_session_key = int(race_row["session_key"])
-            raw = openf1_json(
+            championship_url = (
                 f"https://api.openf1.org/v1/championship_drivers?session_key={candidate_session_key}"
+            )
+            raw = openf1_json(
+                championship_url,
+                timeout=openf1_cache_timeout(championship_url),
+                retries=2,
+                retry_delay=1.5,
             )
 
             print("trying driver championship session_key:", candidate_session_key)
             print("raw response:", raw)
 
-            if isinstance(raw, dict) and raw.get("error") == "Too Many Requests":
+            if is_rate_limited(raw):
                 return JsonResponse(
                     {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
                     status=429
@@ -252,10 +254,16 @@ def getCurrentSeason(request, data, teamOrDriver=None):
             "last_name": last_name,
             "session_key": standings_session_key,
         })
-        drivers_raw = openf1_json(f"https://api.openf1.org/v1/drivers?{drivers_query}")
+        drivers_url = f"https://api.openf1.org/v1/drivers?{drivers_query}"
+        drivers_raw = openf1_json(
+            drivers_url,
+            timeout=openf1_cache_timeout(drivers_url),
+            retries=2,
+            retry_delay=1.5,
+        )
         drivers_df = pd.DataFrame(drivers_raw if isinstance(drivers_raw, list) else [])
 
-        if isinstance(drivers_raw, dict) and drivers_raw.get("error") == "Too Many Requests":
+        if is_rate_limited(drivers_raw):
             return JsonResponse(
                 {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
                 status=429
@@ -299,9 +307,20 @@ def getCurrentSeason(request, data, teamOrDriver=None):
     all_result_keys = sprint_session_keys + race_session_keys
     if all_result_keys:
         all_results_query = "&".join(f"session_key={k}" for k in all_result_keys)
-        all_results_raw = openf1_json(
+        results_url = (
             f"https://api.openf1.org/v1/session_result?{all_results_query}&{driver_numbers_query}"
         )
+        all_results_raw = openf1_json(
+            results_url,
+            timeout=openf1_cache_timeout(results_url),
+            retries=2,
+            retry_delay=1.5,
+        )
+        if is_rate_limited(all_results_raw):
+            return JsonResponse(
+                {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
+                status=429
+            )
         all_results_df = pd.DataFrame(all_results_raw if isinstance(all_results_raw, list) else [])
     else:
         all_results_df = pd.DataFrame()
@@ -319,14 +338,18 @@ def getCurrentSeason(request, data, teamOrDriver=None):
     # Starting grid from qualifying sessions
     if qualifying_session_keys:
         grid_query = "&".join(f"session_key={k}" for k in qualifying_session_keys)
+        grid_url = f"https://api.openf1.org/v1/starting_grid?{grid_query}&{driver_numbers_query}"
         grid_results_raw = openf1_json(
-            f"https://api.openf1.org/v1/starting_grid?{grid_query}&{driver_numbers_query}"
+            grid_url,
+            timeout=openf1_cache_timeout(grid_url),
+            retries=2,
+            retry_delay=1.5,
         )
-        if isinstance(grid_results_raw, dict) and grid_results_raw.get("error") == "Too Many Requests":
-                return JsonResponse(
-                    {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
-                    status=429
-                )
+        if is_rate_limited(grid_results_raw):
+            return JsonResponse(
+                {"error": f"API - Rate Limit Hit (429). Please retry shortly."},
+                status=429
+            )
         grid_results_df = pd.DataFrame(grid_results_raw if isinstance(grid_results_raw, list) else [])
     else:
         grid_results_df = pd.DataFrame()
